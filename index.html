@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geo Mercado V19.1</title>
+    
+    <!-- Enlace PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b0e14">
+    
+    <script>
+        window.onerror = function(msg, url, line) { 
+            console.error("Error detectado:", msg, "en", url, "línea", line);
+            return true; 
+        };
+    </script>
+
+    <style>
+        body { 
+            background-color: #0b0e14; 
+            color: #ffffff; 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            box-sizing: border-box; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+        .app-container { width: 100%; max-width: 450px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+        
+        #menu-principal { display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: 10px; width: 100%; animation: fadeIn 0.3s ease-in-out; }
+        .logo-grande { width: 90px; height: 90px; margin-bottom: 6px; filter: drop-shadow(0 0 12px #00ff66); transition: transform 0.3s ease; }
+        .logo-grande:hover { transform: scale(1.05); }
+        .main-title { font-size: 26px; font-weight: 900; letter-spacing: 2px; }
+        .version-tag { font-size: 10px; color: #8fa0b7; font-weight: bold; letter-spacing: 1px; margin-bottom: 10px; text-transform: uppercase; }
+        .role-badge { background-color: #161a23; border: 1px solid #242c3d; padding: 4px 12px; border-radius: 20px; font-size: 12px; color: #8fa0b7; margin-bottom: 15px; font-weight: bold; }
+        
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+        .btn-menu { background: linear-gradient(135deg, #161a23 0%, #0f121a 100%); border: 1px solid #242c3d; border-radius: 12px; padding: 12px; color: #ffffff; font-size: 12px; font-weight: bold; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: all 0.2s ease; position: relative; overflow: hidden; }
+        .btn-menu:active { transform: scale(0.95); border-color: #00ff66; box-shadow: 0 0 10px rgba(0, 255, 102, 0.3); }
+        .btn-menu .icon { font-size: 24px; color: #00ff66; }
+
+        .modulo-app { display: none; width: 100%; flex-direction: column; gap: 10px; box-sizing: border-box; animation: slideUp 0.25s ease-out; }
+        .header-modulo { display: flex; align-items: center; justify-content: space-between; padding-bottom: 6px; border-bottom: 1px solid #242c3d; }
+        .btn-back { background-color: #161a23; border: 1px solid #242c3d; color: #fff; padding: 6px 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-back:active { background: #242c3d; transform: scale(0.95); }
+
+        .tools-carousel { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; width: 100%; scrollbar-width: none; }
+        .tools-carousel::-webkit-scrollbar { display: none; }
+        .btn-tool { background: #161a23; border: 1px solid #313c52; color: #8fa0b7; padding: 8px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap; flex-shrink: 0; font-size: 11px; transition: all 0.2s; }
+        .btn-tool:active { background: #242c3d; color: #fff; transform: scale(0.95); }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; animation: fadeIn 0.2s ease; }
+        .modal-content { background: #11151d; border: 1px solid #00ff66; padding: 16px; border-radius: 14px; width: 90%; max-width: 350px; display: flex; flex-direction: column; gap: 10px; max-height: 80vh; overflow-y: auto; box-shadow: 0 0 20px rgba(0,255,102,0.15); }
+        .modal-content h3 { margin: 0; color: #00ff66; text-align: center; }
+
+        .cart-card { background-color: #11151d; border: 1px dashed #242c3d; border-radius: 12px; padding: 10px; width: 100%; box-sizing: border-box; }
+        .cart-title { font-size: 10px; color: #8fa0b7; text-transform: uppercase; margin-bottom: 4px; font-weight: bold; text-align: center; }
+        .cart-items-container { display: flex; flex-direction: column; gap: 4px; max-height: 130px; overflow-y: auto; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; border-bottom: 1px solid #161a23; padding-bottom: 4px; animation: fadeIn 0.2s; }
+        
+        .btn-remove-item { background: #ff5252; color: #fff; border: none; border-radius: 6px; padding: 3px 8px; font-weight: bold; cursor: pointer; margin-left: 8px; transition: transform 0.1s; }
+        .btn-remove-item:active { transform: scale(0.9); }
+        .btn-qty { background: #242c3d; color: #fff; border: 1px solid #313c52; padding: 3px 8px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+        .btn-qty:active { transform: scale(0.9); }
+
+        .search-input { width: 100%; background: #0b0e14; border: 1px solid #00ff66; color: #fff; padding: 8px 12px; border-radius: 8px; box-sizing: border-box; text-align: left; font-size: 13px; margin-bottom: 4px; outline: none; transition: box-shadow 0.2s; }
+        .search-input:focus { box-shadow: 0 0 8px rgba(0, 255, 102, 0.4); }
+        .search-results-box { display: flex; flex-direction: column; gap: 4px; max-height: 100px; overflow-y: auto; }
+        .btn-search-result { background: #161a23; border: 1px solid #242c3d; color: #fff; padding: 8px; border-radius: 8px; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 12px; transition: transform 0.1s; }
+        .btn-search-result:active { transform: scale(0.97); }
+
+        .display-card { background: linear-gradient(135deg, #161a23 0%, #0d1017 100%); border: 1px solid #242c3d; border-radius: 12px; padding: 10px; text-align: center; width: 100%; box-sizing: border-box; }
+        .display-card h2 { font-size: 32px; margin: 2px 0; color: #00ff66; font-weight: 700; transition: transform 0.2s ease; }
+        .display-card h3 { font-size: 20px; margin: 0; color: #ffffff; }
+
+        .scanner-trigger { background: linear-gradient(90deg, #00b347 0%, #00ff66 100%); border: none; border-radius: 12px; padding: 10px; color: #000000; font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; display: flex; justify-content: center; align-items: center; gap: 8px; transition: transform 0.1s; }
+        .scanner-trigger:active { transform: scale(0.96); }
+        
+        .payment-toggle-btn { background: #161a23; border: 1px solid #242c3d; color: #8fa0b7; padding: 10px 14px; border-radius: 10px; font-size: 12px; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box; transition: all 0.2s; }
+        .payment-toggle-btn.active { border-color: #00ff66; color: #ffffff; background: #1c2230; }
+        .payment-content { display: none; margin-top: 4px; animation: fadeIn 0.2s ease-in-out; }
+        .payment-content.show { display: flex; flex-direction: column; gap: 8px; }
+
+        .form-payments { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .input-group { background-color: #161a23; border: 1px solid #242c3d; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; width: 100%; box-sizing: border-box; }
+        .input-group label { font-size: 10px; color: #8fa0b7; text-transform: uppercase; margin-bottom: 4px; text-align: center; }
+        .input-row { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; }
+        .input-row input { width: 100%; background: transparent; border: none; color: #ffffff; font-size: 16px; font-weight: bold; outline: none; text-align: center; }
+        
+        .btn-max { background: #313c52; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-weight: bold; font-size: 10px; cursor: pointer; transition: transform 0.1s;}
+        .btn-max:active { background: #00ff66; color: #000; transform: scale(0.9); }
+
+        .pm-details { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .pm-details input { width: 100%; background-color: #0f121a; border: 1px solid #242c3d; border-radius: 8px; padding: 8px; color: #ffffff; font-size: 13px; outline: none; text-align: center; box-sizing: border-box; }
+
+        .admin-form-box { background-color: #161a23; border: 1px solid #242c3d; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box; }
+        .admin-form-box input, .admin-form-box select { width: 100%; background-color: #0b0e14; border: 1px solid #242c3d; padding: 10px; border-radius: 8px; color: #fff; font-size: 13px; outline: none; box-sizing: border-box; text-align: center; }
+
+        .inventory-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; box-sizing: border-box; }
+        .product-card { background-color: #161a23; border: 1px solid #242c3d; border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; position: relative;}
+        .product-card h4 { margin: 4px 0 2px 0; font-size: 13px; word-break: break-word; }
+        .tag-cat { position: absolute; top: 8px; left: 8px; background: #242c3d; color: #8fa0b7; font-size: 8px; padding: 2px 5px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        
+        .footer-totals { background-color: #11151d; border: 1px solid #242c3d; border-radius: 12px; padding: 10px; width: 100%; box-sizing: border-box; }
+        .total-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 13px; color: #8fa0b7; }
+        .total-row strong { color: #ffffff; }
+        .total-row.final { border-top: 1px dashed #242c3d; margin-top: 4px; padding-top: 6px; font-size: 15px; font-weight: bold; color: #00ff66; }
+
+        .action-container { display: flex; gap: 6px; width: 100%; }
+        .btn-clear { flex: 1; background-color: #242c3d; color: #ffffff; border: 1px solid #313c52; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 11px; transition: transform 0.1s, background 0.2s; }
+        .btn-clear:active { background: #313c52; transform: scale(0.95); }
+        .btn-charge { flex: 1; background-color: #00ff66; color: #000000; border: none; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; font-size: 11px; transition: transform 0.1s; }
+        .btn-charge:active { transform: scale(0.95); }
+        .btn-print { flex: 1; background-color: #fff; color: #000; border: none; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; font-size: 11px; transition: transform 0.1s; }
+        .btn-print:active { transform: scale(0.95); }
+
+        .cierre-card { background-color: #161a23; border: 1px solid #242c3d; border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+        .cierre-card h4 { margin: 0 0 8px 0; color: #00ff66; border-bottom: 1px dashed #313c52; padding-bottom: 4px;}
+        .cierre-item { font-size: 12px; color: #8fa0b7; padding: 3px 0; display: flex; justify-content: space-between; }
+        .cierre-item span { color: #fff; font-weight: bold; text-align: right; }
+        .highlight-box { background: #0b0e14; padding: 8px; border-radius: 8px; margin-top: 8px; border: 1px solid #00ff66;}
+
+        #hidden-qr-reader { display: none; }
+        .hidden-file-input { display: none; }
+
+        .pm-status-banner { font-size: 11px; padding: 6px; border-radius: 6px; text-align: center; font-weight: bold; display: none; animation: fadeIn 0.2s ease; }
+        .pm-status-success { background: rgba(0, 255, 102, 0.15); border: 1px solid #00ff66; color: #00ff66; }
+        .pm-status-warning { background: rgba(255, 193, 7, 0.15); border: 1px solid #ffc107; color: #ffc107; }
+
+        .spinner-loader {
+            width: 32px; height: 32px;
+            border: 4px solid rgba(0, 255, 102, 0.2);
+            border-top: 4px solid #00ff66;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 10px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .toast-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #11151d;
+            border: 1px solid #00ff66;
+            color: #ffffff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(0, 255, 102, 0.4);
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+        .toast-notification.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .scan-feedback-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 3000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .scan-feedback-box {
+            width: 100px; height: 100px;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 50px;
+            animation: bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .scan-feedback-success { background: #00ff66; color: #000; box-shadow: 0 0 30px #00ff66; }
+        .scan-feedback-error { background: #ff5252; color: #fff; box-shadow: 0 0 30px #ff5252; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bounceIn { 
+            0% { transform: scale(0.3); opacity: 0; } 
+            50% { transform: scale(1.1); opacity: 1; } 
+            100% { transform: scale(1); } 
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+        .shake-effect { animation: shake 0.4s ease-in-out; }
+        .pulse-number { animation: pulseAnim 0.2s ease-out; }
+        @keyframes pulseAnim { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div id="hidden-qr-reader"></div>
+
+        <div id="scan-feedback" class="scan-feedback-overlay">
+            <div id="scan-feedback-box" class="scan-feedback-box"></div>
+            <p id="scan-feedback-msg" style="color:#fff; font-weight:bold; margin-top:15px; font-size:14px; text-shadow:0 0 8px #000;"></p>
+        </div>
+
+        <div id="toast" class="toast-notification"></div>
+
+        <div id="modal-confirm" class="modal-overlay">
+            <div class="modal-content" style="max-width: 320px; text-align: center;">
+                <h3 id="confirm-title" style="color:#00ff66;">Confirmar Acción</h3>
+                <p id="confirm-msg" style="color:#fff; font-size:13px; margin: 10px 0;"></p>
+                <div style="display:flex; gap:10px; margin-top: 10px;">
+                    <button class="btn-clear" id="confirm-btn-cancel">Cancelar</button>
+                    <button class="btn-charge" id="confirm-btn-accept">Aceptar</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-camara" class="modal-overlay">
+            <div class="modal-content" style="max-width: 400px; text-align: center;">
+                <h3>📸 Escanear Código de Barras</h3>
+                <div id="interactive-scanner" style="width: 100%; height: 240px; background: #000; border-radius: 8px; overflow: hidden; position: relative;"></div>
+                <button class="btn-clear" onclick="window.cerrarCamaraEnVivo()" style="margin-top: 10px;">Cancelar</button>
+            </div>
+        </div>
+
+        <div id="modal-cliente" class="modal-overlay">
+            <div class="modal-content">
+                <h3>📝 Datos de Facturación</h3>
+                <input type="text" id="cliente-nombre" placeholder="Nombre y Apellido" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+                <input type="text" id="cliente-cedula" placeholder="Cédula o RIF" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+                <input type="text" id="cliente-dir" placeholder="Dirección del Cliente" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-cliente').style.display='none'">Cancelar</button>
+                    <button class="btn-charge" onclick="document.getElementById('modal-cliente').style.display='none'; window.mostrarToast('✓ Cliente guardado');">Aplicar</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-combos" class="modal-overlay">
+            <div class="modal-content">
+                <h3>🎁 Combos y Ofertas</h3>
+                <div id="lista-combos-activos" style="display:flex; flex-direction:column; gap:8px;"></div>
+                <button class="btn-clear" onclick="document.getElementById('modal-combos').style.display='none'">Cerrar</button>
+            </div>
+        </div>
+
+        <div id="menu-principal">
+            <div class="logo-grande">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 25 h15 l12 32 h33 l10 -22 h-50" fill="none" stroke="#00ff66" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="45" cy="70" r="6" fill="none" stroke="#00ff66" stroke-width="3"/>
+                    <circle cx="70" cy="70" r="6" fill="none" stroke="#00ff66" stroke-width="3"/>
+                    <circle cx="58" cy="44" r="7" fill="#ffffff"/>
+                </svg>
+            </div>
+            <div class="main-title"><span style="color:#00ff66;">GEO MERCADO 🛍️</span></div>
+            <div class="version-tag">V19.1 EDICIÓN VENEZUELA</div>
+            <div class="role-badge">Usuario: <span id="txt-rol">Administrador 👑</span></div>
+
+            <div class="menu-grid">
+                <button class="btn-menu" onclick="window.cambiarModulo('modulo-caja')"><span class="icon">🛒</span>Caja de Cobro</button>
+                <button class="btn-menu" onclick="window.cambiarModulo('modulo-inventario')"><span class="icon">📦</span>Inventario</button>
+                <button class="btn-menu" onclick="window.cambiarModulo('modulo-cierre')"><span class="icon">📊</span>Cierre / Historial</button>
+                <button class="btn-menu" onclick="window.cambiarModulo('modulo-admin')"><span class="icon">⚙️</span>Ajustes y Perfil</button>
+            </div>
+        </div>
+
+        <div id="modulo-caja" class="modulo-app">
+            <div class="header-modulo">
+                <h3>🛒 Caja de Facturación</h3>
+                <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+            </div>
+
+            <div class="tools-carousel">
+                <button class="btn-tool" onclick="window.aparcarFactura()">⏸️ Pausar</button>
+                <button class="btn-tool" onclick="window.recuperarFactura()">📂 Recuperar</button>
+                <button class="btn-tool" onclick="document.getElementById('modal-cliente').style.display='flex'">👤 Cliente</button>
+                <button class="btn-tool" onclick="window.actualizarTasaBCVEnTiempoReal()">🔄 Dólar BCV</button>
+            </div>
+
+            <div class="display-card">
+                <h3 id="txt-bcv-display">BCV: Bs. 0.00</h3>
+                <h2 id="total-ves-display">Bs. 0,00</h2>
+                <h3 id="total-usd-display" style="color:#8fa0b7;">$0.00</h3>
+            </div>
+
+            <div class="cart-card">
+                <div class="cart-title">Productos en Carrito</div>
+                <div id="cart-items" class="cart-items-container"></div>
+            </div>
+
+            <input type="text" id="caja-search" class="search-input" placeholder="🔍 Buscar por Nombre o Código..." oninput="window.buscarProductoCaja()">
+            <div id="caja-search-results" class="search-results-box"></div>
+
+            <button class="scanner-trigger" onclick="window.abrirCamaraEnVivo('caja')">📸 Escanear Código</button>
+            <input type="file" id="file-barcode-caja" class="hidden-file-input" accept="image/*" onchange="window.escanearBarcodeFoto(event, 'caja')">
+
+            <div class="form-payments">
+                <div class="input-group">
+                    <label>Efectivo Divisas ($)</label>
+                    <div class="input-row">
+                        <input type="number" id="pay-usd" placeholder="0.00" step="0.01" oninput="window.calcularCaja()">
+                    </div>
+                </div>
+
+                <button class="payment-toggle-btn" onclick="window.togglePagoDetalle('pm-wrapper')">
+                    <span>📲 Pago Móvil</span> <span id="pm-val-tag">Bs. 0,00</span>
+                </button>
+                <div id="pm-wrapper" class="payment-content">
+                    <div class="input-group">
+                        <div class="input-row">
+                            <input type="text" id="pay-pm" placeholder="0,00" oninput="window.mascaraMoneda(this); window.calcularCaja();">
+                            <button class="btn-max" onclick="window.autocompletarMonto('pay-pm')">MAX</button>
+                        </div>
+                    </div>
+                    <div class="pm-details">
+                        <input type="text" id="pm-phone" placeholder="Teléfono Cliente">
+                        <input type="text" id="pm-ref" placeholder="Referencia / OCR">
+                        <input type="file" id="file-ocr" class="hidden-file-input" accept="image/*" onchange="window.escanearCapturePagoCompleto(event)">
+                        <button class="btn-tool" onclick="document.getElementById('file-ocr').click()">📷 Leer Comprobante OCR</button>
+                        <button class="btn-tool" onclick="window.enviarDatosPagoMovilWS()">📲 Enviar Datos por WhatsApp</button>
+                        <div id="pm-status-banner" class="pm-status-banner"></div>
+                    </div>
+                </div>
+
+                <button class="payment-toggle-btn" onclick="window.togglePagoDetalle('ptv-wrapper')">
+                    <span>💳 Punto de Venta (BS)</span> <span id="ptv-val-tag">Bs. 0,00</span>
+                </button>
+                <div id="ptv-wrapper" class="payment-content">
+                    <div class="input-group">
+                        <div class="input-row">
+                            <input type="text" id="pay-ptv" placeholder="0,00" oninput="window.mascaraMoneda(this); window.calcularCaja();">
+                            <button class="btn-max" onclick="window.autocompletarMonto('pay-ptv')">MAX</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="payment-toggle-btn" onclick="window.togglePagoDetalle('ves-wrapper')">
+                    <span>💵 Efectivo Bolívares</span> <span id="ves-val-tag">Bs. 0,00</span>
+                </button>
+                <div id="ves-wrapper" class="payment-content">
+                    <div class="input-group">
+                        <div class="input-row">
+                            <input type="text" id="pay-ves" placeholder="0,00" oninput="window.mascaraMoneda(this); window.calcularCaja();">
+                            <button class="btn-max" onclick="window.autocompletarMonto('pay-ves')">MAX</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-totals">
+                <div class="total-row"><span>Resta USD:</span> <strong id="resta-usd">$0.00</strong></div>
+                <div class="total-row"><span>Resta VES:</span> <strong id="resta-ves">Bs. 0,00</strong></div>
+                <div class="total-row final"><span>Cambio Volver:</span> <strong id="cambio-ves">Bs. 0,00</strong></div>
+            </div>
+
+            <div class="action-container">
+                <button class="btn-clear" onclick="window.limpiarCaja(false)">Limpiar</button>
+                <button class="btn-charge" onclick="window.procesarCobro(false)">Procesar</button>
+                <button class="btn-print" onclick="window.procesarCobro(true)">🖨️ Ticket</button>
+            </div>
+        </div>
+
+        <div id="modulo-inventario" class="modulo-app">
+            <div class="header-modulo">
+                <h3>📦 Gestión de Inventario</h3>
+                <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+            </div>
+            <div class="inventory-grid" id="lista-inventario"></div>
+        </div>
+
+        <div id="modulo-cierre" class="modulo-app">
+            <div class="header-modulo">
+                <h3>📊 Cierre de Caja y Historial</h3>
+                <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+            </div>
+            <div id="resumen-cierre" class="cierre-card">
+                <h4>Resumen del Día</h4>
+                <div class="cierre-item">Punto de Venta: <span id="resumen-ptv">Bs. 0,00</span></div>
+                <div class="cierre-item">Pago Móvil: <span id="resumen-pm">Bs. 0,00</span></div>
+                <div class="cierre-item">Efectivo VES: <span id="resumen-ves">Bs. 0,00</span></div>
+                <div class="cierre-item">Efectivo USD: <span id="resumen-efectivo-usd">$0.00</span></div>
+                <div class="cierre-item highlight-box">Ganancia Estimada: <span id="resumen-ganancia-ves">Bs. 0,00</span></div>
+            </div>
+            <div id="lista-historial-ventas"></div>
+        </div>
+
+        <div id="modulo-admin" class="modulo-app">
+            <div class="header-modulo">
+                <h3>⚙️ Ajustes del Sistema</h3>
+                <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+            </div>
+            <div class="admin-form-box">
+                <h4>Ajuste Tasa BCV Manual</h4>
+                <input type="number" id="input-tasa-bcv" step="0.01" placeholder="Ej: 36.50">
+                <button class="btn-charge" onclick="window.guardarTasaManual()">Guardar Tasa</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var tasaDia = 36.50;
+        var carrito = [];
+        var productos = [];
+        var ventasHistorico = [];
+        var facturasEnEspera = [];
+        var html5QrScannerInstancia = null;
+        var totalVentaUSD = 0;
+        var totalVentaVES = 0;
+        var perfilNegocio = { nombre: "Geo Mercado", rif: "", pmBanco: "", pmCedula: "", pmTlf: "" };
+        var fondoCaja = { usd: 0, ves: 0 };
+
+        window.escapeHTML = function(str) {
+            return String(str || '').replace(/[&<>"']/g, function(m){
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+            });
+        };
+
+        window.formatUSD = function(val) { return '$' + parseFloat(val || 0).toFixed(2); };
+        window.formatVE = function(val) { return 'Bs. ' + parseFloat(val || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+
+        window.extraerNumeroLimpio = function(idInput) {
+            var el = document.getElementById(idInput);
+            if (!el) return 0;
+            var val = el.value.replace(/\./g, '').replace(',', '.');
+            return parseFloat(val) || 0;
+        };
+
+        window.mascaraMoneda = function(input) {
+            var val = input.value.replace(/\D/g, '');
+            if (!val) { input.value = ''; return; }
+            var num = (parseFloat(val) / 100).toFixed(2);
+            var parts = num.split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            input.value = parts.join(',');
+        };
+
+        window.cambiarModulo = function(idModulo) {
+            var modulos = document.getElementsByClassName('modulo-app');
+            for(var i=0; i<modulos.length; i++) { modulos[i].style.display = 'none'; }
+            document.getElementById('menu-principal').style.display = 'none';
+            document.getElementById(idModulo).style.display = 'flex';
+            if(idModulo === 'modulo-cierre') window.renderizarCierreDeCaja();
+        };
+
+        window.volverAlMenu = function() {
+            var modulos = document.getElementsByClassName('modulo-app');
+            for(var i=0; i<modulos.length; i++) { modulos[i].style.display = 'none'; }
+            document.getElementById('menu-principal').style.display = 'flex';
+        };
+
+        window.mostrarToast = function(msj) {
+            var t = document.getElementById('toast');
+            t.innerText = msj;
+            t.classList.add('show');
+            setTimeout(function(){ t.classList.remove('show'); }, 3000);
+        };
+
+        window.mostrarFeedbackAnimado = function(tipo, msj) {
+            var overlay = document.getElementById('scan-feedback');
+            var box = document.getElementById('scan-feedback-box');
+            var msgEl = document.getElementById('scan-feedback-msg');
+            box.className = 'scan-feedback-box ' + (tipo === 'exito' ? 'scan-feedback-success' : 'scan-feedback-error');
+            box.innerHTML = tipo === 'exito' ? '✓' : '✕';
+            msgEl.innerText = msj;
+            overlay.style.display = 'flex';
+            setTimeout(function(){ overlay.style.display = 'none'; }, 1200);
+        };
+
+        // INTEGRACIÓN API BCV DOLARVZLA
+        window.actualizarTasaBCVEnTiempoReal = function() {
+            fetch('https://rates.dolarvzla.com/bcv/current.json')
+                .then(function(res){ return res.json(); })
+                .then(function(data){
+                    if(data && data.price) {
+                        tasaDia = parseFloat(data.price);
+                        document.getElementById('txt-bcv-display').innerText = 'BCV: Bs. ' + tasaDia.toFixed(2);
+                        window.recalcularTotalesCarrito();
+                        window.mostrarToast('✓ Tasa BCV Actualizada: Bs. ' + tasaDia.toFixed(2));
+                    }
+                })
+                .catch(function(err){
+                    console.error("Error al cargar tasa BCV:", err);
+                    window.mostrarToast("⚠️ No se pudo obtener la tasa BCV automática");
+                });
+        };
+
+        window.recalcularTotalesCarrito = function() {
+            totalVentaUSD = 0;
+            for(var i=0; i<carrito.length; i++) { totalVentaUSD += carrito[i].totalUSD; }
+            totalVentaVES = totalVentaUSD * tasaDia;
+            document.getElementById('total-usd-display').innerText = window.formatUSD(totalVentaUSD);
+            document.getElementById('total-ves-display').innerText = window.formatVE(totalVentaVES);
+            window.calcularCaja();
+        };
+
+        window.calcularCaja = function() {
+            var ptv = window.extraerNumeroLimpio('pay-ptv');
+            var pm = window.extraerNumeroLimpio('pay-pm');
+            var usd = parseFloat(document.getElementById('pay-usd').value) || 0;
+            var ves = window.extraerNumeroLimpio('pay-ves');
+
+            var pagadoVES = ptv + pm + ves + (usd * tasaDia);
+            var restaVES = totalVentaVES - pagadoVES;
+            var restaUSD = restaVES / tasaDia;
+
+            if(restaVES <= 0) {
+                document.getElementById('resta-usd').innerText = "$0.00";
+                document.getElementById('resta-ves').innerText = "Bs. 0,00";
+                document.getElementById('cambio-ves').innerText = window.formatVE(Math.abs(restaVES));
+            } else {
+                document.getElementById('resta-usd').innerText = window.formatUSD(restaUSD);
+                document.getElementById('resta-ves').innerText = window.formatVE(restaVES);
+                document.getElementById('cambio-ves').innerText = "Bs. 0,00";
+            }
+        };
+
+        window.autocompletarMonto = function(idInput) {
+            var ptv = idInput === 'pay-ptv' ? 0 : window.extraerNumeroLimpio('pay-ptv');
+            var pm = idInput === 'pay-pm' ? 0 : window.extraerNumeroLimpio('pay-pm');
+            var ves = idInput === 'pay-ves' ? 0 : window.extraerNumeroLimpio('pay-ves');
+            var usd = (parseFloat(document.getElementById('pay-usd').value) || 0) * tasaDia;
+
+            var yaPagado = ptv + pm + ves + usd;
+            var pendiente = totalVentaVES - yaPagado;
+            if(pendiente > 0) {
+                var el = document.getElementById(idInput);
+                el.value = Math.round(pendiente * 100).toString();
+                window.mascaraMoneda(el);
+                window.calcularCaja();
+            }
+        };
+
+        window.togglePagoDetalle = function(id) {
+            var el = document.getElementById(id);
+            if (el.classList.contains('show')) {
+                el.classList.remove('show');
+            } else {
+                el.classList.add('show');
+            }
+        };
+
+        window.actualizarEtiquetasPago = function() {
+            document.getElementById('pm-val-tag').innerText = window.formatVE(window.extraerNumeroLimpio('pay-pm'));
+            document.getElementById('ptv-val-tag').innerText = window.formatVE(window.extraerNumeroLimpio('pay-ptv'));
+            document.getElementById('ves-val-tag').innerText = window.formatVE(window.extraerNumeroLimpio('pay-ves'));
+        };
+
+        window.recuperarFactura = function() {
+            if(facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('error', 'No hay facturas pausadas'); return; }
+            if(carrito.length > 0) { window.mostrarFeedbackAnimado('error', 'Limpia o procesa la venta actual'); return; }
+            
+            var text = "Elige qué factura recuperar (escribe el número):\n";
+            for(var i=0; i<facturasEnEspera.length; i++) {
+                text += (i+1) + ". " + facturasEnEspera[i].cliente + " (" + window.formatVE(facturasEnEspera[i].totalVES) + ")\n";
+            }
+            var resp = prompt(text);
+            var idx = parseInt(resp) - 1;
+            if(!isNaN(idx) && facturasEnEspera[idx]) {
+                var rec = facturasEnEspera.splice(idx, 1)[0];
+                if (window.localStorage) window.localStorage.setItem('geomercado_espera_v19', JSON.stringify(facturasEnEspera));
+                
+                carrito = rec.items;
+                window.recalcularTotalesCarrito();
+                document.getElementById('cliente-nombre').value = rec.cliente !== "Cliente sin nombre" ? rec.cliente : "";
+                window.renderizarCarritoCaja();
+                window.mostrarToast("📂 Factura Recuperada");
+            }
+        };
+
+        window.abrirCamaraEnVivo = function(modo) {
+            if (typeof Html5Qrcode === 'undefined') { window.mostrarFeedbackAnimado('error', 'Cargando escáner...'); return; }
+            document.getElementById('modal-camara').style.display = 'flex';
+
+            if(html5QrScannerInstancia) {
+                try {
+                    html5QrScannerInstancia.stop().then(function() {
+                        html5QrScannerInstancia.clear();
+                        window.iniciarCamaraInstancia(modo);
+                    }).catch(function() {
+                        window.iniciarCamaraInstancia(modo);
+                    });
+                    return;
+                } catch(e){}
+            }
+            window.iniciarCamaraInstancia(modo);
+        };
+
+        window.iniciarCamaraInstancia = function(modo) {
+            html5QrScannerInstancia = new Html5Qrcode("interactive-scanner");
+            html5QrScannerInstancia.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 220, height: 130 } },
+                function(decodedText) {
+                    window.cerrarCamaraEnVivo();
+                    if(modo === 'registro') {
+                        var eSerial = document.getElementById('prod-serial');
+                        if(eSerial) eSerial.value = decodedText;
+                        window.mostrarFeedbackAnimado('exito', 'Código Leído');
+                    } else if (modo === 'caja') {
+                        var match = null;
+                        for(var i=0; i<productos.length; i++) {
+                            if(productos[i].serial === decodedText) { match = productos[i]; break; }
+                        }
+                        if(match) {
+                            window.mostrarFeedbackAnimado('exito', match.nombre);
+                            window.agregarAlCarritoDesdeCaja(match.id);
+                        } else {
+                            window.mostrarFeedbackAnimado('error', 'Código No Registrado');
+                        }
+                    }
+                },
+                function(errorMessage) {}
+            ).catch(function(err) {
+                document.getElementById('modal-camara').style.display = 'none';
+                if(modo === 'registro') document.getElementById('file-barcode-reg').click();
+                else document.getElementById('file-barcode-caja').click();
+            });
+        };
+
+        window.cerrarCamaraEnVivo = function() {
+            if(html5QrScannerInstancia) {
+                html5QrScannerInstancia.stop().then(function() {
+                    html5QrScannerInstancia.clear();
+                    html5QrScannerInstancia = null;
+                    document.getElementById('modal-camara').style.display = 'none';
+                }).catch(function() {
+                    html5QrScannerInstancia = null;
+                    document.getElementById('modal-camara').style.display = 'none';
+                });
+            } else {
+                document.getElementById('modal-camara').style.display = 'none';
+            }
+        };
+
+        window.escanearBarcodeFoto = function(event, modo) {
+            if (typeof Html5Qrcode === 'undefined') { window.mostrarToast("Conectando cámara..."); return; }
+            var file = event.target.files[0];
+            if(!file) return;
+            var html5QrCode = new Html5Qrcode("hidden-qr-reader");
+            html5QrCode.scanFile(file, true)
+            .then(function(decodedText) {
+                if(modo === 'registro') {
+                    var eSerial = document.getElementById('prod-serial');
+                    if(eSerial) eSerial.value = decodedText;
+                    window.mostrarFeedbackAnimado('exito', 'Código Detectado');
+                } else if (modo === 'caja') {
+                    var match = null;
+                    for(var i=0; i<productos.length; i++) {
+                        if(productos[i].serial === decodedText) { match = productos[i]; break; }
+                    }
+                    if(match) {
+                        window.mostrarFeedbackAnimado('exito', match.nombre);
+                        window.agregarAlCarritoDesdeCaja(match.id);
+                    } else {
+                        window.mostrarFeedbackAnimado('error', 'Código No Registrado');
+                    }
+                }
+            })
+            .catch(function() { window.mostrarFeedbackAnimado('error', 'No se detectó código'); });
+        };
+
+        window.escanearCapturePagoCompleto = function(event) {
+            if (typeof Tesseract === 'undefined') { window.mostrarToast("Cargando motor OCR..."); return; }
+            var input = event.target;
+            if (!input.files || !input.files[0]) return;
+            var eRef = document.getElementById('pm-ref');
+            var banner = document.getElementById('pm-status-banner');
+            
+            if(eRef) eRef.value = "Leyendo Capture...";
+            if(banner) { banner.style.display = 'none'; banner.className = 'pm-status-banner'; }
+            
+            var overlay = document.getElementById('scan-feedback');
+            var box = document.getElementById('scan-feedback-box');
+            var msgEl = document.getElementById('scan-feedback-msg');
+            if(overlay && box && msgEl) {
+                box.className = '';
+                box.innerHTML = '<div class="spinner-loader"></div>';
+                msgEl.innerText = 'Procesando Capture...';
+                overlay.style.display = 'flex';
+            }
+
+            Tesseract.recognize(input.files[0], 'spa')
+            .then(function(result) {
+                if(overlay) overlay.style.display = 'none';
+                if(box) box.innerHTML = '';
+                
+                var text = result.data.text;
+                var textLimpio = text.replace(/[\n\r]/g, ' ').toLowerCase();
+
+                var ref = text.match(/\d{6,12}/);
+                
+                var patronMontoBDV = /([\d\.]+,\d{2})\s*Bs/i;
+                var patronMontoGen = /(?:bs|monto|pagado|ref)?[:.\s]*([\d.]+,\d{2})/i;
+                
+                var matchMonto = text.match(patronMontoBDV) || text.match(patronMontoGen);
+
+                if(eRef) eRef.value = ref ? ref[0] : "Manual";
+                
+                if(matchMonto) {
+                    var limpio = matchMonto[1] || matchMonto[0];
+                    var numeroParaInput = parseFloat(limpio.replace(/\./g, '').replace(',', '.'));
+                    var inputPm = document.getElementById('pay-pm');
+                    if(inputPm && !isNaN(numeroParaInput)) {
+                        inputPm.value = Math.round(numeroParaInput * 100).toString();
+                        window.mascaraMoneda(inputPm);
+                        window.mostrarFeedbackAnimado('exito', 'Monto: ' + window.formatVE(numeroParaInput));
+                    }
+                } else {
+                    window.mostrarFeedbackAnimado('error', 'Revisa el monto manualmente');
+                }
+
+                if(banner) {
+                    var coincidenciaCedula = perfilNegocio.pmCedula && textLimpio.includes(perfilNegocio.pmCedula.toLowerCase().trim());
+                    var coincidenciaTelefono = perfilNegocio.pmTlf && textLimpio.includes(perfilNegocio.pmTlf.toLowerCase().replace(/\D/g, ''));
+                    var coincidenciaBanco = perfilNegocio.pmBanco && textLimpio.includes(perfilNegocio.pmBanco.toLowerCase().trim());
+
+                    if(coincidenciaCedula || coincidenciaTelefono || coincidenciaBanco) {
+                        banner.className = 'pm-status-banner pm-status-success';
+                        banner.innerText = "✓ Pago Móvil verificado: Datos coinciden con tu cuenta.";
+                        banner.style.display = 'block';
+                    } else if(perfilNegocio.pmCedula || perfilNegocio.pmTlf || perfilNegocio.pmBanco) {
+                        banner.className = 'pm-status-banner pm-status-warning';
+                        banner.innerText = "⚠️ Verifica manualmente: No se confirmaron datos de destino.";
+                        banner.style.display = 'block';
+                    }
+                }
+
+                window.actualizarEtiquetasPago();
+                window.calcularCaja();
+            })
+            .catch(function(err){
+                console.error(err);
+                if(overlay) overlay.style.display = 'none';
+                if(box) box.innerHTML = '';
+                if(eRef) eRef.value = "";
+                window.mostrarFeedbackAnimado('error', 'Error al leer imagen');
+            });
+        };
+
+        window.enviarDatosPagoMovilWS = function() {
+            var tlfCliente = document.getElementById('pm-phone').value || "";
+            var msj = "📲 *DATOS DE PAGO MÓVIL*\n\n";
+            msj += "🏢 *" + perfilNegocio.nombre + "*\n";
+            msj += "🏦 Banco: " + (perfilNegocio.pmBanco || "No configurado") + "\n";
+            msj += "🪪 CI/RIF: " + (perfilNegocio.pmCedula || "No configurado") + "\n";
+            msj += "📞 Teléfono: " + (perfilNegocio.pmTlf || "No configurado") + "\n\n";
+            msj += "💵 Total a pagar: *" + window.formatVE(totalVentaVES) + "* (" + window.formatUSD(totalVentaUSD) + ")\n\n";
+            msj += "Por favor envía el comprobante por este medio. ¡Muchas gracias!";
+
+            var numClean = tlfCliente.replace(/\D/g, '');
+            var url = numClean ? ("https://api.whatsapp.com/send?phone=" + numClean + "&text=" + encodeURIComponent(msj)) : ("https://api.whatsapp.com/send?text=" + encodeURIComponent(msj));
+            window.open(url, '_blank', 'noopener,noreferrer');
+        };
+
+        window.procesarCobro = function(imprimirTicketBooleano) {
+            if(carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
+            var ptv = window.extraerNumeroLimpio('pay-ptv');
+            var pm = window.extraerNumeroLimpio('pay-pm');
+            var usd = parseFloat(document.getElementById('pay-usd').value) || 0; 
+            var ves = window.extraerNumeroLimpio('pay-ves');
+            var now = new Date();
+            
+            var cNombre = document.getElementById('cliente-nombre').value;
+            var cCedula = document.getElementById('cliente-cedula').value;
+            var cDir = document.getElementById('cliente-dir').value;
+            var cTlf = document.getElementById('pm-phone').value;
+
+            var costoTotalVentaUSD = 0;
+            for (var k = 0; k < carrito.length; k++) {
+                costoTotalVentaUSD += (carrito[k].costoTotalUSD || 0);
+            }
+
+            var venta = {
+                id: new Date().getTime(),
+                fecha: now.toLocaleDateString() + ' ' + now.toLocaleTimeString(),
+                items: carrito.slice(),
+                totalUSD: totalVentaUSD,
+                totalVES: totalVentaVES,
+                costoUSD: costoTotalVentaUSD,
+                ptv: ptv, pm: pm, usd: usd, ves: ves,
+                cliente: cNombre, cedula: cCedula, dir: cDir, tlf: cTlf
+            };
+            ventasHistorico.push(venta);
+            if (window.localStorage) window.localStorage.setItem('geomercado_ventas_v19', JSON.stringify(ventasHistorico));
+            
+            window.mostrarFeedbackAnimado('exito', 'Venta Cobrada Exitosamente');
+
+            if(imprimirTicketBooleano) {
+                window.imprimirTicket(ventasHistorico.length - 1);
+            }
+
+            window.limpiarCaja(true); 
+        };
+
+        window.limpiarCaja = function(silencioso) {
+            if(!silencioso) {
+                for(var i=0; i<carrito.length; i++) {
+                    if(carrito[i].tipo !== 'peso' && carrito[i].tipo !== 'combo') {
+                        for(var j=0; j<productos.length; j++) {
+                            if(productos[j].id === carrito[i].id) {
+                                productos[j].qty += carrito[i].qtyVenta;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (window.localStorage) window.localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                window.mostrarToast("Venta cancelada, stock devuelto");
+            }
+
+            totalVentaUSD = 0.00; totalVentaVES = 0.00; carrito = [];
+            document.getElementById('pay-ptv').value = ''; document.getElementById('pay-pm').value = '';
+            document.getElementById('pay-usd').value = ''; document.getElementById('pay-ves').value = '';
+            document.getElementById('cliente-nombre').value = ''; document.getElementById('cliente-cedula').value = ''; document.getElementById('cliente-dir').value = '';
+            document.getElementById('pm-phone').value = ''; document.getElementById('pm-ref').value = '';
+            document.getElementById('modal-cliente').style.display='none';
+            var banner = document.getElementById('pm-status-banner');
+            if(banner) banner.style.display = 'none';
+
+            window.actualizarEtiquetasPago();
+            window.renderizarCarritoCaja();
+        };
+
+        window.renderizarCierreDeCaja = function() {
+            var totalPM = 0; var totalUSDFisico = 0; var totalVESFisico = 0; var totalPTV = 0; 
+            var totalVentasUSD = 0; var totalCostoUSD = 0;
+            var container = document.getElementById('lista-historial-ventas');
+            var html = "";
+
+            for(var i=0; i<ventasHistorico.length; i++) {
+                var v = ventasHistorico[i];
+                totalPM += v.pm; totalUSDFisico += v.usd; totalVESFisico += v.ves; totalPTV += v.ptv; 
+                totalVentasUSD += v.totalUSD;
+                totalCostoUSD += (v.costoUSD || 0);
+                
+                var itemsStr = v.items.map(function(it){ return window.escapeHTML(it.nombre) + " (x" + (it.qtyVenta || it.detalle) + ")"; }).join(', ');
+                html += '<div class="cierre-card">';
+                html += '<div style="display:flex; justify-content:space-between;"><h4>🛒 ' + v.fecha + '</h4></div>';
+                if(v.cliente) html += '<div style="color:#fff; font-size:11px; margin-bottom:4px;">Cliente: ' + window.escapeHTML(v.cliente) + '</div>';
+                
+                html += '<div class="cierre-item">Artículos: <span>' + itemsStr + '</span></div>';
+                html += '<div class="cierre-item">Total Factura: <span style="font-size:14px; color:#00ff66;">' + window.formatVE(v.totalVES) + '</span></div>';
+                
+                if(v.usd > 0) {
+                    html += '<div class="cierre-item" style="color:#8fa0b7;">Efectivo ($) Entregado: <span>$' + v.usd.toFixed(2) + '</span></div>';
+                }
+                
+                html += '<div style="display:flex; gap:6px; margin-top:8px;">';
+                html += '<button style="flex:1; background:#fff; color:#000; font-weight:bold; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.imprimirTicket(' + i + ')">🖨️ Ticket</button>';
+                html += '<button style="flex:1; background:#25D366; color:#fff; font-weight:bold; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.enviarFacturaWS(' + i + ')">📲 WhatsApp</button>';
+                html += '<button style="flex:1; background:#ff5252; color:#fff; font-weight:bold; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.anularVenta(' + i + ')">❌ Anular</button>';
+                html += '</div></div>';
+            }
+
+            if(ventasHistorico.length === 0) html = '<div style="text-align:center; color:#57687e; font-size:12px;">No hay ventas registradas.</div>';
+            container.innerHTML = html;
+
+            var gananciaNetaUSD = totalVentasUSD - totalCostoUSD;
+            var gananciaTotalVES = gananciaNetaUSD * tasaDia;
+
+            document.getElementById('resumen-ptv').innerText = window.formatVE(totalPTV);
+            document.getElementById('resumen-pm').innerText = window.formatVE(totalPM);
+            document.getElementById('resumen-ves').innerText = window.formatVE(totalVESFisico);
+            
+            document.getElementById('resumen-ganancia-ves').innerText = window.formatVE(gananciaTotalVES) + " (" + window.formatUSD(gananciaNetaUSD) + ")";
+            document.getElementById('resumen-efectivo-usd').innerText = "$" + totalUSDFisico.toFixed(2);
+        };
+
+        window.enviarFacturaWS = function(index) {
+            var v = ventasHistorico[index];
+            var msj = "🧾 *COMPROBANTE DE COMPRA*\n";
+            msj += "🏢 *" + perfilNegocio.nombre + "*\n";
+            if(perfilNegocio.rif) msj += "RIF: " + perfilNegocio.rif + "\n";
+            msj += "📅 Fecha: " + v.fecha + "\n";
+            if(v.cliente) msj += "👤 Cliente: " + v.cliente + "\n";
+            msj += "-----------------------------------\n";
+            for(var i=0; i<v.items.length; i++) {
+                var item = v.items[i];
+                var precioBsItem = item.totalUSD * (v.totalVES / (v.totalUSD || 1));
+                msj += (item.qtyVenta || item.detalle) + "x " + item.nombre + " - " + window.formatVE(precioBsItem) + "\n";
+            }
+            msj += "-----------------------------------\n";
+            msj += "💰 *TOTAL: " + window.formatVE(v.totalVES) + "* (" + window.formatUSD(v.totalUSD) + ")\n\n";
+            msj += "¡Gracias por su compra!";
+
+            var numClean = (v.tlf || "").replace(/\D/g, '');
+            var url = numClean ? ("https://api.whatsapp.com/send?phone=" + numClean + "&text=" + encodeURIComponent(msj)) : ("https://api.whatsapp.com/send?text=" + encodeURIComponent(msj));
+            window.open(url, '_blank', 'noopener,noreferrer');
+        };
+
+        window.imprimirTicket = function(index) {
+            var v = ventasHistorico[index];
+            var pw = window.open('', '_blank');
+            if(!pw) { window.mostrarFeedbackAnimado('error', 'Habilita las ventanas emergentes'); return; }
+            var doc = pw.document;
+            var h = '<html><head><title>Ticket</title><style>body{font-family:monospace; color:#000; width:280px; margin:0 auto; padding:10px;} .it{display:flex; justify-content:space-between;}</style></head><body>';
+            h += '<h3 style="text-align:center;">' + window.escapeHTML(perfilNegocio.nombre) + '</h3>';
+            h += '<p style="text-align:center; font-size:12px;">' + v.fecha + '</p><hr>';
+            for(var i=0; i<v.items.length; i++) {
+                h += '<div class="it"><span>' + v.items[i].qtyVenta + 'x ' + window.escapeHTML(v.items[i].nombre) + '</span><span>' + window.formatUSD(v.items[i].totalUSD) + '</span></div>';
+            }
+            h += '<hr><div class="it"><strong>TOTAL:</strong><strong>' + window.formatVE(v.totalVES) + '</strong></div>';
+            h += '<div class="it"><span>EQUIVALENTE:</span><span>' + window.formatUSD(v.totalUSD) + '</span></div>';
+            h += '</body></html>';
+            doc.write(h);
+            doc.close();
+            pw.print();
+        };
+
+        window.renderizarCarritoCaja = function() {
+            var container = document.getElementById('cart-items');
+            var html = "";
+            for(var i=0; i<carrito.length; i++) {
+                var it = carrito[i];
+                html += '<div class="cart-item">';
+                html += '<span>' + window.escapeHTML(it.nombre) + ' (x' + it.qtyVenta + ')</span>';
+                html += '<div><strong>' + window.formatVE(it.totalUSD * tasaDia) + '</strong>';
+                html += '<button class="btn-remove-item" onclick="window.eliminarItemCarrito(' + i + ')">✕</button></div>';
+                html += '</div>';
+            }
+            container.innerHTML = html || '<div style="text-align:center; color:#57687e; font-size:11px;">Carrito vacío</div>';
+        };
+
+        window.eliminarItemCarrito = function(idx) {
+            carrito.splice(idx, 1);
+            window.recalcularTotalesCarrito();
+            window.renderizarCarritoCaja();
+        };
+
+        window.guardarTasaManual = function() {
+            var t = parseFloat(document.getElementById('input-tasa-bcv').value);
+            if(t > 0) {
+                tasaDia = t;
+                document.getElementById('txt-bcv-display').innerText = 'BCV: Bs. ' + tasaDia.toFixed(2);
+                window.recalcularTotalesCarrito();
+                window.mostrarToast('✓ Tasa Manual Guardada');
+            }
+        };
+
+        // Inicializar Tasa BCV al Cargar
+        window.onload = function() {
+            window.actualizarTasaBCVEnTiempoReal();
+        };
+    </script>
+</body>
+</html>
