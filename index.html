@@ -1,4 +1,738 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geo Mercado POS V19.1 - Sin Tanto Embrollo</title>
+
+    <!-- Manifest.json Inyectado en Memoria para PWA / Descarga de App -->
+    <script>
+        (function() {
+            var manifestData = {
+                "name": "Geo Mercado POS",
+                "short_name": "GeoMercado",
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#0b0e14",
+                "theme_color": "#00ff66",
+                "icons": [
+                    {
+                        "src": "https://cdn-icons-png.flaticon.com/512/3081/3081559.png",
+                        "sizes": "512x512",
+                        "type": "image/png"
+                    }
+                ]
+            };
+            var stringManifest = JSON.stringify(manifestData);
+            var blob = new Blob([stringManifest], {type: 'application/json'});
+            var manifestURL = URL.createObjectURL(blob);
+            var link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = manifestURL;
+            document.getElementsByTagName('head')[0].appendChild(link);
+        })();
+
+        window.onerror = function(msg, url, line) { 
+            console.error("Error detectado:", msg, "en", url, "línea", line);
+            return true; 
+        };
+    </script>
+
+    <style>
+        body { 
+            background-color: #0b0e14; 
+            color: #ffffff; 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            box-sizing: border-box; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+        
+        /* MODO ADAPTATIVO: CELULAR / PC */
+        .app-container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+        
+        @media (min-width: 850px) {
+            .app-container { max-width: 950px; }
+            .menu-grid { grid-template-columns: repeat(4, 1fr) !important; }
+            .caja-layout-pc { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 15px; }
+            .inventory-grid { grid-template-columns: repeat(3, 1fr) !important; }
+        }
+
+        /* ESTILOS DE AUTENTICACIÓN Y PANTALLA PRINCIPAL */
+        .login-card { background: #11151d; border: 1px solid #00ff66; border-radius: 14px; padding: 20px; width: 100%; max-width: 380px; margin: 40px auto; text-align: center; box-shadow: 0 0 20px rgba(0,255,102,0.15); }
+        .login-card input, .login-card select { width: 100%; background: #0b0e14; border: 1px solid #242c3d; padding: 10px; border-radius: 8px; color: #fff; margin-bottom: 10px; outline: none; box-sizing: border-box; text-align: center; }
+
+        #menu-principal { display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: 10px; width: 100%; animation: fadeIn 0.3s ease-in-out; }
+        .logo-grande { width: 90px; height: 90px; margin-bottom: 6px; filter: drop-shadow(0 0 12px #00ff66); transition: transform 0.3s ease; }
+        .logo-grande:hover { transform: scale(1.05); }
+        .main-title { font-size: 26px; font-weight: 900; letter-spacing: 2px; }
+        .version-tag { font-size: 10px; color: #8fa0b7; font-weight: bold; letter-spacing: 1px; margin-bottom: 10px; text-transform: uppercase; }
+        .role-badge { background-color: #161a23; border: 1px solid #242c3d; padding: 4px 12px; border-radius: 20px; font-size: 12px; color: #8fa0b7; margin-bottom: 15px; font-weight: bold; }
+        
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+        .btn-menu { background: linear-gradient(135deg, #161a23 0%, #0f121a 100%); border: 1px solid #242c3d; border-radius: 12px; padding: 12px; color: #ffffff; font-size: 12px; font-weight: bold; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: all 0.2s ease; position: relative; overflow: hidden; }
+        .btn-menu:active { transform: scale(0.95); border-color: #00ff66; box-shadow: 0 0 10px rgba(0, 255, 102, 0.3); }
+        .btn-menu .icon { font-size: 24px; color: #00ff66; }
+
+        .modulo-app { display: none; width: 100%; flex-direction: column; gap: 10px; box-sizing: border-box; animation: slideUp 0.25s ease-out; }
+        .header-modulo { display: flex; align-items: center; justify-content: space-between; padding-bottom: 6px; border-bottom: 1px solid #242c3d; }
+        .btn-back { background-color: #161a23; border: 1px solid #242c3d; color: #fff; padding: 6px 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-back:active { background: #242c3d; transform: scale(0.95); }
+
+        .tools-carousel { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; width: 100%; scrollbar-width: none; }
+        .tools-carousel::-webkit-scrollbar { display: none; }
+        .btn-tool { background: #161a23; border: 1px solid #313c52; color: #8fa0b7; padding: 8px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap; flex-shrink: 0; font-size: 11px; transition: all 0.2s; }
+        .btn-tool:active { background: #242c3d; color: #fff; transform: scale(0.95); }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; animation: fadeIn 0.2s ease; }
+        .modal-content { background: #11151d; border: 1px solid #00ff66; padding: 16px; border-radius: 14px; width: 90%; max-width: 380px; display: flex; flex-direction: column; gap: 10px; max-height: 80vh; overflow-y: auto; box-shadow: 0 0 20px rgba(0,255,102,0.15); }
+        .modal-content h3 { margin: 0; color: #00ff66; text-align: center; }
+
+        .cart-card { background-color: #11151d; border: 1px dashed #242c3d; border-radius: 12px; padding: 10px; width: 100%; box-sizing: border-box; }
+        .cart-title { font-size: 10px; color: #8fa0b7; text-transform: uppercase; margin-bottom: 4px; font-weight: bold; text-align: center; }
+        .cart-items-container { display: flex; flex-direction: column; gap: 4px; max-height: 150px; overflow-y: auto; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; border-bottom: 1px solid #161a23; padding-bottom: 4px; animation: fadeIn 0.2s; }
+        
+        .btn-remove-item { background: #ff5252; color: #fff; border: none; border-radius: 6px; padding: 3px 8px; font-weight: bold; cursor: pointer; margin-left: 8px; }
+        .btn-qty { background: #242c3d; color: #fff; border: 1px solid #313c52; padding: 3px 8px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+
+        .search-input { width: 100%; background: #0b0e14; border: 1px solid #00ff66; color: #fff; padding: 8px 12px; border-radius: 8px; box-sizing: border-box; text-align: left; font-size: 13px; margin-bottom: 4px; outline: none; }
+        .search-results-box { display: flex; flex-direction: column; gap: 4px; max-height: 100px; overflow-y: auto; }
+        .btn-search-result { background: #161a23; border: 1px solid #242c3d; color: #fff; padding: 8px; border-radius: 8px; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+
+        .display-card { background: linear-gradient(135deg, #161a23 0%, #0d1017 100%); border: 1px solid #242c3d; border-radius: 12px; padding: 10px; text-align: center; width: 100%; box-sizing: border-box; }
+        .display-card h2 { font-size: 32px; margin: 2px 0; color: #00ff66; font-weight: 700; }
+        .display-card h3 { font-size: 20px; margin: 0; color: #ffffff; }
+
+        .scanner-trigger { background: linear-gradient(90deg, #00b347 0%, #00ff66 100%); border: none; border-radius: 12px; padding: 10px; color: #000000; font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        
+        .payment-toggle-btn { background: #161a23; border: 1px solid #242c3d; color: #8fa0b7; padding: 10px 14px; border-radius: 10px; font-size: 12px; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box; }
+        .payment-toggle-btn.active { border-color: #00ff66; color: #ffffff; background: #1c2230; }
+        .payment-content { display: none; margin-top: 4px; }
+        .payment-content.show { display: flex; flex-direction: column; gap: 8px; }
+
+        .form-payments { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .input-group { background-color: #161a23; border: 1px solid #242c3d; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; width: 100%; box-sizing: border-box; }
+        .input-row { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; }
+        .input-row input { width: 100%; background: transparent; border: none; color: #ffffff; font-size: 16px; font-weight: bold; outline: none; text-align: center; }
+        
+        .btn-max { background: #313c52; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-weight: bold; font-size: 10px; cursor: pointer; }
+
+        .pm-details { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .pm-details input { width: 100%; background-color: #0f121a; border: 1px solid #242c3d; border-radius: 8px; padding: 8px; color: #ffffff; font-size: 13px; outline: none; text-align: center; box-sizing: border-box; }
+
+        .admin-form-box { background-color: #161a23; border: 1px solid #242c3d; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box; }
+        .admin-form-box input, .admin-form-box select { width: 100%; background-color: #0b0e14; border: 1px solid #242c3d; padding: 10px; border-radius: 8px; color: #fff; font-size: 13px; outline: none; box-sizing: border-box; text-align: center; }
+
+        .inventory-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; box-sizing: border-box; }
+        .product-card { background-color: #161a23; border: 1px solid #242c3d; border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; position: relative;}
+        .product-card h4 { margin: 4px 0 2px 0; font-size: 13px; word-break: break-word; }
+        .tag-cat { position: absolute; top: 8px; left: 8px; background: #242c3d; color: #8fa0b7; font-size: 8px; padding: 2px 5px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        
+        .footer-totals { background-color: #11151d; border: 1px solid #242c3d; border-radius: 12px; padding: 10px; width: 100%; box-sizing: border-box; }
+        .total-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 13px; color: #8fa0b7; }
+        .total-row strong { color: #ffffff; }
+        .total-row.final { border-top: 1px dashed #242c3d; margin-top: 4px; padding-top: 6px; font-size: 15px; font-weight: bold; color: #00ff66; }
+
+        .action-container { display: flex; gap: 6px; width: 100%; }
+        .btn-clear { flex: 1; background-color: #242c3d; color: #ffffff; border: 1px solid #313c52; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 11px; }
+        .btn-charge { flex: 1; background-color: #00ff66; color: #000000; border: none; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; font-size: 11px; }
+        .btn-fiar { flex: 1; background-color: #ffc107; color: #000000; border: none; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; font-size: 11px; }
+        .btn-print { flex: 1; background-color: #fff; color: #000; border: none; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; font-size: 11px; }
+
+        .cierre-card { background-color: #161a23; border: 1px solid #242c3d; border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+        .cierre-card h4 { margin: 0 0 8px 0; color: #00ff66; border-bottom: 1px dashed #313c52; padding-bottom: 4px;}
+        .cierre-item { font-size: 12px; color: #8fa0b7; padding: 3px 0; display: flex; justify-content: space-between; }
+        .cierre-item span { color: #fff; font-weight: bold; text-align: right; }
+
+        #hidden-qr-reader { display: none; }
+        .hidden-file-input { display: none; }
+
+        .toast-notification {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: #11151d; border: 1px solid #00ff66; color: #ffffff; padding: 10px 20px;
+            border-radius: 20px; font-size: 12px; font-weight: bold; box-shadow: 0 0 15px rgba(0, 255, 102, 0.4);
+            z-index: 2000; opacity: 0; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: none;
+        }
+        .toast-notification.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div id="hidden-qr-reader"></div>
+        <div id="toast" class="toast-notification"></div>
+
+        <!-- VENTANA DE AUTENTICACIÓN / PANTALLA INICIAL (ROL Y CLAVE) -->
+        <div id="section-login" class="login-card">
+            <h2 style="color:#00ff66; margin-bottom:5px;">Geo Mercado POS</h2>
+            <p style="color:#8fa0b7; font-size:12px; margin-bottom:15px;">Sin tanto embrollo - Iniciar Sesión</p>
+            
+            <label style="color:#8fa0b7; font-size:11px; display:block; margin-bottom:4px;">SELECCIONAR ROL:</label>
+            <select id="login-rol" onchange="window.cambiarOpcionesLogin()">
+                <option value="cajero">Cajero 👤</option>
+                <option value="admin">Administrador 👑</option>
+            </select>
+
+            <div id="box-select-cajero">
+                <label style="color:#8fa0b7; font-size:11px; display:block; margin-bottom:4px;">SELECCIONAR CAJERO:</label>
+                <select id="login-cajero-usuario"></select>
+            </div>
+
+            <label style="color:#8fa0b7; font-size:11px; display:block; margin-bottom:4px;">CLAVE / PIN DE ACCESO:</label>
+            <input type="password" id="login-pin" placeholder="Ingrese clave">
+
+            <button class="btn-charge" style="width:100%; margin-top:5px;" onclick="window.ejecutarLogin()">INGRESAR AL SISTEMA</button>
+        </div>
+
+        <!-- MODAL GENERADOR DE QR DE PAGO MÓVIL -->
+        <div id="modal-qr" class="modal-overlay">
+            <div class="modal-content" style="text-align: center;">
+                <h3>📲 QR de Pago Móvil</h3>
+                <div id="qr-container" style="background:#fff; padding:10px; border-radius:10px; display:inline-block; margin:10px auto;">
+                    <img id="img-qr-code" src="" alt="Código QR" style="width:180px; height:180px;">
+                </div>
+                <div id="qr-text-info" style="font-size:12px; color:#fff; text-align:left; background:#0b0e14; padding:8px; border-radius:8px;"></div>
+                <div style="display:flex; gap:6px; margin-top:10px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-qr').style.display='none'">Cerrar</button>
+                    <button class="btn-charge" onclick="window.enviarQRPorWS()">📲 Enviar WhatsApp</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL LICENCIA / SUSCRIPCIÓN -->
+        <div id="modal-licencia" class="modal-overlay">
+            <div class="modal-content" style="text-align: center;">
+                <h3 style="color:#ffc107;">🔒 Activar Licencia POS</h3>
+                <p style="font-size:12px; color:#fff;">Adquiere la suscripción para usar el sistema:<br><strong>$5 Mensual</strong> | <strong>$45 Anual</strong></p>
+                <p style="font-size:11px; color:#8fa0b7;">Realiza el Pago Móvil y solicita tu código de desbloqueo.</p>
+                <input type="text" id="licencia-codigo" placeholder="Código de Activación" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.activarLicencia()">Desbloquear Sistema</button>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PRINCIPAL DEL SISTEMA (SE MUESTRA TRAS LOGUEARSE) -->
+        <div id="app-content" style="display:none; width:100%;">
+
+            <!-- MENU PRINCIPAL -->
+            <div id="menu-principal">
+                <div class="logo-grande">
+                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15 25 h15 l12 32 h33 l10 -22 h-50" fill="none" stroke="#00ff66" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="45" cy="70" r="6" fill="none" stroke="#00ff66" stroke-width="3"/>
+                        <circle cx="70" cy="70" r="6" fill="none" stroke="#00ff66" stroke-width="3"/>
+                        <circle cx="58" cy="44" r="7" fill="#ffffff"/>
+                    </svg>
+                </div>
+                <div class="main-title"><span style="color:#00ff66;">GEO MERCADO 🛍️</span></div>
+                <div class="version-tag">V19.1 - SIN TANTO EMBROLLO</div>
+                <div class="role-badge">Usuario Activo: <span id="txt-rol">Cajero 👤</span></div>
+
+                <div class="menu-grid">
+                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-caja')"><span class="icon">🛒</span>Caja de Cobro</button>
+                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-inventario')"><span class="icon">📦</span>Inventario</button>
+                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-fiados')"><span class="icon">📋</span>Fiados / Deudas</button>
+                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-cierre')"><span class="icon">📊</span>Cierre / Historial</button>
+                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-admin')"><span class="icon">⚙️</span>Ajustes y Perfil</button>
+                    <button class="btn-menu" onclick="window.cerrarSesion()" style="border-color:#ff5252;"><span class="icon" style="color:#ff5252;">🚪</span>Cerrar Sesión</button>
+                </div>
+            </div>
+
+            <!-- MODULO CAJA -->
+            <div id="modulo-caja" class="modulo-app">
+                <div class="header-modulo">
+                    <h3>🛒 Caja de Facturación</h3>
+                    <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+                </div>
+
+                <div class="tools-carousel">
+                    <button class="btn-tool" onclick="window.aparcarFactura()">⏸️ Pausar</button>
+                    <button class="btn-tool" onclick="window.recuperarFactura()">📂 Recuperar</button>
+                    <button class="btn-tool" onclick="document.getElementById('modal-cliente').style.display='flex'">📝 Cliente</button>
+                    <button class="btn-tool" onclick="window.generarQRPagoMovil()" style="color:#00ff66; border-color:#00ff66;">📲 Generar QR PM</button>
+                </div>
+
+                <div class="caja-layout-pc">
+                    <div>
+                        <div class="cart-card">
+                            <div class="cart-title">📝 Artículos en esta Venta</div>
+                            <div class="cart-items-container" id="items-carrito-factura"></div>
+                        </div>
+
+                        <div class="input-group" style="padding:8px; margin-top:6px;">
+                            <input type="text" id="buscador-caja" class="search-input" placeholder="🔍 Buscar producto..." oninput="window.filtrarBuscadorCaja(this.value)">
+                            <div id="resultados-busqueda-caja" class="search-results-box"></div>
+                        </div>
+
+                        <div class="display-card" style="margin-top:6px;">
+                            <p style="font-size:10px; color:#8fa0b7; margin:0; font-weight:bold;">TOTAL A PAGAR</p>
+                            <h2 id="grand-total-ves">0,00 Bs</h2>
+                            <h3 id="grand-total-usd" style="font-size:14px; color:#8fa0b7;">$0.00</h3>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="form-payments">
+                            <button type="button" class="payment-toggle-btn" onclick="window.toggleMetodoPago('pay-box-pm', this)">
+                                <span>📲 Pago Móvil Recibido</span>
+                                <span id="label-monto-pm" style="color:#00ff66;">0,00 Bs</span>
+                            </button>
+                            <div id="pay-box-pm" class="payment-content">
+                                <div class="input-group">
+                                    <div class="input-row">
+                                        <span>Bs</span>
+                                        <input type="tel" id="pay-pm" placeholder="0,00" oninput="window.mascaraMoneda(this); window.actualizarEtiquetasPago(); window.calcularCaja();">
+                                        <button class="btn-max" onclick="window.llenarMaximo('pm')">MAX</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="button" class="payment-toggle-btn" onclick="window.toggleMetodoPago('pay-box-usd', this)">
+                                <span>💵 Efectivo Divisas ($)</span>
+                                <span id="label-monto-usd" style="color:#00ff66;">$0</span>
+                            </button>
+                            <div id="pay-box-usd" class="payment-content">
+                                <div class="input-group">
+                                    <div class="input-row">
+                                        <span>$</span>
+                                        <input type="tel" id="pay-usd" placeholder="0" oninput="window.actualizarEtiquetasPago(); window.calcularCaja();">
+                                        <button class="btn-max" onclick="window.llenarMaximo('usd')">MAX</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="button" class="payment-toggle-btn" onclick="window.toggleMetodoPago('pay-box-ves', this)">
+                                <span>🫴 Efectivo Bolívares</span>
+                                <span id="label-monto-ves" style="color:#00ff66;">0,00 Bs</span>
+                            </button>
+                            <div id="pay-box-ves" class="payment-content">
+                                <div class="input-group">
+                                    <div class="input-row">
+                                        <span>Bs</span>
+                                        <input type="tel" id="pay-ves" placeholder="0,00" oninput="window.mascaraMoneda(this); window.actualizarEtiquetasPago(); window.calcularCaja();">
+                                        <button class="btn-max" onclick="window.llenarMaximo('ves')">MAX</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="footer-totals" style="margin-top:8px;">
+                            <div class="total-row"><span>Total Recibido:</span><strong id="total-recibido-ves">0,00 Bs</strong></div>
+                            <div class="total-row final"><span>Diferencia / Vuelto:</span><span id="total-restante-ves">0,00 Bs</span></div>
+                        </div>
+
+                        <div class="action-container" style="margin-top:8px;">
+                            <button class="btn-clear" onclick="window.limpiarCaja(false)">LIMPIAR</button>
+                            <button class="btn-fiar" onclick="window.registrarFiado()">🤝 FIAR</button>
+                            <button class="btn-charge" onclick="window.procesarCobro(false)">COBRAR</button>
+                            <button class="btn-print" onclick="window.procesarCobro(true)">🖨️ TICKET</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODULO FIADOS / DEUDAS -->
+            <div id="modulo-fiados" class="modulo-app">
+                <div class="header-modulo">
+                    <h3>📋 Cuentas por Cobrar (Fiados)</h3>
+                    <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+                </div>
+                <div class="admin-form-box">
+                    <p style="font-size:11px; color:#8fa0b7; margin:0;">Las deudas están fijadas en Dólares ($) y se recalculan automáticamente en Bolívares al precio del dólar del día.</p>
+                </div>
+                <div id="lista-fiados-container" style="display:flex; flex-direction:column; gap:8px;"></div>
+            </div>
+
+            <!-- MODULO INVENTARIO -->
+            <div id="modulo-inventario" class="modulo-app">
+                <div class="header-modulo">
+                    <h3>📦 Catálogo de Mercancía</h3>
+                    <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+                </div>
+
+                <div class="admin-form-box" id="form-registro-prod">
+                    <h4 style="margin:0; color:#00ff66; text-align:center;">Registrar / Editar Artículo</h4>
+                    <input type="text" id="prod-name" placeholder="Nombre (Ej. Mantequilla)">
+                    <div style="display:flex; gap:8px;">
+                        <input type="number" step="0.01" id="prod-costo" placeholder="Costo ($)" oninput="window.calcularGanancia()">
+                        <input type="number" step="0.01" id="prod-margen" placeholder="Margen %" oninput="window.calcularGanancia()">
+                    </div>
+                    <div style="text-align:center; color:#00ff66; font-size:12px;">Precio Sugerido: <strong id="lbl-precio-calc">$0.00</strong></div>
+                    <input type="number" id="prod-qty" placeholder="Cantidad Disponibles">
+                    <button id="btn-guardar-prod" class="btn-charge" onclick="window.agregarProductoNuevo()">Guardar Producto</button>
+                </div>
+
+                <input type="text" id="buscador-inventario" class="search-input" placeholder="🔍 Buscar en inventario..." oninput="window.renderizarInventario(this.value)">
+                <div class="inventory-grid" id="lista-productos"></div>
+            </div>
+
+            <!-- MODULO CIERRE -->
+            <div id="modulo-cierre" class="modulo-app">
+                <div class="header-modulo">
+                    <h3>📊 Cierre de Caja y Historial</h3>
+                    <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+                </div>
+                <div class="cierre-card">
+                    <div class="cierre-item">Total Pago Móvil: <span id="resumen-pm">0,00 Bs</span></div>
+                    <div class="cierre-item">Total Efectivo (Bs): <span id="resumen-ves">0,00 Bs</span></div>
+                    <div class="cierre-item">Total Efectivo ($): <span id="resumen-efectivo-usd">$0.00</span></div>
+                </div>
+                <h4 style="color:#8fa0b7; margin: 8px 0 4px 0; font-size:13px;">Historial de Ventas:</h4>
+                <div id="lista-historial-ventas"></div>
+            </div>
+
+            <!-- MODULO AJUSTES Y CONFIGURACIÓN -->
+            <div id="modulo-admin" class="modulo-app">
+                <div class="header-modulo">
+                    <h3>⚙️ Ajustes y Perfil</h3>
+                    <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+                </div>
+                
+                <div class="admin-form-box" style="border-color:#00ff66;">
+                    <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor (QR / Cobro)</label>
+                    <input type="text" id="cfg-pm-banco" placeholder="Código Banco (Ej. 0102 BDV)" onchange="window.guardarPerfil()">
+                    <input type="text" id="cfg-pm-cedula" placeholder="Cédula / RIF Destino" onchange="window.guardarPerfil()">
+                    <input type="text" id="cfg-pm-tlf" placeholder="Teléfono Pago Móvil Destino" onchange="window.guardarPerfil()">
+                </div>
+
+                <div class="admin-form-box" style="border-color:#00ff66;">
+                    <label style="color:#00ff66; font-weight:bold;">👥 Agregar Nuevo Cajero con Clave</label>
+                    <input type="text" id="nuevo-cajero-nombre" placeholder="Nombre del Cajero">
+                    <input type="password" id="nuevo-cajero-clave" placeholder="Clave Personalizada">
+                    <button class="btn-charge" onclick="window.guardarNuevoCajero()">Guardar Nuevo Cajero</button>
+                </div>
+
+                <div class="admin-form-box">
+                    <label>📈 Tasa del Dólar BCV (Bs):</label>
+                    <div style="display:flex; gap:6px;">
+                        <input type="number" step="0.01" id="input-tasa-global" value="623.02" oninput="window.cambiarTasaManual(this.value)">
+                        <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; flex:none;" onclick="window.obtenerTasaBCV()">📡 BCV</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL DATOS CLIENTE -->
+    <div id="modal-cliente" class="modal-overlay">
+        <div class="modal-content">
+            <h3>📝 Datos del Cliente</h3>
+            <input type="text" id="cliente-nombre" placeholder="Nombre del Cliente" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+            <input type="text" id="cliente-tlf" placeholder="Teléfono (Para WhatsApp)" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+            <button class="btn-charge" onclick="document.getElementById('modal-cliente').style.display='none'; window.mostrarToast('✓ Cliente guardado');">Guardar</button>
+        </div>
+    </div>
+
+    <script>
+        // VARIABLES GLOBALES DE OPERACIÓN
+        var tasaDia = parseFloat(localStorage.getItem('geomercado_tasa_v19')) || 623.02;
+        var totalVentaUSD = 0.00;
+        var totalVentaVES = 0.00; 
+        var rolActual = "cajero";
+        var usuarioActivoNombre = "Cajero Principal";
+        var carrito = [];
+        var productos = [];
+        var ventasHistorico = [];
+        var fiados = [];
+        var usuariosCajeros = [{ nombre: "Cajero 1", clave: "1234" }];
+        var adminPin = "612003";
+        var licenciaActiva = localStorage.getItem('geomercado_licencia') === 'true';
+        var perfilNegocio = { pmBanco: "0102", pmCedula: "12345678", pmTlf: "04121234567" };
+
+        // CARGA Y PERSISTENCIA DE DATOS
+        try {
+            var db = localStorage.getItem('geomercado_db_v19');
+            productos = db ? JSON.parse(db) : [];
+            var dbVentas = localStorage.getItem('geomercado_ventas_v19');
+            ventasHistorico = dbVentas ? JSON.parse(dbVentas) : [];
+            var dbFiados = localStorage.getItem('geomercado_fiados_v19');
+            fiados = dbFiados ? JSON.parse(dbFiados) : [];
+            var dbCajeros = localStorage.getItem('geomercado_cajeros_v19');
+            if(dbCajeros) usuariosCajeros = JSON.parse(dbCajeros);
+            var dbPerfil = localStorage.getItem('geomercado_perfil_v19');
+            if(dbPerfil) perfilNegocio = JSON.parse(dbPerfil);
+        } catch(e) { console.error(e); }
+
+        window.onload = function() {
+            window.cambiarOpcionesLogin();
+            window.obtenerTasaBCV(true);
+            
+            document.getElementById('cfg-pm-banco').value = perfilNegocio.pmBanco || "";
+            document.getElementById('cfg-pm-cedula').value = perfilNegocio.pmCedula || "";
+            document.getElementById('cfg-pm-tlf').value = perfilNegocio.pmTlf || "";
+        };
+
+        // LÓGICA DE LICENCIA / ACTIVACIÓN
+        window.activarLicencia = function() {
+            var code = document.getElementById('licencia-codigo').value.trim();
+            if(code === "30629612003") {
+                licenciaActiva = true;
+                localStorage.setItem('geomercado_licencia', 'true');
+                document.getElementById('modal-licencia').style.display = 'none';
+                window.mostrarToast("✓ Licencia Activada de Por Vida");
+            } else {
+                alert("Código de activación incorrecto.");
+            }
+        };
+
+        // AUTENTICACIÓN Y ROLES
+        window.cambiarOpcionesLogin = function() {
+            var rol = document.getElementById('login-rol').value;
+            var box = document.getElementById('box-select-cajero');
+            var selectC = document.getElementById('login-cajero-usuario');
+            selectC.innerHTML = "";
+
+            if(rol === "cajero") {
+                box.style.display = "block";
+                usuariosCajeros.forEach(function(c) {
+                    var opt = document.createElement('option');
+                    opt.value = c.nombre; opt.innerText = c.nombre;
+                    selectC.appendChild(opt);
+                });
+            } else {
+                box.style.display = "none";
+            }
+        };
+
+        window.ejecutarLogin = function() {
+            var rol = document.getElementById('login-rol').value;
+            var pin = document.getElementById('login-pin').value.trim();
+
+            if(rol === "admin") {
+                if(pin === adminPin) {
+                    rolActual = "Administrador 👑";
+                    usuarioActivoNombre = "Administrador";
+                    window.iniciarSesionCorrecta();
+                } else { alert("Clave de Administrador Incorrecta."); }
+            } else {
+                var cNom = document.getElementById('login-cajero-usuario').value;
+                var cajeroObj = usuariosCajeros.find(function(u){ return u.nombre === cNom; });
+                if(pin === "1234" || (cajeroObj && cajeroObj.clave === pin)) {
+                    rolActual = "Cajero 👤";
+                    usuarioActivoNombre = cNom;
+                    window.iniciarSesionCorrecta();
+                } else { alert("Clave de Cajero Incorrecta."); }
+            }
+        };
+
+        window.iniciarSesionCorrecta = function() {
+            document.getElementById('section-login').style.display = 'none';
+            document.getElementById('app-content').style.display = 'block';
+            document.getElementById('txt-rol').innerText = usuarioActivoNombre + " (" + rolActual + ")";
+            document.getElementById('login-pin').value = "";
+            window.volverAlMenu();
+        };
+
+        window.cerrarSesion = function() {
+            document.getElementById('app-content').style.display = 'none';
+            document.getElementById('section-login').style.display = 'block';
+        };
+
+        // GESTIÓN DE NUEVOS CAJEROS
+        window.guardarNuevoCajero = function() {
+            var nom = document.getElementById('nuevo-cajero-nombre').value.trim();
+            var clav = document.getElementById('nuevo-cajero-clave').value.trim();
+            if(nom && clav) {
+                usuariosCajeros.push({ nombre: nom, clave: clav });
+                localStorage.setItem('geomercado_cajeros_v19', JSON.stringify(usuariosCajeros));
+                document.getElementById('nuevo-cajero-nombre').value = "";
+                document.getElementById('nuevo-cajero-clave').value = "";
+                window.mostrarToast("✓ Cajero Registrado Exitosamente");
+            }
+        };
+
+        // ACTUALIZACIÓN DE TASA BCV (DESDE RATES.DOLARVZLA.COM)
+        window.obtenerTasaBCV = function(silencioso) {
+            fetch('https://rates.dolarvzla.com/bcv/current.json')
+            .then(function(res){ return res.json(); })
+            .then(function(data){
+                if(data && data.price) {
+                    tasaDia = parseFloat(data.price);
+                    document.getElementById('input-tasa-global').value = tasaDia;
+                    localStorage.setItem('geomercado_tasa_v19', tasaDia);
+                    window.recalcularTotalesCarrito();
+                    if(!silencioso) window.mostrarToast("✓ Tasa BCV Actualizada: " + tasaDia.toFixed(2) + " Bs");
+                }
+            }).catch(function(){
+                if(!silencioso) window.mostrarToast("⚠️ Usando tasa guardada");
+            });
+        };
+
+        // CARRITO Y VENTA
+        window.recalcularTotalesCarrito = function() {
+            totalVentaUSD = 0.00;
+            carrito.forEach(function(item){ totalVentaUSD += item.totalUSD; });
+            totalVentaVES = totalVentaUSD * tasaDia;
+            
+            document.getElementById('grand-total-usd').innerText = "$" + totalVentaUSD.toFixed(2);
+            document.getElementById('grand-total-ves').innerText = window.formatVE(totalVentaVES);
+        };
+
+        window.formatVE = function(m) {
+            return Number(m || 0).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' Bs';
+        };
+
+        // GENERADOR DE CÓDIGO QR DINÁMICO DE PAGO MÓVIL
+        window.generarQRPagoMovil = function() {
+            if(totalVentaVES <= 0) { alert("Ingresa artículos al carrito primero."); return; }
+            var textQR = "PAGO MOVIL\nBanco: " + perfilNegocio.pmBanco + "\nCI: " + perfilNegocio.pmCedula + "\nTlf: " + perfilNegocio.pmTlf + "\nMonto: " + totalVentaVES.toFixed(2) + " Bs";
+            
+            var qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(textQR);
+            document.getElementById('img-qr-code').src = qrUrl;
+            document.getElementById('qr-text-info').innerText = textQR;
+            document.getElementById('modal-qr').style.display = 'flex';
+        };
+
+        window.enviarQRPorWS = function() {
+            var cTlf = document.getElementById('cliente-tlf').value.replace(/\D/g, '');
+            var msj = "📲 *DATOS PAGO MÓVIL PARA FACTURA*\n\n" + document.getElementById('qr-text-info').innerText;
+            var url = cTlf ? ("https://api.whatsapp.com/send?phone=" + cTlf + "&text=" + encodeURIComponent(msj)) : ("https://api.whatsapp.com/send?text=" + encodeURIComponent(msj));
+            window.open(url, '_blank');
+        };
+
+        // CUENTAS POR COBRAR (FIADOS)
+        window.registrarFiado = function() {
+            if(carrito.length === 0) return;
+            var nom = document.getElementById('cliente-nombre').value || prompt("Nombre del Cliente a Fiar:");
+            var tlf = document.getElementById('cliente-tlf').value || prompt("Teléfono del Cliente:");
+            
+            if(nom) {
+                fiados.push({
+                    id: Date.now(),
+                    cliente: nom,
+                    tlf: tlf,
+                    montoUSD: totalVentaUSD,
+                    fecha: new Date().toLocaleDateString()
+                });
+                localStorage.setItem('geomercado_fiados_v19', JSON.stringify(fiados));
+                window.limpiarCaja(true);
+                window.mostrarToast("✓ Deuda registrada con éxito");
+            }
+        };
+
+        window.renderizarFiados = function() {
+            var cont = document.getElementById('lista-fiados-container');
+            cont.innerHTML = "";
+            if(fiados.length === 0) { cont.innerHTML = "<p style='text-align:center; color:#8fa0b7;'>No hay deudas pendientes.</p>"; return; }
+
+            fiados.forEach(function(f, idx){
+                var montoActVES = f.montoUSD * tasaDia;
+                var card = document.createElement('div');
+                card.className = "cierre-card";
+                card.innerHTML = `
+                    <h4 style="color:#ffc107; margin:0;">👤 ${f.cliente} (${f.fecha})</h4>
+                    <div class="cierre-item">Deuda en USD: <span>$${f.montoUSD.toFixed(2)}</span></div>
+                    <div class="cierre-item">Total al Dólar del Día: <span style="color:#00ff66; font-size:14px;">${window.formatVE(montoActVES)}</span></div>
+                    <button class="btn-charge" style="width:100%; margin-top:6px;" onclick="window.cobrarFiado(${idx})">PAGAR / COBRAR DEUDA</button>
+                `;
+                cont.appendChild(card);
+            });
+        };
+
+        window.cobrarFiado = function(idx) {
+            fiados.splice(idx, 1);
+            localStorage.setItem('geomercado_fiados_v19', JSON.stringify(fiados));
+            window.renderizarFiados();
+            window.mostrarToast("✓ Deuda Cancelada");
+        };
+
+        // NAVEGACIÓN Y COMPONENTES
+        window.cambiarModulo = function(mod) {
+            document.querySelectorAll('.modulo-app').forEach(function(m){ m.style.display='none'; });
+            document.getElementById('menu-principal').style.display='none';
+            document.getElementById(mod).style.display='flex';
+            if(mod === 'modulo-fiados') window.renderizarFiados();
+            if(mod === 'modulo-inventario') window.renderizarInventario("");
+        };
+
+        window.volverAlMenu = function() {
+            document.querySelectorAll('.modulo-app').forEach(function(m){ m.style.display='none'; });
+            document.getElementById('menu-principal').style.display='flex';
+        };
+
+        window.mostrarToast = function(m) {
+            var t = document.getElementById('toast');
+            t.innerText = m; t.classList.add('show');
+            setTimeout(function(){ t.classList.remove('show'); }, 2500);
+        };
+
+        window.limpiarCaja = function(s) {
+            carrito = []; window.recalcularTotalesCarrito();
+            document.getElementById('cliente-nombre').value = "";
+            document.getElementById('cliente-tlf').value = "";
+            document.getElementById('items-carrito-factura').innerHTML = "";
+            if(!s) window.mostrarToast("Caja Limpia");
+        };
+
+        window.guardarPerfil = function() {
+            perfilNegocio.pmBanco = document.getElementById('cfg-pm-banco').value;
+            perfilNegocio.pmCedula = document.getElementById('cfg-pm-cedula').value;
+            perfilNegocio.pmTlf = document.getElementById('cfg-pm-tlf').value;
+            localStorage.setItem('geomercado_perfil_v19', JSON.stringify(perfilNegocio));
+            window.mostrarToast("Perfil Guardado");
+        };
+
+        window.procesarCobro = function(imp) {
+            if(totalVentaUSD <= 0) return;
+            ventasHistorico.push({ fecha: new Date().toLocaleString(), totalUSD: totalVentaUSD, totalVES: totalVentaVES });
+            localStorage.setItem('geomercado_ventas_v19', JSON.stringify(ventasHistorico));
+            window.mostrarToast("✓ Venta Procesada");
+            window.limpiarCaja(true);
+        };
+
+        window.renderizarInventario = function(f) {
+            var cont = document.getElementById('lista-productos');
+            cont.innerHTML = "";
+            productos.forEach(function(p){
+                var div = document.createElement('div');
+                div.className = "product-card";
+                div.innerHTML = `<h4>${p.nombre}</h4><p style="color:#00ff66;">$${p.precio.toFixed(2)}</p><button class="btn-charge" onclick="window.agregarAlCarrito(${p.id})">+ Facturar</button>`;
+                cont.appendChild(div);
+            });
+        };
+
+        window.agregarAlCarrito = function(id) {
+            var p = productos.find(function(x){ return x.id === id; });
+            if(p) {
+                carrito.push({ id: p.id, nombre: p.nombre, totalUSD: p.precio });
+                window.recalcularTotalesCarrito();
+                window.mostrarToast("+ " + p.nombre);
+            }
+        };
+
+        window.agregarProductoNuevo = function() {
+            var nom = document.getElementById('prod-name').value;
+            var cos = parseFloat(document.getElementById('prod-costo').value) || 0;
+            var mar = parseFloat(document.getElementById('prod-margen').value) || 0;
+            var pre = cos + (cos * (mar/100));
+
+            if(nom && pre > 0) {
+                productos.push({ id: Date.now(), nombre: nom, precio: pre });
+                localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                document.getElementById('prod-name').value = "";
+                window.renderizarInventario("");
+                window.mostrarToast("✓ Producto Registrado");
+            }
+        };
+
+        window.calcularGanancia = function() {
+            var cos = parseFloat(document.getElementById('prod-costo').value) || 0;
+            var mar = parseFloat(document.getElementById('prod-margen').value) || 0;
+            var pre = cos + (cos * (mar/100));
+            document.getElementById('lbl-precio-calc').innerText = "$" + pre.toFixed(2);
+        };
+    </script>
+</body>
+</html>
+
 <html lang="es">
 <head>
     <meta charset="UTF-8">
