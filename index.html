@@ -1,401 +1,1747 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistema POS & Control de Ventas</title>
-  <link rel="manifest" href="manifest.json">
-  <!-- Librería externa para generación de QR -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <style>
-    :root {
-      --primary: #2c3e50;
-      --secondary: #27ae60;
-      --accent: #2980b9;
-      --danger: #c0392b;
-      --warning: #f39c12;
-      --bg: #f8f9fa;
-      --card-bg: #ffffff;
-      --text: #333333;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geo Mercado V19.1</title>
+    
+    <script>
+        window.onerror = function(msg, url, line) { 
+            console.error("Error detectado:", msg, "en", url, "línea", line);
+            return true; 
+        };
+    </script>
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; min-height: 100vh; }
+    <style>
+        body { 
+            background-color: #0b0e14; 
+            color: #ffffff; 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            box-sizing: border-box; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+        .app-container { width: 100%; max-width: 450px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+        
+        #menu-principal { display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: 10px; width: 100%; animation: fadeIn 0.3s ease-in-out; }
+        .logo-grande { width: 90px; height: 90px; margin-bottom: 6px; filter: drop-shadow(0 0 12px #00ff66); transition: transform 0.3s ease; }
+        .logo-grande:hover { transform: scale(1.05); }
+        .main-title { font-size: 26px; font-weight: 900; letter-spacing: 2px; }
+        .version-tag { font-size: 10px; color: #8fa0b7; font-weight: bold; letter-spacing: 1px; margin-bottom: 10px; text-transform: uppercase; }
+        .role-badge { background-color: #161a23; border: 1px solid #242c3d; padding: 4px 12px; border-radius: 20px; font-size: 12px; color: #8fa0b7; margin-bottom: 15px; font-weight: bold; }
+        
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+        .btn-menu { background: linear-gradient(135deg, #161a23 0%, #0f121a 100%); border: 1px solid #242c3d; border-radius: 12px; padding: 12px; color: #ffffff; font-size: 12px; font-weight: bold; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: all 0.2s ease; position: relative; overflow: hidden; }
+        .btn-menu:active { transform: scale(0.95); border-color: #00ff66; box-shadow: 0 0 10px rgba(0, 255, 102, 0.3); }
+        .btn-menu .icon { font-size: 24px; color: #00ff66; }
 
-    /* Layout Responsive: Modo PC / Celular */
-    .app-container { display: flex; flex-direction: column; height: 100vh; }
-    @media (min-width: 768px) {
-      .app-container { flex-direction: row; }
-      .sidebar { width: 260px; height: 100vh; }
-      .main-content { flex: 1; overflow-y: auto; padding: 20px; }
-    }
-    @media (max-width: 767px) {
-      .sidebar { width: 100%; display: flex; overflow-x: auto; white-space: nowrap; }
-      .main-content { padding: 10px; flex: 1; overflow-y: auto; }
-    }
+        .modulo-app { display: none; width: 100%; flex-direction: column; gap: 10px; box-sizing: border-box; animation: slideUp 0.25s ease-out; }
+        .header-modulo { display: flex; align-items: center; justify-content: space-between; padding-bottom: 6px; border-bottom: 1px solid #242c3d; }
+        .btn-back { background-color: #161a23; border: 1px solid #242c3d; color: #fff; padding: 6px 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-back:active { background: #242c3d; transform: scale(0.95); }
 
-    .sidebar { background-color: var(--primary); color: white; padding: 15px; }
-    .sidebar h2 { font-size: 1.2rem; margin-bottom: 20px; text-align: center; }
-    .nav-btn { display: block; width: 100%; padding: 12px; margin-bottom: 10px; background: transparent; color: white; border: none; text-align: left; cursor: pointer; border-radius: 5px; }
-    .nav-btn:hover, .nav-btn.active { background-color: var(--accent); }
+        .tools-carousel { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; width: 100%; scrollbar-width: none; }
+        .tools-carousel::-webkit-scrollbar { display: none; }
+        .btn-tool { background: #161a23; border: 1px solid #313c52; color: #8fa0b7; padding: 8px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap; flex-shrink: 0; font-size: 11px; transition: all 0.2s; }
+        .btn-tool:active { background: #242c3d; color: #fff; transform: scale(0.95); }
 
-    /* Modales y Paneles */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
-    .modal.active { display: flex; }
-    .modal-content { background: var(--card-bg); padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; animation: fadeIn 0.2s ease; }
+        .modal-content { background: #11151d; border: 1px solid #00ff66; padding: 16px; border-radius: 14px; width: 90%; max-width: 350px; display: flex; flex-direction: column; gap: 10px; max-height: 80vh; overflow-y: auto; box-shadow: 0 0 20px rgba(0,255,102,0.15); }
+        .modal-content h3 { margin: 0; color: #00ff66; text-align: center; }
 
-    .card { background: var(--card-bg); padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
-    input, select, button { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; }
-    button.btn-primary { background-color: var(--secondary); color: white; border: none; font-weight: bold; cursor: pointer; }
-    button.btn-danger { background-color: var(--danger); color: white; border: none; font-weight: bold; cursor: pointer; }
+        .cart-card { background-color: #11151d; border: 1px dashed #242c3d; border-radius: 12px; padding: 10px; width: 100%; box-sizing: border-box; }
+        .cart-title { font-size: 10px; color: #8fa0b7; text-transform: uppercase; margin-bottom: 4px; font-weight: bold; text-align: center; }
+        .cart-items-container { display: flex; flex-direction: column; gap: 4px; max-height: 130px; overflow-y: auto; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; border-bottom: 1px solid #161a23; padding-bottom: 4px; animation: fadeIn 0.2s; }
+        
+        .btn-remove-item { background: #ff5252; color: #fff; border: none; border-radius: 6px; padding: 3px 8px; font-weight: bold; cursor: pointer; margin-left: 8px; transition: transform 0.1s; }
+        .btn-remove-item:active { transform: scale(0.9); }
+        .btn-qty { background: #242c3d; color: #fff; border: 1px solid #313c52; padding: 3px 8px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+        .btn-qty:active { transform: scale(0.9); }
 
-    /* Tablas */
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background-color: var(--primary); color: white; }
+        .search-input { width: 100%; background: #0b0e14; border: 1px solid #00ff66; color: #fff; padding: 8px 12px; border-radius: 8px; box-sizing: border-box; text-align: left; font-size: 13px; margin-bottom: 4px; outline: none; transition: box-shadow 0.2s; }
+        .search-input:focus { box-shadow: 0 0 8px rgba(0, 255, 102, 0.4); }
+        .search-results-box { display: flex; flex-direction: column; gap: 4px; max-height: 100px; overflow-y: auto; }
+        .btn-search-result { background: #161a23; border: 1px solid #242c3d; color: #fff; padding: 8px; border-radius: 8px; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 12px; transition: transform 0.1s; }
+        .btn-search-result:active { transform: scale(0.97); }
 
-    /* Tasa BCV Header */
-    .bcv-header { background: var(--accent); color: white; padding: 10px; text-align: center; font-weight: bold; }
-    #qrcode { display: flex; justify-content: center; margin: 15px 0; }
-  </style>
+        .display-card { background: linear-gradient(135deg, #161a23 0%, #0d1017 100%); border: 1px solid #242c3d; border-radius: 12px; padding: 10px; text-align: center; width: 100%; box-sizing: border-box; }
+        .display-card h2 { font-size: 32px; margin: 2px 0; color: #00ff66; font-weight: 700; transition: transform 0.2s ease; }
+        .display-card h3 { font-size: 20px; margin: 0; color: #ffffff; }
+
+        .scanner-trigger { background: linear-gradient(90deg, #00b347 0%, #00ff66 100%); border: none; border-radius: 12px; padding: 10px; color: #000000; font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; display: flex; justify-content: center; align-items: center; gap: 8px; transition: transform 0.1s; }
+        .scanner-trigger:active { transform: scale(0.96); }
+        
+        .payment-toggle-btn { background: #161a23; border: 1px solid #242c3d; color: #8fa0b7; padding: 10px 14px; border-radius: 10px; font-size: 12px; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box; transition: all 0.2s; }
+        .payment-toggle-btn.active { border-color: #00ff66; color: #ffffff; background: #1c2230; }
+        .payment-content { display: none; margin-top: 4px; animation: fadeIn 0.2s ease-in-out; }
+        .payment-content.show { display: flex; flex-direction: column; gap: 8px; }
+
+        .form-payments { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .input-group { background-color: #161a23; border: 1px solid #242c3d; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; width: 100%; box-sizing: border-box; }
+        .input-group label { font-size: 10px; color: #8fa0b7; text-transform: uppercase; margin-bottom: 4px; text-align: center; }
+        .input-row { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; }
+        .input-row input { width: 100%; background: transparent; border: none; color: #ffffff; font-size: 16px; font-weight: bold; outline: none; text-align: center; }
+        
+        .btn-max { background: #313c52; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-weight: bold; font-size: 10px; cursor: pointer; transition: transform 0.1s;}
+        .btn-max:active { background: #00ff66; color: #000; transform: scale(0.9); }
+
+        .pm-details { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .pm-details input { width: 100%; background-color: #0f121a; border: 1px solid #242c3d; border-radius: 8px; padding: 8px; color: #ffffff; font-size: 13px; outline: none; text-align: center; box-sizing: border-box; }
+
+        .admin-form-box { background-color: #161a23; border: 1px solid #242c3d; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box; }
+        .admin-form-box input, .admin-form-box select { width: 100%; background-color: #0b0e14; border: 1px solid #242c3d; padding: 10px; border-radius: 8px; color: #fff; font-size: 13px; outline: none; box-sizing: border-box; text-align: center; }
+
+        .inventory-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; box-sizing: border-box; }
+        .product-card { background-color: #161a23; border: 1px solid #242c3d; border-radius: 10px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; position: relative;}
+        .product-card h4 { margin: 4px 0 2px 0; font-size: 13px; word-break: break-word; }
+        .tag-cat { position: absolute; top: 8px; left: 8px; background: #242c3d; color: #8fa0b7; font-size: 8px; padding: 2px 5px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        
+        .footer-totals { background-color: #11151d; border: 1px solid #242c3d; border-radius: 12px; padding: 10px; width: 100%; box-sizing: border-box; }
+        .total-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 13px; color: #8fa0b7; }
+        .total-row strong { color: #ffffff; }
+        .total-row.final { border-top: 1px dashed #242c3d; margin-top: 4px; padding-top: 6px; font-size: 15px; font-weight: bold; color: #00ff66; }
+
+        .action-container { display: flex; gap: 6px; width: 100%; }
+        .btn-clear { flex: 1; background-color: #242c3d; color: #ffffff; border: 1px solid #313c52; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 11px; transition: transform 0.1s, background 0.2s; }
+        .btn-clear:active { background: #313c52; transform: scale(0.95); }
+        .btn-charge { flex: 1; background-color: #00ff66; color: #000000; border: none; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; font-size: 11px; transition: transform 0.1s; }
+        .btn-charge:active { transform: scale(0.95); }
+        .btn-print { flex: 1; background-color: #fff; color: #000; border: none; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; font-size: 11px; transition: transform 0.1s; }
+        .btn-print:active { transform: scale(0.95); }
+
+        .cierre-card { background-color: #161a23; border: 1px solid #242c3d; border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+        .cierre-card h4 { margin: 0 0 8px 0; color: #00ff66; border-bottom: 1px dashed #313c52; padding-bottom: 4px;}
+        .cierre-item { font-size: 12px; color: #8fa0b7; padding: 3px 0; display: flex; justify-content: space-between; }
+        .cierre-item span { color: #fff; font-weight: bold; text-align: right; }
+        .highlight-box { background: #0b0e14; padding: 8px; border-radius: 8px; margin-top: 8px; border: 1px solid #00ff66;}
+
+        #hidden-qr-reader { display: none; }
+        .hidden-file-input { display: none; }
+
+        .pm-status-banner { font-size: 11px; padding: 6px; border-radius: 6px; text-align: center; font-weight: bold; display: none; animation: fadeIn 0.2s ease; }
+        .pm-status-success { background: rgba(0, 255, 102, 0.15); border: 1px solid #00ff66; color: #00ff66; }
+        .pm-status-warning { background: rgba(255, 193, 7, 0.15); border: 1px solid #ffc107; color: #ffc107; }
+
+        .spinner-loader {
+            width: 32px; height: 32px;
+            border: 4px solid rgba(0, 255, 102, 0.2);
+            border-top: 4px solid #00ff66;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 10px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .toast-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #11151d;
+            border: 1px solid #00ff66;
+            color: #ffffff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(0, 255, 102, 0.4);
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+        .toast-notification.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .scan-feedback-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 3000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .scan-feedback-box {
+            width: 100px; height: 100px;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 50px;
+            animation: bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .scan-feedback-success { background: #00ff66; color: #000; box-shadow: 0 0 30px #00ff66; }
+        .scan-feedback-error { background: #ff5252; color: #fff; box-shadow: 0 0 30px #ff5252; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bounceIn { 
+            0% { transform: scale(0.3); opacity: 0; } 
+            50% { transform: scale(1.1); opacity: 1; } 
+            100% { transform: scale(1); } 
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+        .shake-effect { animation: shake 0.4s ease-in-out; }
+        .pulse-number { animation: pulseAnim 0.2s ease-out; }
+        @keyframes pulseAnim { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    </style>
 </head>
 <body>
 
-  <!-- Encabezado de Tasa BCV -->
-  <div class="bcv-header">
-    Tasa Oficial BCV: <span id="bcv-rate">Cargando...</span> VES/USD
-  </div>
+    <div class="app-container">
+        <div id="hidden-qr-reader"></div>
 
-  <!-- Pantalla Login Inicial (Cajero / Administrador) -->
-  <div id="login-modal" class="modal active">
-    <div class="modal-content">
-      <h2 style="text-align: center; margin-bottom: 15px;">Acceso al Sistema</h2>
-      <label for="user-role">Seleccione Perfil:</label>
-      <select id="user-role" onchange="actualizarListaCajeros()">
-        <option value="admin">Administrador</option>
-        <option value="cajero">Cajero</option>
-      </select>
+        <div id="scan-feedback" class="scan-feedback-overlay">
+            <div id="scan-feedback-box" class="scan-feedback-box"></div>
+            <p id="scan-feedback-msg" style="color:#fff; font-weight:bold; margin-top:15px; font-size:14px; text-shadow:0 0 8px #000;"></p>
+        </div>
 
-      <div id="cajero-select-container" style="display: none;">
-        <label for="cajero-list">Seleccione Cajero:</label>
-        <select id="cajero-list"></select>
-      </div>
+        <div id="toast" class="toast-notification"></div>
 
-      <label for="login-pass">Contraseña:</label>
-      <input type="password" id="login-pass" placeholder="Ingrese clave">
+        <div id="modal-confirm" class="modal-overlay">
+            <div class="modal-content" style="max-width: 320px; text-align: center;">
+                <h3 id="confirm-title" style="color:#00ff66;">Confirmar Acción</h3>
+                <p id="confirm-msg" style="color:#fff; font-size:13px; margin: 10px 0;"></p>
+                <div style="display:flex; gap:10px; margin-top: 10px;">
+                    <button class="btn-clear" id="confirm-btn-cancel">Cancelar</button>
+                    <button class="btn-charge" id="confirm-btn-accept">Aceptar</button>
+                </div>
+            </div>
+        </div>
 
-      <button class="btn-primary" onclick="iniciarSesion()">Ingresar</button>
+        <div id="modal-camara" class="modal-overlay">
+            <div class="modal-content" style="max-width: 400px; text-align: center;">
+                <h3>📸 Escanear Código de Barras</h3>
+                <div id="interactive-scanner" style="width: 100%; height: 240px; background: #000; border-radius: 8px; overflow: hidden; position: relative;"></div>
+                <button class="btn-clear" onclick="window.cerrarCamaraEnVivo()" style="margin-top: 10px;">Cancelar</button>
+            </div>
+        </div>
+
+        <div id="modal-cliente" class="modal-overlay">
+            <div class="modal-content">
+                <h3>📝 Datos de Facturación</h3>
+                <input type="text" id="cliente-nombre" placeholder="Nombre y Apellido" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+                <input type="text" id="cliente-cedula" placeholder="Cédula o RIF" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+                <input type="text" id="cliente-dir" placeholder="Dirección del Cliente" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-cliente').style.display='none'">Cancelar</button>
+                    <button class="btn-charge" onclick="document.getElementById('modal-cliente').style.display='none'; window.mostrarToast('✓ Cliente guardado');">Aplicar</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-combos" class="modal-overlay">
+            <div class="modal-content">
+                <h3>🎁 Combos y Ofertas</h3>
+                <div id="lista-combos-activos" style="display:flex; flex-direction:column; gap:8px;"></div>
+                <button class="btn-clear" onclick="document.getElementById('modal-combos').style.display='none'">Cerrar</button>
+            </div>
+        </div>
+
+        <div id="menu-principal">
+            <div class="logo-grande">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 25 h15 l12 32 h33 l10 -22 h-50" fill="none" stroke="#00ff66" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="45" cy="70" r="6" fill="none" stroke="#00ff66" stroke-width="3"/>
+                    <circle cx="70" cy="70" r="6" fill="none" stroke="#00ff66" stroke-width="3"/>
+                    <circle cx="58" cy="44" r="7" fill="#ffffff"/>
+                </svg>
+            </div>
+            <div class="main-title"><span style="color:#00ff66;">GEO MERCADO 🛍️</span></div>
+            <div class="version-tag">V19.1 EDICIÓN VENEZUELA</div>
+            <div class="role-badge">Usuario: <span id="txt-rol">Administrador 👑</span></div>
+
+            <div class="menu-grid">
+                <button class="btn-menu" onclick="window.cambiarModulo('modulo-caja')"><span class="icon">🛒</span>Caja de Cobro</button>
+                <button class="btn-menu" onclick="window.cambiarModulo('modulo-inventario')"><span class="icon">📦</span>Inventario</button>
+                <button class="btn-menu" onclick="window.cambiarModulo('modulo-cierre')"><span class="icon">📊</span>Cierre / Historial</button>
+                <button class="btn-menu" onclick="window.cambiarModulo('modulo-admin')"><span class="icon">⚙️</span>Ajustes y Perfil</button>
+            </div>
+        </div>
+
+        <div id="modulo-caja" class="modulo-app">
+            <div class="header-modulo">
+                <h3>🛒 Caja de Facturación</h3>
+                <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+            </div>
+
+            <div class="tools-carousel">
+                <button class="btn-tool" onclick="window.aparcarFactura()">⏸️ Pausar</button>
+                <button class="btn-tool" onclick="window.recuperarFactura()">📂 Recuperar</button>
+                <button class="btn-tool" onclick="document.getElementById('modal-cliente').style.display='flex'">📝 Cliente</button>
+                <button class="btn-tool" onclick="window.abrirModalCombos()" style="color:#00ff66; border-color:#00ff66;">🎁 Combos</button>
+                <button class="btn-tool" onclick="window.enviarDatosPagoMovilWS()" style="color:#25D366; border-color:#25D366;">📲 Enviar Pago Móvil</button>
+            </div>
+
+            <div class="cart-card">
+                <div class="cart-title">📝 Artículos en esta Venta</div>
+                <div class="cart-items-container" id="items-carrito-factura"></div>
+            </div>
+
+            <div class="input-group" style="padding:8px;">
+                <input type="text" id="buscador-caja" class="search-input" placeholder="🔍 Buscar producto..." oninput="window.filtrarBuscadorCaja(this.value)">
+                <div id="resultados-busqueda-caja" class="search-results-box"></div>
+            </div>
+
+            <div class="display-card">
+                <p style="font-size:10px; color:#8fa0b7; margin:0; font-weight:bold;">TOTAL A PAGAR</p>
+                <h2 id="grand-total-ves">0,00 Bs</h2>
+                <h3 id="grand-total-usd" style="font-size:14px; color:#8fa0b7;">$0.00</h3>
+            </div>
+
+            <button class="scanner-trigger" onclick="window.abrirCamaraEnVivo('caja')">
+                <span style="font-size:18px;">📸</span> LEER CÓDIGO BARRAS
+            </button>
+            <input type="file" id="file-barcode-caja" class="hidden-file-input" accept="image/*" capture="environment" onchange="window.escanearBarcodeFoto(event, 'caja')">
+
+            <div class="form-payments">
+                <button type="button" class="payment-toggle-btn" onclick="window.toggleMetodoPago('pay-box-ptv', this)">
+                    <span>💳 Punto de Venta (Tarjeta)</span>
+                    <span id="label-monto-ptv" style="color:#00ff66;">0,00 Bs</span>
+                </button>
+                <div id="pay-box-ptv" class="payment-content">
+                    <div class="input-group">
+                        <div class="input-row">
+                            <span>Bs</span>
+                            <input type="tel" id="pay-ptv" placeholder="0,00" oninput="window.mascaraMoneda(this); window.actualizarEtiquetasPago(); window.calcularCaja();">
+                            <button class="btn-max" onclick="window.llenarMaximo('ptv')">MAX</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="payment-toggle-btn" onclick="window.toggleMetodoPago('pay-box-pm', this)">
+                    <span>📲 Pago Móvil Recibido</span>
+                    <span id="label-monto-pm" style="color:#00ff66;">0,00 Bs</span>
+                </button>
+                <div id="pay-box-pm" class="payment-content">
+                    <div class="input-group">
+                        <div class="input-row">
+                            <span>Bs</span>
+                            <input type="tel" id="pay-pm" placeholder="0,00" oninput="window.mascaraMoneda(this); window.actualizarEtiquetasPago(); window.calcularCaja();">
+                            <button class="btn-max" onclick="window.llenarMaximo('pm')">MAX</button>
+                        </div>
+                        <div class="pm-details" style="margin-top:8px;">
+                            <input type="tel" id="pm-phone" placeholder="Teléfono del Cliente">
+                            <input type="tel" id="pm-ref" placeholder="Número de Referencia">
+                            <div id="pm-status-banner" class="pm-status-banner"></div>
+                            <button class="btn-clear" style="border:1px solid #00ff66; color:#00ff66; width:100%;" onclick="document.getElementById('file-ocr').click()">📸 LEER CAPTURE AUTO</button>
+                            <input type="file" id="file-ocr" class="hidden-file-input" accept="image/*" onchange="window.escanearCapturePagoCompleto(event)">
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="payment-toggle-btn" onclick="window.toggleMetodoPago('pay-box-usd', this)">
+                    <span>💵 Efectivo Divisas ($)</span>
+                    <span id="label-monto-usd" style="color:#00ff66;">$0</span>
+                </button>
+                <div id="pay-box-usd" class="payment-content">
+                    <div class="input-group">
+                        <div class="input-row">
+                            <span>$</span>
+                            <input type="tel" id="pay-usd" placeholder="0" oninput="window.actualizarEtiquetasPago(); window.calcularCaja();">
+                            <button class="btn-max" onclick="window.llenarMaximo('usd')">MAX</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="payment-toggle-btn" onclick="window.toggleMetodoPago('pay-box-ves', this)">
+                    <span>🫴 Efectivo Bolívares</span>
+                    <span id="label-monto-ves" style="color:#00ff66;">0,00 Bs</span>
+                </button>
+                <div id="pay-box-ves" class="payment-content">
+                    <div class="input-group">
+                        <div class="input-row">
+                            <span>Bs</span>
+                            <input type="tel" id="pay-ves" placeholder="0,00" oninput="window.mascaraMoneda(this); window.actualizarEtiquetasPago(); window.calcularCaja();">
+                            <button class="btn-max" onclick="window.llenarMaximo('ves')">MAX</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-totals">
+                <div class="total-row"><span>Total Recibido:</span><strong id="total-recibido-ves">0,00 Bs</strong></div>
+                <div class="total-row final"><span>Diferencia / Vuelto:</span><span id="total-restante-ves">0,00 Bs</span></div>
+            </div>
+
+            <div class="action-container">
+                <button class="btn-clear" onclick="window.limpiarCaja(false)">LIMPIAR</button>
+                <button class="btn-charge" onclick="window.procesarCobro(false)">COBRAR</button>
+                <button class="btn-print" onclick="window.procesarCobro(true)">🖨️ TICKET</button>
+            </div>
+        </div>
+
+        <div id="modulo-inventario" class="modulo-app">
+            <div class="header-modulo">
+                <h3>📦 Catálogo de Mercancía</h3>
+                <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+            </div>
+
+            <div class="admin-form-box" id="form-registro-prod">
+                <h4 style="margin:0; color:#00ff66; text-align:center;">Registrar / Editar Artículo</h4>
+                
+                <input type="text" id="prod-name" placeholder="Nombre (Ej. Mantequilla Nelly)">
+                
+                <div style="display:flex; gap:8px;">
+                    <input type="number" step="0.01" id="prod-costo" placeholder="Costo ($)" oninput="window.calcularGanancia()">
+                    <input type="number" step="0.01" id="prod-margen" placeholder="Margen %" oninput="window.calcularGanancia()">
+                </div>
+                <div style="text-align:center; color:#00ff66; font-size:12px;">Precio Final Sugerido: <strong id="lbl-precio-calc">$0.00</strong></div>
+
+                <div style="display:flex; align-items:center; justify-content:center; gap:8px; background:#0b0e14; padding:8px; border-radius:8px;">
+                    <input type="checkbox" id="prod-iva" style="width:18px; height:18px;"> 
+                    <label style="color:#8fa0b7; font-size:12px; margin:0;">Sumar IVA (16%) al Vender</label>
+                </div>
+
+                <select id="prod-cat">
+                    <option value="Víveres">🛒 Víveres</option>
+                    <option value="Limpieza">🧼 Limpieza</option>
+                    <option value="Charcutería">🧀 Charcutería</option>
+                    <option value="Frutería">🍎 Frutería</option>
+                    <option value="Otros">📦 Otros</option>
+                </select>
+
+                <select id="prod-type" onchange="window.conmutarCampoCantidad(this.value)">
+                    <option value="unidad">Venta por Unidad 📦</option>
+                    <option value="peso">Venta al Peso / Kilo ⚖️</option>
+                    <option value="combo" style="color:#00ff66; font-weight:bold;">Combo / Oferta 🎁</option>
+                </select>
+                <input type="number" id="prod-qty" placeholder="Cantidad Disponible en Tienda">
+
+                <input type="text" id="prod-emoji" placeholder="Elige un Emoji (Ej. 📦, 🧴)" maxlength="2">
+
+                <input type="tel" id="prod-serial" placeholder="Serial / Código de Barras">
+                <button class="btn-clear" style="border:1px solid #00ff66; color:#00ff66; width:100%; display:flex; justify-content:center; gap:8px;" onclick="window.abrirCamaraEnVivo('registro')">
+                    <span style="font-size:16px;">📸</span> SCANNER CÓDIGO BARRAS
+                </button>
+                <input type="file" id="file-barcode-reg" class="hidden-file-input" accept="image/*" capture="environment" onchange="window.escanearBarcodeFoto(event, 'registro')">
+                
+                <button id="btn-guardar-prod" class="btn-charge" onclick="window.agregarProductoNuevo()">Guardar Producto</button>
+                <button id="btn-cancelar-edicion" class="btn-clear" style="display:none; border-color:#ff5252; color:#ff5252;" onclick="window.cancelarEdicion()">Cancelar Edición</button>
+            </div>
+
+            <input type="text" id="buscador-inventario" class="search-input" placeholder="🔍 Buscar en inventario..." oninput="window.renderizarInventario(this.value)">
+            <div class="inventory-grid" id="lista-productos"></div>
+        </div>
+
+        <div id="modulo-cierre" class="modulo-app">
+            <div class="header-modulo">
+                <h3>📊 Cierre de Caja y Facturas</h3>
+                <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+            </div>
+            
+            <div class="cierre-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px dashed #313c52; padding-bottom:4px;">
+                    <h4 style="margin:0; border:none; padding:0;">1. Ventas Netas del Día</h4>
+                    <button style="background:#fff; color:#000; border:none; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:10px; cursor:pointer;" onclick="window.imprimirCierreZ()">🖨️ IMPRIMIR Z</button>
+                </div>
+                
+                <div class="cierre-item">Total Punto de Venta: <span id="resumen-ptv">0,00 Bs</span></div>
+                <div class="cierre-item">Total Pago Móvil: <span id="resumen-pm">0,00 Bs</span></div>
+                <div class="cierre-item">Total Efectivo (Bs): <span id="resumen-ves">0,00 Bs</span></div>
+                <hr style="border-top:1px dashed #313c52; margin:6px 0;">
+                <div class="cierre-item" style="color:#00ff66; font-size:14px;">Ganancia Total (Bs): <span id="resumen-ganancia-ves">0,00 Bs</span></div>
+                <div class="cierre-item" style="color:#8fa0b7; font-size:11px;">Efectivo Divisas ($) Físico: <span id="resumen-efectivo-usd" style="color:#fff;">$0.00</span></div>
+            </div>
+
+            <div class="cierre-card highlight-box">
+                <h4 style="color:#fff;">2. Cuadre de Gaveta Física</h4>
+                <div class="cierre-item" style="color:#8fa0b7;">Fondo Inicial ($): <span id="cierre-fondo-usd">0.00 $</span></div>
+                <div class="cierre-item" style="color:#8fa0b7;">Fondo Inicial (Bs): <span id="cierre-fondo-ves">0,00 Bs</span></div>
+                <hr style="border-top:1px dashed #313c52; margin:6px 0;">
+                <div style="font-size:11px; color:#8fa0b7; margin-bottom:4px;">Dinero físico exacto que debe haber en caja:</div>
+                <div class="cierre-item" style="color:#00ff66;">Efectivo Esperado ($): <span id="esperado-usd">0.00 $</span></div>
+                <div class="cierre-item" style="color:#00ff66;">Efectivo Esperado (Bs): <span id="esperado-ves">0,00 Bs</span></div>
+            </div>
+
+            <h4 style="color:#8fa0b7; margin: 8px 0 4px 0; font-size:13px;">Historial de Facturas:</h4>
+            <div id="lista-historial-ventas"></div>
+            <button class="btn-clear" style="margin-top:10px; width:100%; background:#ff5252; color:#fff;" onclick="window.borrarHistorial()">BORRAR TODO Y REINICIAR DÍA</button>
+        </div>
+
+        <div id="modulo-admin" class="modulo-app">
+            <div class="header-modulo">
+                <h3>⚙️ Ajustes y Perfil</h3>
+                <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+            </div>
+            
+            <div class="admin-form-box" style="border-color:#00ff66;">
+                <label style="color:#00ff66; font-weight:bold;">🏢 Perfil del Negocio (Para Facturas)</label>
+                <input type="text" id="cfg-nombre" placeholder="Nombre de la Tienda" onchange="window.guardarPerfil()">
+                <input type="text" id="cfg-rif" placeholder="RIF (Ej. J-1234567)" onchange="window.guardarPerfil()">
+                <input type="text" id="cfg-tlf" placeholder="Teléfono del Local" onchange="window.guardarPerfil()">
+                <input type="text" id="cfg-dir" placeholder="Dirección Corta" onchange="window.guardarPerfil()">
+            </div>
+
+            <div class="admin-form-box" style="border-color:#00ff66;">
+                <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor (Verificación)</label>
+                <input type="text" id="cfg-pm-banco" placeholder="Banco (Ej. BDV, Banesco, Mercantil)" onchange="window.guardarPerfil()">
+                <input type="text" id="cfg-pm-cedula" placeholder="Cédula / RIF Destino" onchange="window.guardarPerfil()">
+                <input type="text" id="cfg-pm-tlf" placeholder="Teléfono Pago Móvil Destino" onchange="window.guardarPerfil()">
+            </div>
+
+            <div class="admin-form-box">
+                <label style="color:#8fa0b7; font-weight:bold;">🔐 Seguridad</label>
+                <input type="number" id="cfg-pin" placeholder="PIN Administrador (Ej. 1234)" onchange="window.guardarPerfil()">
+            </div>
+
+            <div class="admin-form-box">
+                <label style="color:#00ff66; font-weight:bold;">💵 APERTURA: Fondo de Caja</label>
+                <input type="number" step="0.01" id="input-fondo-usd" placeholder="Sencillo Físico ($)" onchange="window.guardarFondoCaja()">
+                <input type="number" step="0.01" id="input-fondo-ves" placeholder="Sencillo Físico (Bs)" onchange="window.guardarFondoCaja()">
+            </div>
+            
+            <div class="admin-form-box">
+                <label>📈 Modificar Tasa del Dólar (Bs):</label>
+                <div style="display:flex; gap:6px;">
+                    <input type="number" step="0.01" id="input-tasa-global" value="623.02" oninput="window.cambiarTasaManual(this.value)">
+                    <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; flex:none; padding:0 10px;" onclick="window.obtenerTasaBCV()">📡 BCV</button>
+                </div>
+            </div>
+
+            <div class="admin-form-box">
+                <label style="color:#00ff66; font-weight:bold;">💾 Gestión de Datos del Catálogo</label>
+                <button class="btn-charge" style="background:#242c3d; color:#fff;" onclick="window.exportarProductosJSON()">📤 Exportar Inventario (JSON)</button>
+                <button class="btn-charge" style="background:#161a23; border: 1px solid #00ff66; color:#00ff66;" onclick="document.getElementById('input-import-json').click()">📥 Importar Inventario (JSON)</button>
+                <input type="file" id="input-import-json" class="hidden-file-input" accept=".json" onchange="window.importarProductosJSON(event)">
+            </div>
+            
+            <div class="admin-form-box">
+                <label>👤 Configurar Perfil de Operación:</label>
+                <button class="btn-charge" style="background:#242c3d; color:#fff; margin-bottom:4px;" onclick="window.conmutarPerfil('Cajero 👤')">Modo Cajero</button>
+                <button class="btn-charge" onclick="window.intentarAdmin()">Modo Administrador</button>
+            </div>
+        </div>
+
     </div>
-  </div>
 
-  <!-- Contenedor Principal -->
-  <div class="app-container" id="app-main" style="display: none;">
-    <!-- Barra Navegación -->
-    <div class="sidebar">
-      <h2 id="session-info">POS App</h2>
-      <button class="nav-btn active" onclick="verModulo('ventas')">Ventas / Cierre</button>
-      <button class="nav-btn" onclick="verModulo('fiados')">Cuentas por Cobrar (Fiados)</button>
-      <button class="nav-btn" id="btn-ajustes" onclick="verModulo('ajustes')">Ajustes / Usuarios</button>
-      <button class="nav-btn" onclick="verModulo('licencia')">Comprar / Licencia</button>
-      <button class="nav-btn btn-danger" onclick="cerrarSesion()">Cerrar Sesión</button>
-    </div>
+    <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script defer src="https://unpkg.com/html5-qrcode"></script>
 
-    <!-- Contenido Modular -->
-    <div class="main-content">
-      
-      <!-- Módulo Ventas -->
-      <div id="mod-ventas" class="modulo">
-        <h2>Punto de Venta</h2>
-        <div class="card">
-          <h3>Nueva Factura</h3>
-          <input type="text" id="venta-cliente" placeholder="Nombre del Cliente">
-          <input type="number" id="venta-monto" placeholder="Monto en USD ($)">
-          <p>Monto en VES: <strong id="venta-monto-ves">0.00</strong> BS</p>
-          <button class="btn-primary" onclick="generarFacturaQR()">Generar Factura y QR Pago Móvil</button>
-        </div>
-
-        <!-- QR Modal Display -->
-        <div id="qr-modal" class="modal">
-          <div class="modal-content" style="text-align: center;">
-            <h3>Escanea para Pago Móvil</h3>
-            <p id="qr-info-monto"></p>
-            <div id="qrcode"></div>
-            <button class="btn-primary" onclick="compartirWhatsApp()">Enviar por WhatsApp</button>
-            <button class="btn-danger" onclick="cerrarQRModal()">Cerrar</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Módulo Fiados -->
-      <div id="mod-fiados" class="modulo" style="display:none;">
-        <h2>Cuentas por Cobrar (Fiados)</h2>
-        <div class="card">
-          <h3>Registrar Deuda</h3>
-          <input type="text" id="fiado-cliente" placeholder="Nombre del Deudor">
-          <input type="number" id="fiado-monto-usd" placeholder="Monto en USD ($)">
-          <button class="btn-primary" onclick="agregarFiado()">Registrar Fiado</button>
-        </div>
-        <div class="card">
-          <h3>Lista de Deudores</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Monto USD</th>
-                <th>Monto VES (Tasa del día)</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody id="tabla-fiados"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Módulo Ajustes -->
-      <div id="mod-ajustes" class="modulo" style="display:none;">
-        <h2>Ajustes y Gestión de Cajeros</h2>
-        <div class="card">
-          <h3>Agregar Nuevo Cajero</h3>
-          <input type="text" id="nuevo-cajero-nombre" placeholder="Nombre de Cajero">
-          <input type="password" id="nuevo-cajero-clave" placeholder="Contraseña">
-          <button class="btn-primary" onclick="guardarCajero()">Registrar Cajero</button>
-        </div>
-      </div>
-
-      <!-- Módulo Licencia -->
-      <div id="mod-licencia" class="modulo" style="display:none;">
-        <h2>Activar Licencia de la App</h2>
-        <div class="card">
-          <h3>Adquirir / Renovar Suscripción</h3>
-          <p>Planes disponibles:</p>
-          <ul>
-            <li>Mensual: <strong>$5 USD</strong></li>
-            <li>Anual: <strong>$45 USD</strong></li>
-          </ul>
-          <br>
-          <p>Realice su pago móvil y registre el número de referencia con su código de activación.</p>
-          <input type="text" id="licencia-ref" placeholder="Número de Referencia de Pago Móvil">
-          <input type="password" id="licencia-codigo" placeholder="Código de Desbloqueo">
-          <button class="btn-primary" onclick="activarLicencia()">Activar Aplicación</button>
-          <p id="estado-licencia" style="margin-top:10px; font-weight:bold;"></p>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <script>
-    // Variables globales y base de datos local (localStorage)
-    let tasaBCV = 0;
-    let sesionActual = null;
-
-    let usuarios = JSON.parse(localStorage.getItem('pos_usuarios')) || {
-      admin: { clave: '612003' },
-      cajeros: [{ nombre: 'Cajero Principal', clave: '1234' }]
-    };
-
-    let fiados = JSON.parse(localStorage.getItem('pos_fiados')) || [];
-    let licenciaActiva = localStorage.getItem('pos_licencia') === 'true';
-
-    // Inicialización de la app
-    window.onload = function() {
-      obtenerTasaBCV();
-      actualizarListaCajeros();
-      if (!licenciaActiva) {
-        console.log("Aplicación sin licencia activa.");
-      }
-    };
-
-    // 5. Obtener tasa del dólar BCV
-    function obtenerTasaBCV() {
-      fetch('https://rates.dolarvzla.com/bcv/current.json')
-        .then(res => res.json())
-        .then(data => {
-          if(data && data.price) {
-            tasaBCV = parseFloat(data.price);
-            document.getElementById('bcv-rate').innerText = tasaBCV.toFixed(2);
-            renderizarFiados();
-          }
-        })
-        .catch(err => {
-          console.error("Error al obtener tasa BCV:", err);
-          document.getElementById('bcv-rate').innerText = "Error";
-        });
-    }
-
-    // 1. Manejo de Login y Roles
-    function actualizarListaCajeros() {
-      const role = document.getElementById('user-role').value;
-      const container = document.getElementById('cajero-select-container');
-      const list = document.getElementById('cajero-list');
-      
-      if (role === 'cajero') {
-        container.style.display = 'block';
-        list.innerHTML = '';
-        usuarios.cajeros.forEach((c, index) => {
-          list.innerHTML += `<option value="${index}">${c.nombre}</option>`;
-        });
-      } else {
-        container.style.display = 'none';
-      }
-    }
-
-    function iniciarSesion() {
-      const role = document.getElementById('user-role').value;
-      const pass = document.getElementById('login-pass').value;
-
-      if (role === 'admin') {
-        if (pass === usuarios.admin.clave) {
-          sesionActual = { role: 'admin', nombre: 'Administrador' };
-          ingresar();
-        } else {
-          alert('Clave de Administrador incorrecta.');
+    <script>
+        var tasaDia = parseFloat(localStorage.getItem('geomercado_tasa_v19')) || 623.02;
+        var totalVentaUSD = 0.00;
+        var totalVentaVES = 0.00; 
+        var rolActual = "Administrador 👑";
+        var carrito = [];
+        var productos = [];
+        var ventasHistorico = [];
+        var facturasEnEspera = [];
+        var fondoCaja = { usd: 0, ves: 0 };
+        var perfilNegocio = { nombre: "Geo Mercado 🛍️", rif: "", dir: "", tlf: "", pin: "1234", pmBanco: "", pmCedula: "", pmTlf: "" };
+        var productoEnEdicion = null;
+        var html5QrScannerInstancia = null;
+        
+        try {
+            var db = window.localStorage ? window.localStorage.getItem('geomercado_db_v19') : null;
+            productos = db ? JSON.parse(db) : [];
+            var dbVentas = window.localStorage ? window.localStorage.getItem('geomercado_ventas_v19') : null;
+            ventasHistorico = dbVentas ? JSON.parse(dbVentas) : [];
+            var dbFondo = window.localStorage ? window.localStorage.getItem('geomercado_fondo_v19') : null;
+            if(dbFondo) fondoCaja = JSON.parse(dbFondo);
+            var dbEspera = window.localStorage ? window.localStorage.getItem('geomercado_espera_v19') : null;
+            if(dbEspera) facturasEnEspera = JSON.parse(dbEspera);
+            var dbPerfil = window.localStorage ? window.localStorage.getItem('geomercado_perfil_v19') : null;
+            if(dbPerfil) perfilNegocio = JSON.parse(dbPerfil);
+        } catch(e) {
+            console.error("Error cargando base de datos local:", e);
         }
-      } else {
-        const idx = document.getElementById('cajero-list').value;
-        const cajero = usuarios.cajeros[idx];
-        if (cajero && pass === cajero.clave) {
-          sesionActual = { role: 'cajero', nombre: cajero.nombre };
-          ingresar();
-        } else {
-          alert('Clave de Cajero incorrecta.');
-        }
-      }
-    }
 
-    function ingresar() {
-      document.getElementById('login-modal').classList.remove('active');
-      document.getElementById('app-main').style.display = 'flex';
-      document.getElementById('session-info').innerText = `${sesionActual.nombre}`;
-      
-      // Control de visibilidad para Administrador
-      if (sesionActual.role !== 'admin') {
-        document.getElementById('btn-ajustes').style.display = 'none';
-      } else {
-        document.getElementById('btn-ajustes').style.display = 'block';
-      }
-    }
+        window.onload = function() {
+            var inputTasa = document.getElementById('input-tasa-global');
+            if(inputTasa) inputTasa.value = tasaDia;
+            
+            document.getElementById('cfg-nombre').value = perfilNegocio.nombre || "";
+            document.getElementById('cfg-rif').value = perfilNegocio.rif || "";
+            document.getElementById('cfg-tlf').value = perfilNegocio.tlf || "";
+            document.getElementById('cfg-dir').value = perfilNegocio.dir || "";
+            document.getElementById('cfg-pin').value = perfilNegocio.pin || "1234";
+            document.getElementById('cfg-pm-banco').value = perfilNegocio.pmBanco || "";
+            document.getElementById('cfg-pm-cedula').value = perfilNegocio.pmCedula || "";
+            document.getElementById('cfg-pm-tlf').value = perfilNegocio.pmTlf || "";
+            
+            document.getElementById('input-fondo-usd').value = fondoCaja.usd || "";
+            document.getElementById('input-fondo-ves').value = fondoCaja.ves || "";
 
-    function cerrarSesion() {
-      sesionActual = null;
-      document.getElementById('app-main').style.display = 'none';
-      document.getElementById('login-modal').classList.add('active');
-      document.getElementById('login-pass').value = '';
-    }
+            window.obtenerTasaBCV(true);
+        };
 
-    // Navegación
-    function verModulo(mod) {
-      document.querySelectorAll('.modulo').forEach(m => m.style.display = 'none');
-      document.getElementById(`mod-${mod}`).style.display = 'block';
-    }
+        window.obtenerTasaBCV = function(silencioso) {
+            fetch('https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data && data.moneda && data.moneda.usd) {
+                    var valorBcv = parseFloat(data.moneda.usd);
+                    if (!isNaN(valorBcv) && valorBcv > 0) {
+                        tasaDia = valorBcv;
+                        var inputTasa = document.getElementById('input-tasa-global');
+                        if (inputTasa) inputTasa.value = tasaDia;
+                        if (window.localStorage) window.localStorage.setItem('geomercado_tasa_v19', tasaDia);
+                        window.recalcularTotalesCarrito();
+                        window.renderizarCarritoCaja();
+                        if (!silencioso) window.mostrarToast("✓ Tasa BCV actualizada: " + tasaDia.toFixed(2) + " Bs");
+                    }
+                }
+            })
+            .catch(function(err) {
+                if (!silencioso) window.mostrarToast("⚠️ No se pudo obtener la tasa BCV");
+            });
+        };
 
-    // 2. Generador de QR Pago Móvil
-    document.getElementById('venta-monto').addEventListener('input', function() {
-      const usd = parseFloat(this.value) || 0;
-      const ves = usd * tasaBCV;
-      document.getElementById('venta-monto-ves').innerText = ves.toFixed(2);
-    });
+        window.recalcularTotalesCarrito = function() {
+            totalVentaUSD = 0.00;
+            for(var i = 0; i < carrito.length; i++) {
+                totalVentaUSD += carrito[i].totalUSD;
+            }
+            totalVentaVES = totalVentaUSD * tasaDia;
+        };
 
-    function generarFacturaQR() {
-      const montoUSD = parseFloat(document.getElementById('venta-monto').value);
-      if (!montoUSD) return alert("Ingrese un monto válido.");
+        window.mostrarToast = function(mensaje) {
+            var toast = document.getElementById('toast');
+            if(!toast) return;
+            toast.innerText = mensaje;
+            toast.classList.add('show');
+            setTimeout(function(){ toast.classList.remove('show'); }, 2500);
+        };
 
-      const montoVES = (montoUSD * tasaBCV).toFixed(2);
-      const qrContainer = document.getElementById('qrcode');
-      qrContainer.innerHTML = '';
+        window.mostrarFeedbackAnimado = function(tipo, msj) {
+            var overlay = document.getElementById('scan-feedback');
+            var box = document.getElementById('scan-feedback-box');
+            var msgEl = document.getElementById('scan-feedback-msg');
+            
+            if(!overlay || !box || !msgEl) return;
+            
+            if(tipo === 'exito') {
+                box.className = 'scan-feedback-box scan-feedback-success';
+                box.innerText = '✔';
+            } else {
+                box.className = 'scan-feedback-box scan-feedback-error';
+                box.innerText = '✖';
+                document.body.classList.add('shake-effect');
+                setTimeout(function(){ document.body.classList.remove('shake-effect'); }, 400);
+            }
+            msgEl.innerText = msj;
+            overlay.style.display = 'flex';
+            
+            setTimeout(function(){ overlay.style.display = 'none'; }, 1300);
+        };
 
-      const datosPagoMovil = `PAGO MOVIL - Monto: BS. ${montoVES} (USD ${montoUSD})`;
-      new QRCode(qrContainer, {
-        text: datosPagoMovil,
-        width: 180,
-        height: 180
-      });
+        window.mostrarConfirmacion = function(titulo, mensaje, accionAceptar) {
+            var modal = document.getElementById('modal-confirm');
+            var titleEl = document.getElementById('confirm-title');
+            var msgEl = document.getElementById('confirm-msg');
+            var btnAccept = document.getElementById('confirm-btn-accept');
+            var btnCancel = document.getElementById('confirm-btn-cancel');
 
-      document.getElementById('qr-info-monto').innerText = `Total: $${montoUSD} / BS. ${montoVES}`;
-      document.getElementById('qr-modal').classList.add('active');
-    }
+            if(!modal) return;
+            titleEl.innerText = titulo;
+            msgEl.innerText = mensaje;
+            modal.style.display = 'flex';
 
-    function cerrarQRModal() {
-      document.getElementById('qr-modal').classList.remove('active');
-    }
+            btnAccept.onclick = function() {
+                modal.style.display = 'none';
+                if(typeof accionAceptar === 'function') accionAceptar();
+            };
+            btnCancel.onclick = function() {
+                modal.style.display = 'none';
+            };
+        };
 
-    function compartirWhatsApp() {
-      const cliente = document.getElementById('venta-cliente').value || "Cliente";
-      const montoUSD = document.getElementById('venta-monto').value;
-      const montoVES = (parseFloat(montoUSD) * tasaBCV).toFixed(2);
-      
-      const text = `Hola ${cliente}, tu total a pagar es: $${montoUSD} USD (${montoVES} BS).`;
-      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-    }
+        window.escapeHTML = function(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        };
 
-    // 3. Desbloqueo y Licencia
-    function activarLicencia() {
-      const codigo = document.getElementById('licencia-codigo').value;
-      const codigoMaster = "30629612003";
+        window.toggleMetodoPago = function(idContenedor, btn) {
+            var el = document.getElementById(idContenedor);
+            if(!el) return;
+            var desplegado = el.classList.contains('show');
+            if (desplegado) {
+                el.classList.remove('show');
+                btn.classList.remove('active');
+            } else {
+                el.classList.add('show');
+                btn.classList.add('active');
+            }
+        };
 
-      if (codigo === codigoMaster) {
-        localStorage.setItem('pos_licencia', 'true');
-        licenciaActiva = true;
-        document.getElementById('estado-licencia').innerText = "¡Licencia De Por Vida Activada!";
-        document.getElementById('estado-licencia').style.color = "green";
-      } else {
-        alert("Código de activación inválido.");
-      }
-    }
+        window.actualizarEtiquetasPago = function() {
+            var ptv = window.extraerNumeroLimpio('pay-ptv');
+            var pm = window.extraerNumeroLimpio('pay-pm');
+            var usd = parseFloat(document.getElementById('pay-usd').value) || 0;
+            var ves = window.extraerNumeroLimpio('pay-ves');
 
-    // 4. Módulo de Fiados
-    function agregarFiado() {
-      const cliente = document.getElementById('fiado-cliente').value;
-      const montoUSD = parseFloat(document.getElementById('fiado-monto-usd').value);
+            document.getElementById('label-monto-ptv').innerText = window.formatVE(ptv);
+            document.getElementById('label-monto-pm').innerText = window.formatVE(pm);
+            document.getElementById('label-monto-usd').innerText = "$" + usd.toFixed(2);
+            document.getElementById('label-monto-ves').innerText = window.formatVE(ves);
+        };
 
-      if (!cliente || !montoUSD) return alert("Complete los datos requeridos.");
+        window.cambiarModulo = function(idModulo) {
+            if((idModulo === 'modulo-admin' || idModulo === 'modulo-cierre') && rolActual !== "Administrador 👑") {
+                window.mostrarFeedbackAnimado('error', 'Bloqueado: Requiere Administrador');
+                return;
+            }
+            document.getElementById('menu-principal').style.display = 'none';
+            var modulos = document.querySelectorAll('.modulo-app');
+            for(var i=0; i<modulos.length; i++) modulos[i].style.display = 'none';
+            
+            var target = document.getElementById(idModulo);
+            if(target) target.style.display = 'flex';
+            
+            if(idModulo === 'modulo-inventario') {
+                document.getElementById('buscador-inventario').value = "";
+                window.cancelarEdicion();
+                window.renderizarInventario("");
+            }
+            if(idModulo === 'modulo-caja') {
+                document.getElementById('buscador-caja').value = "";
+                document.getElementById('resultados-busqueda-caja').innerHTML = "";
+                window.renderizarCarritoCaja();
+            }
+            if(idModulo === 'modulo-cierre') window.renderizarCierreDeCaja();
+        };
 
-      fiados.push({ cliente, montoUSD });
-      localStorage.setItem('pos_fiados', JSON.stringify(fiados));
-      renderizarFiados();
-      
-      document.getElementById('fiado-cliente').value = '';
-      document.getElementById('fiado-monto-usd').value = '';
-    }
+        window.volverAlMenu = function() {
+            var modulos = document.querySelectorAll('.modulo-app');
+            for(var i=0; i<modulos.length; i++) modulos[i].style.display = 'none';
+            document.getElementById('menu-principal').style.display = 'flex';
+        };
 
-    function renderizarFiados() {
-      const tbody = document.getElementById('tabla-fiados');
-      tbody.innerHTML = '';
-      
-      fiados.forEach((f, idx) => {
-        const ves = (f.montoUSD * tasaBCV).toFixed(2);
-        tbody.innerHTML += `
-          <tr>
-            <td>${f.cliente}</td>
-            <td>$${f.montoUSD.toFixed(2)}</td>
-            <td>BS. ${ves}</td>
-            <td><button class="btn-danger" onclick="eliminarFiado(${idx})">Saldar</button></td>
-          </tr>
-        `;
-      });
-    }
+        window.conmutarPerfil = function(nuevoRol) {
+            rolActual = nuevoRol;
+            document.getElementById('txt-rol').innerText = nuevoRol;
+            window.mostrarToast("Perfil: " + nuevoRol);
+            window.volverAlMenu();
+        };
 
-    function eliminarFiado(idx) {
-      fiados.splice(idx, 1);
-      localStorage.setItem('pos_fiados', JSON.stringify(fiados));
-      renderizarFiados();
-    }
+        window.intentarAdmin = function() {
+            var pin = prompt("Ingresa PIN de Administrador:");
+            if(pin === perfilNegocio.pin) {
+                window.conmutarPerfil("Administrador 👑");
+            } else {
+                window.mostrarFeedbackAnimado('error', 'PIN Incorrecto');
+            }
+        };
 
-    // Guardar nuevo cajero
-    function guardarCajero() {
-      const nombre = document.getElementById('nuevo-cajero-nombre').value;
-      const clave = document.getElementById('nuevo-cajero-clave').value;
+        window.mascaraMoneda = function(input) {
+            var valor = input.value.replace(/\D/g, "");
+            if(valor === "") { input.value = ""; return; }
+            var numero = (parseFloat(valor) / 100).toFixed(2);
+            var partes = numero.split('.');
+            partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            input.value = partes.join(',');
+        };
 
-      if (!nombre || !clave) return alert("Ingrese el nombre y la clave.");
+        window.extraerNumeroLimpio = function(idInput) {
+            var el = document.getElementById(idInput);
+            if(!el || !el.value) return 0;
+            return parseFloat(el.value.replace(/\./g, '').replace(',', '.')) || 0;
+        };
 
-      usuarios.cajeros.push({ nombre, clave });
-      localStorage.setItem('pos_usuarios', JSON.stringify(usuarios));
-      alert("Cajero registrado exitosamente.");
-      
-      document.getElementById('nuevo-cajero-nombre').value = '';
-      document.getElementById('nuevo-cajero-clave').value = '';
-      actualizarListaCajeros();
-    }
-  </script>
+        window.formatVE = function(monto) {
+            return Number(monto || 0).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' Bs';
+        };
+        window.formatUSD = function(monto) {
+            return "$" + Number(monto || 0).toFixed(2);
+        };
+
+        window.guardarFondoCaja = function() {
+            fondoCaja.usd = parseFloat(document.getElementById('input-fondo-usd').value) || 0;
+            fondoCaja.ves = parseFloat(document.getElementById('input-fondo-ves').value) || 0;
+            if (window.localStorage) window.localStorage.setItem('geomercado_fondo_v19', JSON.stringify(fondoCaja));
+            window.mostrarToast("Fondo de caja guardado");
+        };
+
+        window.guardarPerfil = function() {
+            perfilNegocio.nombre = document.getElementById('cfg-nombre').value || "Geo Mercado 🛍️";
+            perfilNegocio.rif = document.getElementById('cfg-rif').value || "";
+            perfilNegocio.tlf = document.getElementById('cfg-tlf').value || "";
+            perfilNegocio.dir = document.getElementById('cfg-dir').value || "";
+            perfilNegocio.pin = document.getElementById('cfg-pin').value || "1234";
+            
+            perfilNegocio.pmBanco = document.getElementById('cfg-pm-banco').value || "";
+            perfilNegocio.pmCedula = document.getElementById('cfg-pm-cedula').value || "";
+            perfilNegocio.pmTlf = document.getElementById('cfg-pm-tlf').value || "";
+
+            if (window.localStorage) window.localStorage.setItem('geomercado_perfil_v19', JSON.stringify(perfilNegocio));
+            window.mostrarToast("Perfil actualizado");
+        };
+
+        window.cambiarTasaManual = function(nuevaTasa) {
+            tasaDia = parseFloat(nuevaTasa) || 623.02;
+            if (window.localStorage) window.localStorage.setItem('geomercado_tasa_v19', tasaDia);
+            window.recalcularTotalesCarrito();
+            window.renderizarCarritoCaja();
+        };
+
+        window.exportarProductosJSON = function() {
+            var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(productos, null, 2));
+            var downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "inventario_geomercado.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            window.mostrarToast("Exportación completada");
+        };
+
+        window.importarProductosJSON = function(event) {
+            var fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                try {
+                    var parsed = JSON.parse(e.target.result);
+                    if(Array.isArray(parsed)) {
+                        productos = parsed;
+                        if (window.localStorage) window.localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                        window.renderizarInventario("");
+                        window.mostrarToast("✓ Inventario cargado");
+                    } else {
+                        window.mostrarFeedbackAnimado('error', 'Formato JSON Inválido');
+                    }
+                } catch(err) {
+                    window.mostrarFeedbackAnimado('error', 'Error leyendo archivo');
+                }
+            };
+            if(event.target.files && event.target.files[0]) {
+                fileReader.readAsText(event.target.files[0]);
+            }
+        };
+
+        window.calcularGanancia = function() {
+            var costo = parseFloat(document.getElementById('prod-costo').value) || 0;
+            var margen = parseFloat(document.getElementById('prod-margen').value) || 0;
+            var final = costo + (costo * (margen / 100));
+            document.getElementById('lbl-precio-calc').innerText = "$" + final.toFixed(2);
+        };
+
+        window.conmutarCampoCantidad = function(tipo) {
+            var eQty = document.getElementById('prod-qty');
+            if(eQty) eQty.style.display = (tipo === 'peso') ? 'none' : 'block';
+        };
+
+        window.editarProducto = function(id) {
+            var p = null;
+            for(var i=0; i<productos.length; i++) {
+                if(productos[i].id === id) { p = productos[i]; break; }
+            }
+            if(!p) return;
+            
+            productoEnEdicion = p.id;
+            document.getElementById('prod-name').value = p.nombre;
+            document.getElementById('prod-costo').value = p.costo || 0;
+            document.getElementById('prod-margen').value = p.margen || 0;
+            document.getElementById('prod-cat').value = p.categoria || "Víveres";
+            document.getElementById('prod-type').value = p.tipo || "unidad";
+            document.getElementById('prod-qty').value = p.qty || 0;
+            document.getElementById('prod-emoji').value = p.emoji || "📦";
+            document.getElementById('prod-serial').value = p.serial || "";
+            document.getElementById('prod-iva').checked = p.iva || false;
+            
+            window.conmutarCampoCantidad(p.tipo);
+            window.calcularGanancia();
+            
+            document.getElementById('btn-guardar-prod').innerText = "Actualizar Producto";
+            document.getElementById('btn-cancelar-edicion').style.display = "block";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.eliminarProductoCat = function(id) {
+            window.mostrarConfirmacion("🗑️ Eliminar Producto", "¿Estás seguro de eliminar este producto del inventario?", function() {
+                for(var i=0; i<productos.length; i++) {
+                    if(productos[i].id === id) {
+                        productos.splice(i, 1);
+                        break;
+                    }
+                }
+                if (window.localStorage) window.localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                window.renderizarInventario(document.getElementById('buscador-inventario').value);
+                window.mostrarToast("Producto eliminado");
+            });
+        };
+
+        window.cancelarEdicion = function() {
+            productoEnEdicion = null;
+            document.getElementById('prod-name').value = "";
+            document.getElementById('prod-costo').value = "";
+            document.getElementById('prod-margen').value = "";
+            document.getElementById('lbl-precio-calc').innerText = "$0.00";
+            document.getElementById('prod-serial').value = "";
+            document.getElementById('prod-qty').value = "";
+            document.getElementById('prod-emoji').value = "";
+            document.getElementById('prod-iva').checked = false;
+            document.getElementById('prod-cat').value = "Víveres";
+            document.getElementById('prod-type').value = "unidad";
+            
+            window.conmutarCampoCantidad("unidad");
+            document.getElementById('btn-guardar-prod').innerText = "Guardar Producto";
+            document.getElementById('btn-cancelar-edicion').style.display = "none";
+        };
+
+        window.renderizarInventario = function(filtro) {
+            var contenedor = document.getElementById('lista-productos');
+            var formBox = document.getElementById('form-registro-prod');
+            if(formBox) formBox.style.display = (rolActual === "Administrador 👑") ? "flex" : "none";
+
+            if(!contenedor) return;
+            var html = "";
+            var textoFiltro = filtro ? filtro.toLowerCase() : "";
+
+            for(var i=0; i<productos.length; i++) {
+                var p = productos[i];
+                if(textoFiltro && p.nombre.toLowerCase().indexOf(textoFiltro) === -1) continue;
+
+                var indicadorStock = p.tipo === 'peso' ? '<span class="badge-peso">⚖️ Al Peso</span>' : '<span class="stock-indicator">Stock: ' + p.qty + ' unds</span>';
+                var iconoRender = window.escapeHTML(p.emoji ? p.emoji : (p.tipo === 'peso' ? '🍎' : '📦'));
+                var stringIva = p.iva ? ' <span style="font-size:10px; color:#ff5252;">(+IVA)</span>' : '';
+                
+                var precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
+                var precioBs = precioFinalUSD * tasaDia; 
+                var catLabel = window.escapeHTML(p.categoria ? p.categoria : "General");
+                
+                html += '<div class="product-card">';
+                html += '<div class="tag-cat">' + catLabel + '</div>';
+                html += '<div style="background:#1b202e; padding:10px; border-radius:8px; font-size:22px; margin-top:12px;">' + iconoRender + '</div>';
+                html += '<h4>' + window.escapeHTML(p.nombre) + stringIva + '</h4>';
+                html += '<p style="color:#00ff66; margin:2px 0;">' + window.formatUSD(precioFinalUSD) + '</p>';
+                html += '<p style="font-size:11px; color:#8fa0b7; margin-bottom:4px;">' + window.formatVE(precioBs) + '</p>';
+                html += indicadorStock;
+                html += '<div style="display:flex; gap:6px; margin-top:6px;">';
+                if(rolActual === "Administrador 👑") {
+                    html += '<button style="flex:1; background:#313c52; color:#fff; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.editarProducto(' + p.id + ')">✏️</button>';
+                    html += '<button style="flex:1; background:#ff5252; color:#fff; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.eliminarProductoCat(' + p.id + ')">🗑️</button>';
+                }
+                html += '<button style="flex:3; background:#00ff66; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.agregarAlCarritoDesdeCaja(' + p.id + ')">➕ Facturar</button>';
+                html += '</div></div>';
+            }
+            contenedor.innerHTML = html;
+        };
+
+        window.agregarProductoNuevo = function() {
+            var name = document.getElementById('prod-name').value;
+            var costo = parseFloat(document.getElementById('prod-costo').value) || 0;
+            var margen = parseFloat(document.getElementById('prod-margen').value) || 0;
+            var price = costo + (costo * (margen / 100));
+
+            var serial = document.getElementById('prod-serial').value || "";
+            var type = document.getElementById('prod-type').value;
+            var cat = document.getElementById('prod-cat').value;
+            var qty = parseInt(document.getElementById('prod-qty').value) || 0;
+            var emj = document.getElementById('prod-emoji').value || (type === 'peso' ? '🍎' : '📦');
+            var aplicaIva = document.getElementById('prod-iva').checked;
+
+            if(!name || price <= 0) { window.mostrarFeedbackAnimado('error', 'Ingresa datos válidos'); return; }
+
+            if(productoEnEdicion !== null) {
+                for(var i=0; i<productos.length; i++) {
+                    if(productos[i].id === productoEnEdicion) {
+                        productos[i].nombre = name;
+                        productos[i].costo = costo;
+                        productos[i].margen = margen;
+                        productos[i].precio = price;
+                        productos[i].tipo = type;
+                        productos[i].categoria = cat;
+                        productos[i].qty = qty;
+                        productos[i].serial = serial;
+                        productos[i].emoji = emj;
+                        productos[i].iva = aplicaIva;
+                        break;
+                    }
+                }
+                window.mostrarToast("✓ Producto actualizado");
+            } else {
+                productos.push({ id: new Date().getTime(), nombre: name, costo: costo, margen: margen, precio: price, tipo: type, categoria: cat, qty: qty, serial: serial, emoji: emj, iva: aplicaIva });
+                window.mostrarToast("✓ Producto guardado");
+            }
+            
+            if (window.localStorage) window.localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+            window.cancelarEdicion();
+            window.renderizarInventario("");
+        };
+
+        window.filtrarBuscadorCaja = function(texto) {
+            var contenedor = document.getElementById('resultados-busqueda-caja');
+            if(!texto || texto.length === 0) {
+                contenedor.innerHTML = ""; return;
+            }
+            var textoFiltro = texto.toLowerCase();
+            var html = ""; var encontrados = 0;
+
+            for(var i=0; i<productos.length; i++) {
+                var p = productos[i];
+                if((p.tipo === 'peso' || p.qty > 0 || p.tipo === 'combo') && p.nombre.toLowerCase().indexOf(textoFiltro) !== -1) {
+                    var icono = window.escapeHTML(p.emoji ? p.emoji : '📦');
+                    var precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
+                    html += '<button class="btn-search-result" onclick="window.agregarAlCarritoDesdeCaja(' + p.id + ')">';
+                    html += '<span>' + icono + ' ' + window.escapeHTML(p.nombre) + '</span>';
+                    html += '<span style="color:#00ff66; font-weight:bold;">' + window.formatUSD(precioFinalUSD) + '</span>';
+                    html += '</button>';
+                    encontrados++;
+                }
+            }
+            if(encontrados === 0) html = '<div style="color:#8fa0b7; font-size:12px; text-align:center;">No hay resultados</div>';
+            contenedor.innerHTML = html;
+        };
+
+        window.abrirModalCombos = function() {
+            var container = document.getElementById('lista-combos-activos');
+            var html = "";
+            var hayCombos = false;
+            
+            for(var i=0; i<productos.length; i++) {
+                if(productos[i].tipo === 'combo') {
+                    hayCombos = true;
+                    var p = productos[i];
+                    var precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
+                    html += '<button class="btn-search-result" style="border-color:#00ff66;" onclick="window.agregarCombo(' + p.id + ')">';
+                    html += '<span>' + window.escapeHTML(p.emoji) + ' ' + window.escapeHTML(p.nombre) + '</span>';
+                    html += '<span style="color:#00ff66; font-weight:bold;">' + window.formatUSD(precioFinalUSD) + '</span>';
+                    html += '</button>';
+                }
+            }
+            
+            if(!hayCombos) html = '<div style="color:#8fa0b7; text-align:center; padding:10px;">No hay combos ni ofertas registradas actualmente.</div>';
+            container.innerHTML = html;
+            document.getElementById('modal-combos').style.display = 'flex';
+        };
+
+        window.agregarCombo = function(id) {
+            window.agregarAlCarritoDesdeCaja(id);
+            document.getElementById('modal-combos').style.display = 'none';
+        };
+
+        window.agregarAlCarritoDesdeCaja = function(idProd) {
+            var p = null;
+            for(var i=0; i<productos.length; i++) {
+                if(productos[i].id == idProd) { p = productos[i]; break; }
+            }
+            if(!p) return;
+
+            var precioUnitarioCalculado = p.iva ? (p.precio * 1.16) : p.precio;
+            var costoUnitarioCalculado = p.costo || 0;
+            var precioUSD = precioUnitarioCalculado;
+
+            if(p.tipo === 'peso') {
+                var kilos = prompt("⚖️ Balanza Virtual\nCantidad en Kilos para " + p.nombre + ":", "1.0");
+                var cantidadVendida = parseFloat(kilos);
+                if(isNaN(cantidadVendida) || cantidadVendida <= 0) return;
+                precioUSD = precioUnitarioCalculado * cantidadVendida;
+                var costoTotal = costoUnitarioCalculado * cantidadVendida;
+                
+                carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUSD, costoTotalUSD: costoTotal, detalle: cantidadVendida + ' kg', emoji: (p.emoji ? p.emoji : '🍎'), tipo: p.tipo, qtyVenta: cantidadVendida, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado });
+            } else {
+                if(p.tipo !== 'combo' && p.qty < 1) { window.mostrarFeedbackAnimado('error', 'Sin Stock'); return; }
+                
+                var indexEnCarrito = -1;
+                for(var c=0; c<carrito.length; c++) {
+                    if(carrito[c].id === p.id && (carrito[c].tipo === 'unidad' || carrito[c].tipo === 'combo')) {
+                        indexEnCarrito = c; break;
+                    }
+                }
+
+                if(p.tipo !== 'combo') {
+                    p.qty -= 1;
+                    if (window.localStorage) window.localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                }
+
+                if(indexEnCarrito !== -1) {
+                    carrito[indexEnCarrito].qtyVenta += 1;
+                    carrito[indexEnCarrito].totalUSD += precioUnitarioCalculado;
+                    carrito[indexEnCarrito].costoTotalUSD += costoUnitarioCalculado;
+                    carrito[indexEnCarrito].detalle = carrito[indexEnCarrito].qtyVenta + ' unds';
+                } else {
+                    carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado, costoTotalUSD: costoUnitarioCalculado, detalle: '1 unds', emoji: (p.emoji ? p.emoji : '📦'), tipo: p.tipo, qtyVenta: 1, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado });
+                }
+            }
+            
+            window.recalcularTotalesCarrito();
+            window.mostrarToast("+ Agregado al carrito");
+            window.renderizarCarritoCaja();
+            document.getElementById('buscador-caja').value = "";
+            document.getElementById('resultados-busqueda-caja').innerHTML = "";
+        };
+
+        window.sumarItem = function(index) {
+            var item = carrito[index];
+            if(item.tipo === 'peso') return; 
+
+            var p = null;
+            for(var i=0; i<productos.length; i++) {
+                if(productos[i].id === item.id) { p = productos[i]; break; }
+            }
+            
+            if(item.tipo !== 'combo') {
+                if(!p || p.qty < 1) { window.mostrarFeedbackAnimado('error', 'Sin más stock'); return; }
+                p.qty -= 1; 
+                if (window.localStorage) window.localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+            }
+
+            item.qtyVenta += 1;
+            item.totalUSD += item.precioUnitario;
+            item.costoTotalUSD += item.costoUnitario;
+            item.detalle = item.qtyVenta + ' unds';
+
+            window.recalcularTotalesCarrito();
+            window.renderizarCarritoCaja();
+        };
+
+        window.restarItem = function(index) {
+            var item = carrito[index];
+            if(item.tipo === 'peso') return;
+
+            if(item.tipo !== 'combo') {
+                for(var i=0; i<productos.length; i++) {
+                    if(productos[i].id === item.id) {
+                        productos[i].qty += 1;
+                        break;
+                    }
+                }
+                if (window.localStorage) window.localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+            }
+
+            item.qtyVenta -= 1;
+            item.totalUSD -= item.precioUnitario;
+            item.costoTotalUSD -= item.costoUnitario;
+            item.detalle = item.qtyVenta + ' unds';
+
+            if(item.qtyVenta <= 0) {
+                carrito.splice(index, 1);
+            }
+
+            window.recalcularTotalesCarrito();
+            window.renderizarCarritoCaja();
+        };
+
+        window.eliminarDelCarrito = function(index) {
+            var item = carrito[index];
+            if(item.tipo !== 'peso' && item.tipo !== 'combo') {
+                for(var i=0; i<productos.length; i++) {
+                    if(productos[i].id === item.id) {
+                        productos[i].qty += item.qtyVenta;
+                        break;
+                    }
+                }
+                if (window.localStorage) window.localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+            }
+            
+            carrito.splice(index, 1);
+            window.recalcularTotalesCarrito();
+            window.renderizarCarritoCaja();
+        };
+
+        window.renderizarCarritoCaja = function() {
+            var container = document.getElementById('items-carrito-factura');
+            if(!container) return;
+            
+            if(carrito.length === 0) {
+                container.innerHTML = '<div style="color:#57687e; text-align:center; font-size:12px; padding:8px;">Ningún artículo en cuenta.</div>';
+            } else {
+                var html = "";
+                for(var i=0; i<carrito.length; i++) {
+                    var item = carrito[i];
+                    var precioBsItem = item.totalUSD * tasaDia; 
+                    
+                    html += '<div class="cart-item">';
+                    html += '<div style="flex:1;">' + window.escapeHTML(item.emoji) + ' ' + window.escapeHTML(item.nombre) + '<br><small style="color:#8fa0b7;">' + window.formatVE(precioBsItem) + '</small></div>';
+                    
+                    if (item.tipo === 'unidad' || item.tipo === 'combo') {
+                        html += '<div style="display:flex; align-items:center; gap:6px; margin-right:10px;">';
+                        html += '<button class="btn-qty" onclick="window.restarItem(' + i + ')">-</button>';
+                        html += '<span style="font-weight:bold; font-size:14px;">' + item.qtyVenta + '</span>';
+                        html += '<button class="btn-qty" onclick="window.sumarItem(' + i + ')">+</button>';
+                        html += '</div>';
+                    } else {
+                        html += '<div style="margin-right:10px; color:#8fa0b7; font-size:11px;">' + window.escapeHTML(item.detalle) + '</div>';
+                    }
+
+                    html += '<div style="display:flex; align-items:center;">';
+                    html += '<strong>' + window.formatUSD(item.totalUSD) + '</strong>';
+                    html += '<button class="btn-remove-item" onclick="window.eliminarDelCarrito(' + i + ')">X</button>';
+                    html += '</div></div>';
+                }
+                container.innerHTML = html;
+            }
+
+            var usdEl = document.getElementById('grand-total-usd');
+            var vesEl = document.getElementById('grand-total-ves');
+            if(usdEl) usdEl.innerText = window.formatUSD(totalVentaUSD);
+            if(vesEl) {
+                vesEl.innerText = window.formatVE(totalVentaVES);
+                vesEl.classList.add('pulse-number');
+                setTimeout(function(){ vesEl.classList.remove('pulse-number'); }, 200);
+            }
+            window.calcularCaja();
+        };
+
+        window.llenarMaximo = function(tipo) {
+            var ptv = window.extraerNumeroLimpio('pay-ptv');
+            var pm = window.extraerNumeroLimpio('pay-pm');
+            var usdIngresado = parseFloat(document.getElementById('pay-usd').value) || 0; 
+            var ves = window.extraerNumeroLimpio('pay-ves');
+
+            var ingresadoActual = ptv + pm + (usdIngresado * tasaDia) + ves;
+            
+            if(tipo === 'ptv') ingresadoActual -= ptv;
+            if(tipo === 'pm') ingresadoActual -= pm;
+            if(tipo === 'ves') ingresadoActual -= ves;
+            if(tipo === 'usd') ingresadoActual -= (usdIngresado * tasaDia);
+
+            var faltanteVES = totalVentaVES - ingresadoActual;
+            if(faltanteVES < 0) faltanteVES = 0;
+
+            if(tipo === 'usd') {
+                var faltanteUSD = Math.ceil(faltanteVES / tasaDia);
+                document.getElementById('pay-usd').value = faltanteUSD;
+            } else if (tipo === 'pm') {
+                var inputPm = document.getElementById('pay-pm');
+                inputPm.value = Math.round(faltanteVES * 100).toString(); 
+                window.mascaraMoneda(inputPm);
+            } else if (tipo === 'ptv') {
+                var inputPtv = document.getElementById('pay-ptv');
+                inputPtv.value = Math.round(faltanteVES * 100).toString(); 
+                window.mascaraMoneda(inputPtv);
+            } else if (tipo === 'ves') {
+                var inputVes = document.getElementById('pay-ves');
+                inputVes.value = Math.round(faltanteVES * 100).toString(); 
+                window.mascaraMoneda(inputVes);
+            }
+            window.actualizarEtiquetasPago();
+            window.calcularCaja();
+        };
+
+        window.calcularCaja = function() {
+            var ptv = window.extraerNumeroLimpio('pay-ptv');
+            var pm = window.extraerNumeroLimpio('pay-pm');
+            var usdFisicoIngresado = parseFloat(document.getElementById('pay-usd').value) || 0; 
+            var ves = window.extraerNumeroLimpio('pay-ves');
+
+            var totalRecibidoVES = ptv + pm + (usdFisicoIngresado * tasaDia) + ves;
+            var diferenciaVES = totalVentaVES - totalRecibidoVES;
+
+            document.getElementById('total-recibido-ves').innerText = window.formatVE(totalRecibidoVES);
+            var eRestante = document.getElementById('total-restante-ves');
+            if(!eRestante) return;
+
+            if (diferenciaVES > 0.01) {
+                eRestante.innerText = window.formatVE(diferenciaVES) + ' Restante';
+                eRestante.style.color = '#ff5252';
+            } else if (diferenciaVES < -0.01) {
+                var vueltoTotalUSD = Math.abs(diferenciaVES) / tasaDia;
+                var dolaresAEntregar = Math.min(Math.floor(vueltoTotalUSD), Math.floor(usdFisicoIngresado));
+                var fraccionBolivares = (vueltoTotalUSD - dolaresAEntregar) * tasaDia;
+
+                if(dolaresAEntregar > 0) {
+                    eRestante.innerText = 'Vuelto: $ ' + dolaresAEntregar + ' + ' + fraccionBolivares.toLocaleString('es-VE', {maximumFractionDigits:2}) + ' Bs';
+                } else {
+                    eRestante.innerText = 'Vuelto: ' + fraccionBolivares.toLocaleString('es-VE', {maximumFractionDigits:2}) + ' Bs';
+                }
+                eRestante.style.color = '#00ff66';
+            } else {
+                eRestante.innerText = '0,00 Bs Completo';
+                eRestante.style.color = '#00ff66';
+            }
+        };
+
+        window.aparcarFactura = function() {
+            if(carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
+            var cliente = document.getElementById('cliente-nombre').value || "Cliente sin nombre";
+            facturasEnEspera.push({
+                cliente: cliente,
+                items: carrito.slice(),
+                totalUSD: totalVentaUSD,
+                totalVES: totalVentaVES
+            });
+            if (window.localStorage) window.localStorage.setItem('geomercado_espera_v19', JSON.stringify(facturasEnEspera));
+            
+            totalVentaUSD = 0.00; totalVentaVES = 0.00; carrito = [];
+            document.getElementById('pay-ptv').value = ''; document.getElementById('pay-pm').value = '';
+            document.getElementById('pay-usd').value = ''; document.getElementById('pay-ves').value = '';
+            document.getElementById('cliente-nombre').value = ''; document.getElementById('cliente-cedula').value = ''; document.getElementById('cliente-dir').value = '';
+            window.actualizarEtiquetasPago();
+            window.renderizarCarritoCaja();
+            window.mostrarToast("⏸️ Factura Pausada");
+        };
+
+        window.recuperarFactura = function() {
+            if(facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('error', 'No hay facturas pausadas'); return; }
+            if(carrito.length > 0) { window.mostrarFeedbackAnimado('error', 'Limpia o procesa la venta actual'); return; }
+            
+            var text = "Elige qué factura recuperar (escribe el número):\n";
+            for(var i=0; i<facturasEnEspera.length; i++) {
+                text += (i+1) + ". " + facturasEnEspera[i].cliente + " (" + window.formatVE(facturasEnEspera[i].totalVES) + ")\n";
+            }
+            var resp = prompt(text);
+            var idx = parseInt(resp) - 1;
+            if(!isNaN(idx) && facturasEnEspera[idx]) {
+                var rec = facturasEnEspera.splice(idx, 1)[0];
+                if (window.localStorage) window.localStorage.setItem('geomercado_espera_v19', JSON.stringify(facturasEnEspera));
+                
+                carrito = rec.items;
+                window.recalcularTotalesCarrito();
+                document.getElementById('cliente-nombre').value = rec.cliente !== "Cliente sin nombre" ? rec.cliente : "";
+                window.renderizarCarritoCaja();
+                window.mostrarToast("📂 Factura Recuperada");
+            }
+        };
+
+        window.abrirCamaraEnVivo = function(modo) {
+            if (typeof Html5Qrcode === 'undefined') { window.mostrarFeedbackAnimado('error', 'Cargando escáner...'); return; }
+            document.getElementById('modal-camara').style.display = 'flex';
+
+            if(html5QrScannerInstancia) {
+                try {
+                    html5QrScannerInstancia.stop().then(function() {
+                        html5QrScannerInstancia.clear();
+                        window.iniciarCamaraInstancia(modo);
+                    }).catch(function() {
+                        window.iniciarCamaraInstancia(modo);
+                    });
+                    return;
+                } catch(e){}
+            }
+            window.iniciarCamaraInstancia(modo);
+        };
+
+        window.iniciarCamaraInstancia = function(modo) {
+            html5QrScannerInstancia = new Html5Qrcode("interactive-scanner");
+            html5QrScannerInstancia.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 220, height: 130 } },
+                function(decodedText) {
+                    window.cerrarCamaraEnVivo();
+                    if(modo === 'registro') {
+                        var eSerial = document.getElementById('prod-serial');
+                        if(eSerial) eSerial.value = decodedText;
+                        window.mostrarFeedbackAnimado('exito', 'Código Leído');
+                    } else if (modo === 'caja') {
+                        var match = null;
+                        for(var i=0; i<productos.length; i++) {
+                            if(productos[i].serial === decodedText) { match = productos[i]; break; }
+                        }
+                        if(match) {
+                            window.mostrarFeedbackAnimado('exito', match.nombre);
+                            window.agregarAlCarritoDesdeCaja(match.id);
+                        } else {
+                            window.mostrarFeedbackAnimado('error', 'Código No Registrado');
+                        }
+                    }
+                },
+                function(errorMessage) {}
+            ).catch(function(err) {
+                document.getElementById('modal-camara').style.display = 'none';
+                if(modo === 'registro') document.getElementById('file-barcode-reg').click();
+                else document.getElementById('file-barcode-caja').click();
+            });
+        };
+
+        window.cerrarCamaraEnVivo = function() {
+            if(html5QrScannerInstancia) {
+                html5QrScannerInstancia.stop().then(function() {
+                    html5QrScannerInstancia.clear();
+                    html5QrScannerInstancia = null;
+                    document.getElementById('modal-camara').style.display = 'none';
+                }).catch(function() {
+                    html5QrScannerInstancia = null;
+                    document.getElementById('modal-camara').style.display = 'none';
+                });
+            } else {
+                document.getElementById('modal-camara').style.display = 'none';
+            }
+        };
+
+        window.escanearBarcodeFoto = function(event, modo) {
+            if (typeof Html5Qrcode === 'undefined') { window.mostrarToast("Conectando cámara..."); return; }
+            var file = event.target.files[0];
+            if(!file) return;
+            var html5QrCode = new Html5Qrcode("hidden-qr-reader");
+            html5QrCode.scanFile(file, true)
+            .then(function(decodedText) {
+                if(modo === 'registro') {
+                    var eSerial = document.getElementById('prod-serial');
+                    if(eSerial) eSerial.value = decodedText;
+                    window.mostrarFeedbackAnimado('exito', 'Código Detectado');
+                } else if (modo === 'caja') {
+                    var match = null;
+                    for(var i=0; i<productos.length; i++) {
+                        if(productos[i].serial === decodedText) { match = productos[i]; break; }
+                    }
+                    if(match) {
+                        window.mostrarFeedbackAnimado('exito', match.nombre);
+                        window.agregarAlCarritoDesdeCaja(match.id);
+                    } else {
+                        window.mostrarFeedbackAnimado('error', 'Código No Registrado');
+                    }
+                }
+            })
+            .catch(function() { window.mostrarFeedbackAnimado('error', 'No se detectó código'); });
+        };
+
+        window.escanearCapturePagoCompleto = function(event) {
+            if (typeof Tesseract === 'undefined') { window.mostrarToast("Cargando motor OCR..."); return; }
+            var input = event.target;
+            if (!input.files || !input.files[0]) return;
+            var eRef = document.getElementById('pm-ref');
+            var banner = document.getElementById('pm-status-banner');
+            
+            if(eRef) eRef.value = "Leyendo Capture...";
+            if(banner) { banner.style.display = 'none'; banner.className = 'pm-status-banner'; }
+            
+            var overlay = document.getElementById('scan-feedback');
+            var box = document.getElementById('scan-feedback-box');
+            var msgEl = document.getElementById('scan-feedback-msg');
+            if(overlay && box && msgEl) {
+                box.className = '';
+                box.innerHTML = '<div class="spinner-loader"></div>';
+                msgEl.innerText = 'Procesando Capture...';
+                overlay.style.display = 'flex';
+            }
+
+            Tesseract.recognize(input.files[0], 'spa')
+            .then(function(result) {
+                if(overlay) overlay.style.display = 'none';
+                if(box) box.innerHTML = '';
+                
+                var text = result.data.text;
+                var textLimpio = text.replace(/[\n\r]/g, ' ').toLowerCase();
+
+                var ref = text.match(/\d{6,12}/);
+                
+                var patronMontoBDV = /([\d\.]+,\d{2})\s*Bs/i;
+                var patronMontoGen = /(?:bs|monto|pagado|ref)?[:.\s]*([\d.]+,\d{2})/i;
+                
+                var matchMonto = text.match(patronMontoBDV) || text.match(patronMontoGen);
+
+                if(eRef) eRef.value = ref ? ref[0] : "Manual";
+                
+                if(matchMonto) {
+                    var limpio = matchMonto[1] || matchMonto[0];
+                    var numeroParaInput = parseFloat(limpio.replace(/\./g, '').replace(',', '.'));
+                    var inputPm = document.getElementById('pay-pm');
+                    if(inputPm && !isNaN(numeroParaInput)) {
+                        inputPm.value = Math.round(numeroParaInput * 100).toString();
+                        window.mascaraMoneda(inputPm);
+                        window.mostrarFeedbackAnimado('exito', 'Monto: ' + window.formatVE(numeroParaInput));
+                    }
+                } else {
+                    window.mostrarFeedbackAnimado('error', 'Revisa el monto manualmente');
+                }
+
+                if(banner) {
+                    var coincidenciaCedula = perfilNegocio.pmCedula && textLimpio.includes(perfilNegocio.pmCedula.toLowerCase().trim());
+                    var coincidenciaTelefono = perfilNegocio.pmTlf && textLimpio.includes(perfilNegocio.pmTlf.toLowerCase().replace(/\D/g, ''));
+                    var coincidenciaBanco = perfilNegocio.pmBanco && textLimpio.includes(perfilNegocio.pmBanco.toLowerCase().trim());
+
+                    if(coincidenciaCedula || coincidenciaTelefono || coincidenciaBanco) {
+                        banner.className = 'pm-status-banner pm-status-success';
+                        banner.innerText = "✓ Pago Móvil verificado: Datos coinciden con tu cuenta.";
+                        banner.style.display = 'block';
+                    } else if(perfilNegocio.pmCedula || perfilNegocio.pmTlf || perfilNegocio.pmBanco) {
+                        banner.className = 'pm-status-banner pm-status-warning';
+                        banner.innerText = "⚠️ Verifica manualmente: No se confirmaron datos de destino.";
+                        banner.style.display = 'block';
+                    }
+                }
+
+                window.actualizarEtiquetasPago();
+                window.calcularCaja();
+            })
+            .catch(function(err){
+                console.error(err);
+                if(overlay) overlay.style.display = 'none';
+                if(box) box.innerHTML = '';
+                if(eRef) eRef.value = "";
+                window.mostrarFeedbackAnimado('error', 'Error al leer imagen');
+            });
+        };
+
+        window.enviarDatosPagoMovilWS = function() {
+            var tlfCliente = document.getElementById('pm-phone').value || "";
+            var msj = "📲 *DATOS DE PAGO MÓVIL*\n\n";
+            msj += "🏢 *" + perfilNegocio.nombre + "*\n";
+            msj += "🏦 Banco: " + (perfilNegocio.pmBanco || "No configurado") + "\n";
+            msj += "🪪 CI/RIF: " + (perfilNegocio.pmCedula || "No configurado") + "\n";
+            msj += "📞 Teléfono: " + (perfilNegocio.pmTlf || "No configurado") + "\n\n";
+            msj += "💵 Total a pagar: *" + window.formatVE(totalVentaVES) + "* (" + window.formatUSD(totalVentaUSD) + ")\n\n";
+            msj += "Por favor envía el comprobante por este medio. ¡Muchas gracias!";
+
+            var numClean = tlfCliente.replace(/\D/g, '');
+            var url = numClean ? ("https://api.whatsapp.com/send?phone=" + numClean + "&text=" + encodeURIComponent(msj)) : ("https://api.whatsapp.com/send?text=" + encodeURIComponent(msj));
+            window.open(url, '_blank', 'noopener,noreferrer');
+        };
+
+        window.procesarCobro = function(imprimirTicketBooleano) {
+            if(carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
+            var ptv = window.extraerNumeroLimpio('pay-ptv');
+            var pm = window.extraerNumeroLimpio('pay-pm');
+            var usd = parseFloat(document.getElementById('pay-usd').value) || 0; 
+            var ves = window.extraerNumeroLimpio('pay-ves');
+            var now = new Date();
+            
+            var cNombre = document.getElementById('cliente-nombre').value;
+            var cCedula = document.getElementById('cliente-cedula').value;
+            var cDir = document.getElementById('cliente-dir').value;
+            var cTlf = document.getElementById('pm-phone').value;
+
+            var costoTotalVentaUSD = 0;
+            for (var k = 0; k < carrito.length; k++) {
+                costoTotalVentaUSD += (carrito[k].costoTotalUSD || 0);
+            }
+
+            var venta = {
+                id: new Date().getTime(),
+                fecha: now.toLocaleDateString() + ' ' + now.toLocaleTimeString(),
+                items: carrito.slice(),
+                totalUSD: totalVentaUSD,
+                totalVES: totalVentaVES,
+                costoUSD: costoTotalVentaUSD,
+                ptv: ptv, pm: pm, usd: usd, ves: ves,
+                cliente: cNombre, cedula: cCedula, dir: cDir, tlf: cTlf
+            };
+            ventasHistorico.push(venta);
+            if (window.localStorage) window.localStorage.setItem('geomercado_ventas_v19', JSON.stringify(ventasHistorico));
+            
+            window.mostrarFeedbackAnimado('exito', 'Venta Cobrada Exitosamente');
+
+            if(imprimirTicketBooleano) {
+                window.imprimirTicket(ventasHistorico.length - 1);
+            }
+
+            window.limpiarCaja(true); 
+        };
+
+        window.limpiarCaja = function(silencioso) {
+            if(!silencioso) {
+                for(var i=0; i<carrito.length; i++) {
+                    if(carrito[i].tipo !== 'peso' && carrito[i].tipo !== 'combo') {
+                        for(var j=0; j<productos.length; j++) {
+                            if(productos[j].id === carrito[i].id) {
+                                productos[j].qty += carrito[i].qtyVenta;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (window.localStorage) window.localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                window.mostrarToast("Venta cancelada, stock devuelto");
+            }
+
+            totalVentaUSD = 0.00; totalVentaVES = 0.00; carrito = [];
+            document.getElementById('pay-ptv').value = ''; document.getElementById('pay-pm').value = '';
+            document.getElementById('pay-usd').value = ''; document.getElementById('pay-ves').value = '';
+            document.getElementById('cliente-nombre').value = ''; document.getElementById('cliente-cedula').value = ''; document.getElementById('cliente-dir').value = '';
+            document.getElementById('pm-phone').value = ''; document.getElementById('pm-ref').value = '';
+            document.getElementById('modal-cliente').style.display='none';
+            var banner = document.getElementById('pm-status-banner');
+            if(banner) banner.style.display = 'none';
+
+            window.actualizarEtiquetasPago();
+            window.renderizarCarritoCaja();
+        };
+
+        window.renderizarCierreDeCaja = function() {
+            var totalPM = 0; var totalUSDFisico = 0; var totalVESFisico = 0; var totalPTV = 0; 
+            var totalVentasUSD = 0; var totalCostoUSD = 0;
+            var container = document.getElementById('lista-historial-ventas');
+            var html = "";
+
+            for(var i=0; i<ventasHistorico.length; i++) {
+                var v = ventasHistorico[i];
+                totalPM += v.pm; totalUSDFisico += v.usd; totalVESFisico += v.ves; totalPTV += v.ptv; 
+                totalVentasUSD += v.totalUSD;
+                totalCostoUSD += (v.costoUSD || 0);
+                
+                var itemsStr = v.items.map(function(it){ return window.escapeHTML(it.nombre) + " (x" + (it.qtyVenta || it.detalle) + ")"; }).join(', ');
+                html += '<div class="cierre-card">';
+                html += '<div style="display:flex; justify-content:space-between;"><h4>🛒 ' + v.fecha + '</h4></div>';
+                if(v.cliente) html += '<div style="color:#fff; font-size:11px; margin-bottom:4px;">Cliente: ' + window.escapeHTML(v.cliente) + '</div>';
+                
+                html += '<div class="cierre-item">Artículos: <span>' + itemsStr + '</span></div>';
+                html += '<div class="cierre-item">Total Factura: <span style="font-size:14px; color:#00ff66;">' + window.formatVE(v.totalVES) + '</span></div>';
+                
+                if(v.usd > 0) {
+                    html += '<div class="cierre-item" style="color:#8fa0b7;">Efectivo ($) Entregado: <span>$' + v.usd.toFixed(2) + '</span></div>';
+                }
+                
+                html += '<div style="display:flex; gap:6px; margin-top:8px;">';
+                html += '<button style="flex:1; background:#fff; color:#000; font-weight:bold; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.imprimirTicket(' + i + ')">🖨️ Ticket</button>';
+                html += '<button style="flex:1; background:#25D366; color:#fff; font-weight:bold; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.enviarFacturaWS(' + i + ')">📲 WhatsApp</button>';
+                html += '<button style="flex:1; background:#ff5252; color:#fff; font-weight:bold; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.anularVenta(' + i + ')">❌ Anular</button>';
+                html += '</div></div>';
+            }
+
+            if(ventasHistorico.length === 0) html = '<div style="text-align:center; color:#57687e; font-size:12px;">No hay ventas registradas.</div>';
+            container.innerHTML = html;
+
+            var gananciaNetaUSD = totalVentasUSD - totalCostoUSD;
+            var gananciaTotalVES = gananciaNetaUSD * tasaDia;
+
+            document.getElementById('resumen-ptv').innerText = window.formatVE(totalPTV);
+            document.getElementById('resumen-pm').innerText = window.formatVE(totalPM);
+            document.getElementById('resumen-ves').innerText = window.formatVE(totalVESFisico);
+            
+            document.getElementById('resumen-ganancia-ves').innerText = window.formatVE(gananciaTotalVES) + " (" + window.formatUSD(gananciaNetaUSD) + ")";
+            document.getElementById('resumen-efectivo-usd').innerText = "$" + totalUSDFisico.toFixed(2);
+
+            document.getElementById('cierre-fondo-usd').innerText = "$" + fondoCaja.usd.toFixed(2);
+            document.getElementById('cierre-fondo-ves').innerText = window.formatVE(fondoCaja.ves);
+
+            var esperadoUSD = fondoCaja.usd + totalUSDFisico;
+            var esperadoVES = fondoCaja.ves + totalVESFisico;
+
+            document.getElementById('esperado-usd').innerText = "$" + esperadoUSD.toFixed(2);
+            document.getElementById('esperado-ves').innerText = window.formatVE(esperadoVES);
+        };
+
+        window.anularVenta = function(index) {
+            window.mostrarConfirmacion("❌ Anular Venta", "¿Deseas anular esta venta y devolver los productos al inventario?", function() {
+                var v = ventasHistorico[index];
+                if(v && v.items) {
+                    for(var i = 0; i < v.items.length; i++) {
+                        var item = v.items[i];
+                        if(item.tipo !== 'peso' && item.tipo !== 'combo') {
+                            for(var j = 0; j < productos.length; j++) {
+                                if(productos[j].id === item.id) {
+                                    productos[j].qty += item.qtyVenta;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (window.localStorage) window.localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                }
+                ventasHistorico.splice(index, 1);
+                if (window.localStorage) window.localStorage.setItem('geomercado_ventas_v19', JSON.stringify(ventasHistorico));
+                window.renderizarCierreDeCaja();
+                window.mostrarToast("Venta anulada con éxito");
+            });
+        };
+
+        window.borrarHistorial = function() {
+            window.mostrarConfirmacion("⚠️ Reiniciar Día", "¿Estás seguro de borrar todas las ventas registradas?", function() {
+                ventasHistorico = [];
+                if (window.localStorage) window.localStorage.removeItem('geomercado_ventas_v19');
+                window.renderizarCierreDeCaja();
+                window.mostrarToast("Historial borrado");
+            });
+        };
+
+        window.imprimirCierreZ = function() {
+            var pw = window.open('', '_blank');
+            if(!pw) { window.mostrarFeedbackAnimado('error', 'Habilita las ventanas emergentes'); return; }
+            
+            var totalPM = 0, totalUSDFisico = 0, totalVESFisico = 0, totalPTV = 0, totalVentasUSD = 0, totalVentasVES = 0;
+            for(var i=0; i<ventasHistorico.length; i++) {
+                var v = ventasHistorico[i];
+                totalPM += v.pm; totalUSDFisico += v.usd; totalVESFisico += v.ves; totalPTV += v.ptv;
+                totalVentasUSD += v.totalUSD; totalVentasVES += v.totalVES;
+            }
+
+            var doc = pw.document;
+            var now = new Date();
+            var fechaStr = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+
+            var h = '<html><head><title>Cierre Z</title><style>body{font-family:monospace; color:#000; width:280px; margin:0 auto; padding:10px;} .it{display:flex; justify-content:space-between; margin-bottom:4px; font-size:12px;}</style></head><body>';
+            h += '<h2 style="text-align:center; margin:0; font-size:16px;">' + window.escapeHTML(perfilNegocio.nombre) + '</h2>';
+            h += '<h3 style="text-align:center; margin:2px 0; font-size:14px;">REPORTE DE CIERRE Z</h3>';
+            if(perfilNegocio.rif) h += '<p style="text-align:center; margin:0; font-size:11px;">RIF: ' + window.escapeHTML(perfilNegocio.rif) + '</p>';
+            h += '<p style="text-align:center; font-size:11px; margin-top:6px;">' + fechaStr + '</p><hr>';
+            
+            h += '<div class="it"><span>Transacciones:</span><span>' + ventasHistorico.length + '</span></div>';
+            h += '<div class="it"><span>Tasa BCV Ref:</span><span>' + tasaDia.toFixed(2) + ' Bs</span></div>';
+            h += '<hr>';
+            
+            h += '<div class="it"><span>Punto de Venta:</span><span>' + window.formatVE(totalPTV) + '</span></div>';
+            h += '<div class="it"><span>Pago Móvil:</span><span>' + window.formatVE(totalPM) + '</span></div>';
+            h += '<div class="it"><span>Efectivo (Bs):</span><span>' + window.formatVE(totalVESFisico) + '</span></div>';
+            h += '<div class="it"><span>Efectivo ($):</span><span>$' + totalUSDFisico.toFixed(2) + '</span></div>';
+            
+            h += '<hr>';
+            h += '<div class="it"><span>Fondo Inicial ($):</span><span>$' + fondoCaja.usd.toFixed(2) + '</span></div>';
+            h += '<div class="it"><span>Fondo Inicial (Bs):</span><span>' + window.formatVE(fondoCaja.ves) + '</span></div>';
+            h += '<div class="it"><span>Esperado Cajas ($):</span><span>$' + (fondoCaja.usd + totalUSDFisico).toFixed(2) + '</span></div>';
+            h += '<div class="it"><span>Esperado Cajas (Bs):</span><span>' + window.formatVE(fondoCaja.ves + totalVESFisico) + '</span></div>';
+            
+            h += '<hr><h3 style="text-align:right; margin:4px 0; font-size:14px;">VENTAS NETAS: ' + window.formatVE(totalVentasVES) + '</h3>';
+            h += '<p style="text-align:center; margin-top:15px; font-size:10px;">*** FIN DEL REPORTE ***</p>';
+            h += '</body></html>';
+            
+            doc.write(h);
+            doc.close();
+            pw.focus();
+            pw.print();
+            pw.close();
+        };
+
+        window.enviarFacturaWS = function(index) {
+            var v = ventasHistorico[index];
+            var msj = "🧾 *COMPROBANTE DE COMPRA*\n";
+            msj += "🏢 *" + perfilNegocio.nombre + "*\n";
+            if(perfilNegocio.rif) msj += "RIF: " + perfilNegocio.rif + "\n";
+            msj += "📅 Fecha: " + v.fecha + "\n";
+            if(v.cliente) msj += "👤 Cliente: " + v.cliente + "\n";
+            msj += "-----------------------------------\n";
+            for(var i=0; i<v.items.length; i++) {
+                var item = v.items[i];
+                var precioBsItem = item.totalUSD * (v.totalVES / (v.totalUSD || 1));
+                msj += (item.qtyVenta || item.detalle) + "x " + item.nombre + " - " + window.formatVE(precioBsItem) + "\n";
+            }
+            msj += "-----------------------------------\n";
+            msj += "💰 *TOTAL: " + window.formatVE(v.totalVES) + "* (" + window.formatUSD(v.totalUSD) + ")\n\n";
+            msj += "¡Gracias por su compra!";
+
+            var numClean = (v.tlf || "").replace(/\D/g, '');
+            var url = numClean ? ("https://api.whatsapp.com/send?phone=" + numClean + "&text=" + encodeURIComponent(msj)) : ("https://api.whatsapp.com/send?text=" + encodeURIComponent(msj));
+            window.open(url, '_blank', 'noopener,noreferrer');
+        };
+
+        window.imprimirTicket = function(index) {
+            var v = ventasHistorico[index];
+            var pw = window.open('', '_blank');
+            if(!pw) { window.mostrarFeedbackAnimado('error', 'Habilita las ventanas emergentes'); return; }
+            var doc = pw.document;
+            var h = '<html><head><title>Ticket</title><style>body{font-family:monospace; color:#000; width:280px; margin:0 auto; padding:10px;} .it{display:flex; justify-content:space-between; margin-bottom:4px; font-size:12px;}</style></head><body>';
+            h += '<h2 style="text-align:center; margin:0; font-size:16px;">' + window.escapeHTML(perfilNegocio.nombre) + '</h2>';
+            if(perfilNegocio.rif) h += '<p style="text-align:center; margin:0; font-size:11px;">RIF: ' + window.escapeHTML(perfilNegocio.rif) + '</p>';
+            if(perfilNegocio.dir) h += '<p style="text-align:center; margin:0; font-size:10px;">' + window.escapeHTML(perfilNegocio.dir) + '</p>';
+            if(perfilNegocio.tlf) h += '<p style="text-align:center; margin:0; font-size:10px;">Tlf: ' + window.escapeHTML(perfilNegocio.tlf) + '</p>';
+            h += '<p style="text-align:center; font-size:11px; margin-top:6px;">' + v.fecha + '</p><hr>';
+            
+            if(v.cliente) h += '<p style="font-size:11px;">Cliente: ' + window.escapeHTML(v.cliente) + '<br>CI/RIF: ' + window.escapeHTML(v.cedula) + '</p>';
+            if(v.dir) h += '<p style="font-size:11px;">Dir: ' + window.escapeHTML(v.dir) + '</p>';
+            if(v.tlf) h += '<p style="font-size:11px;">Tlf: ' + window.escapeHTML(v.tlf) + '</p>';
+            h += '<hr>';
+            
+            for(var i=0; i<v.items.length; i++) {
+                var item = v.items[i];
+                var precioBsItem = item.totalUSD * (v.totalVES / (v.totalUSD || 1));
+                h += '<div class="it"><span>' + (item.qtyVenta || item.detalle) + 'x ' + window.escapeHTML(item.nombre) + '</span><span>' + window.formatVE(precioBsItem) + '</span></div>';
+            }
+            
+            h += '<hr><h3 style="text-align:right; margin:4px 0; font-size:14px;">TOTAL: ' + window.formatVE(v.totalVES) + '</h3>';
+            h += '<p style="text-align:center; margin-top:15px; font-size:11px;">¡Gracias por su compra!</p>';
+            h += '</body></html>';
+            doc.write(h);
+            doc.close();
+            pw.focus();
+            pw.print();
+            pw.close();
+        };
+    </script>
 </body>
 </html>
