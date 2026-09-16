@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geo Mercado V19.1 - Sin Tanto Embrollo</title>
+    <title>Geo Mercado V19.1 - POS Control</title>
 
     <!-- Manifest.json Inyectado para PWA -->
     <script>
@@ -52,7 +52,6 @@
             min-height: 100vh; 
         }
 
-        /* DISEÑO ADAPTATIVO CELULAR / PC */
         .app-container { width: 100%; max-width: 450px; display: flex; flex-direction: column; gap: 10px; position: relative; }
         
         @media (min-width: 850px) {
@@ -62,7 +61,6 @@
             .caja-layout-pc { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 15px; }
         }
 
-        /* CARD INICIO DE SESIÓN */
         .login-card { 
             background: #11151d; border: 1px solid #00ff66; border-radius: 14px; 
             padding: 24px; width: 100%; max-width: 380px; margin: 30px auto; 
@@ -244,6 +242,10 @@
             <h2 style="color:#00ff66; margin:0;">GEO MERCADO POS</h2>
             <p style="color:#8fa0b7; font-size:11px; margin-bottom:15px;">SIN TANTO EMBROLLO V19.1</p>
 
+            <div id="lbl-estado-licencia" style="font-size:11px; font-weight:bold; margin-bottom:10px; color:#00ff66;">
+                Días de Licencia Restantes: Calculando...
+            </div>
+
             <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Rol de Usuario:</label>
             <select id="login-rol" onchange="window.actualizarOpcionesLogin()">
                 <option value="cajero">Cajero 👤</option>
@@ -314,14 +316,14 @@
                 </div>
 
                 <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">
-                    Una vez realizado el Pago Móvil, envía el comprobante por WhatsApp para recibir tu código o introduce tu clave maestra:
+                    Ingresa el Código Maestro recibido tras tu pago para extender el sistema por 30 días más:
                 </p>
 
                 <input type="password" id="licencia-codigo" placeholder="Introduce Código Maestro" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center;">
                 
                 <div style="display:flex; gap:6px;">
                     <button class="btn-clear" onclick="document.getElementById('modal-licencia').style.display='none'">Cerrar</button>
-                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.activarLicencia()">Desbloquear App</button>
+                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.activarLicencia()">Desbloquear / Renovar</button>
                 </div>
                 <button class="btn-clear" style="border-color:#25D366; color:#25D366; width:100%;" onclick="window.solicitarLicenciaWS()">📲 Solicitar Código por WhatsApp</button>
             </div>
@@ -545,7 +547,7 @@
 
                     <select id="prod-type" onchange="window.conmutarCampoCantidad(this.value)">
                         <option value="unidad">Venta por Unidad 📦</option>
-                        <option value="peso">Venta al Peso / Kilo ⚖️</option>
+                        <option value="peso">Venta al Peso / Kilo 秤️</option>
                         <option value="combo" style="color:#00ff66; font-weight:bold;">Combo / Oferta 🎁</option>
                     </select>
                     <input type="number" id="prod-qty" placeholder="Cantidad Disponible en Tienda">
@@ -609,6 +611,11 @@
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
                 
+                <div class="admin-form-box" style="border-color:#ffc107;">
+                    <label style="color:#ffc107; font-weight:bold;">🔑 Renovación de Suscripción</label>
+                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.extenderSuscripcion(30)">➕ Renovar 30 Días de Licencia</button>
+                </div>
+
                 <div class="admin-form-box" style="border-color:#00ff66;">
                     <label style="color:#00ff66; font-weight:bold;">🏢 Perfil del Negocio (Para Facturas)</label>
                     <input type="text" id="cfg-nombre" placeholder="Nombre de la Tienda" onchange="window.guardarPerfil()">
@@ -683,7 +690,18 @@
         var perfilNegocio = { nombre: "Geo Mercado 🛍️", rif: "", dir: "", tlf: "", pin: "612003", pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567" };
         var productoEnEdicion = null;
         var html5QrScannerInstancia = null;
-        var licenciaActiva = localStorage.getItem('geomercado_licencia') === 'true';
+
+        // SISTEMA DE CONTROL DE FECHA Y SUSCRIPCIÓN
+        var fechaVencimiento = localStorage.getItem('geomercado_vencimiento');
+        if (!fechaVencimiento) {
+            // Si es la primera vez que se abre la app, otorga 30 días iniciales
+            var hoy = new Date();
+            hoy.setDate(hoy.getDate() + 30);
+            fechaVencimiento = hoy.getTime();
+            localStorage.setItem('geomercado_vencimiento', fechaVencimiento);
+        } else {
+            fechaVencimiento = parseInt(fechaVencimiento);
+        }
 
         // CARGA PERSISTENTE DE LOCALSTORAGE
         try {
@@ -721,21 +739,53 @@
             document.getElementById('input-fondo-usd').value = fondoCaja.usd || "";
             document.getElementById('input-fondo-ves').value = fondoCaja.ves || "";
 
+            window.actualizarEstadoLicenciaUI();
             window.actualizarOpcionesLogin();
             window.obtenerTasaBCV(true);
         };
 
-        // SUSCRIPCIÓN Y ACTIVACIÓN DE LICENCIA
+        // GESTIÓN DE SUSCRIPCIÓN Y DÍAS DE LICENCIA
+        window.actualizarEstadoLicenciaUI = function() {
+            var hoy = new Date().getTime();
+            var diffMs = fechaVencimiento - hoy;
+            var diasRestantes = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            
+            var lbl = document.getElementById('lbl-estado-licencia');
+            if (lbl) {
+                if (diasRestantes <= 0) {
+                    lbl.innerText = "❌ SUSCRIPCIÓN VENCIDA - ACCESO BLOQUEADO";
+                    lbl.style.color = "#ff5252";
+                } else if (diasRestantes <= 5) {
+                    lbl.innerText = "⚠️ Licencia por Vencer: " + diasRestantes + " días restantes";
+                    lbl.style.color = "#ffc107";
+                } else {
+                    lbl.innerText = "✓ Licencia Activa: " + diasRestantes + " días restantes";
+                    lbl.style.color = "#00ff66";
+                }
+            }
+            return diasRestantes;
+        };
+
         window.activarLicencia = function() {
             var code = document.getElementById('licencia-codigo').value.trim();
             if(code === "30629612003") {
-                licenciaActiva = true;
-                localStorage.setItem('geomercado_licencia', 'true');
+                window.extenderSuscripcion(30);
                 document.getElementById('modal-licencia').style.display = 'none';
-                window.mostrarToast("✓ Licencia Activada con Éxito");
+                document.getElementById('licencia-codigo').value = "";
+                window.mostrarToast("✓ Licencia Renovada por 30 Días");
             } else {
-                alert("Código de activación inválido.");
+                alert("Código de activación maestro inválido.");
             }
+        };
+
+        window.extenderSuscripcion = function(dias) {
+            var base = new Date().getTime();
+            if (fechaVencimiento > base) base = fechaVencimiento; 
+            
+            var nuevaFecha = base + (dias * 24 * 60 * 60 * 1000);
+            fechaVencimiento = nuevaFecha;
+            localStorage.setItem('geomercado_vencimiento', fechaVencimiento);
+            window.actualizarEstadoLicenciaUI();
         };
 
         window.solicitarLicenciaWS = function() {
@@ -744,7 +794,7 @@
             window.open(url, '_blank');
         };
 
-        // INICIO DE SESIÓN CON CAJEROS Y ADMINISTRADOR
+        // INICIO DE SESIÓN CON CAJEROS Y ADMINISTRADOR CON VERIFICACIÓN DE VENCIMIENTO
         window.actualizarOpcionesLogin = function() {
             var rol = document.getElementById('login-rol').value;
             var box = document.getElementById('box-select-cajero');
@@ -765,6 +815,14 @@
         };
 
         window.ejecutarLogin = function() {
+            // Verificar si la licencia está vencida
+            var dias = window.actualizarEstadoLicenciaUI();
+            if (dias <= 0) {
+                window.mostrarFeedbackAnimado('error', 'Suscripción Vencida');
+                document.getElementById('modal-licencia').style.display = 'flex';
+                return;
+            }
+
             var rol = document.getElementById('login-rol').value;
             var pin = document.getElementById('login-pin').value.trim();
 
@@ -801,6 +859,7 @@
         window.cerrarSesion = function() {
             document.getElementById('app-content').style.display = 'none';
             document.getElementById('section-login').style.display = 'block';
+            window.actualizarEstadoLicenciaUI();
         };
 
         window.guardarNuevoCajero = function() {
@@ -818,27 +877,51 @@
             }
         };
 
-        // ACTUALIZACIÓN DE TASA BCV
+        // ACTUALIZACIÓN DE TASA BCV DESDE FUENTES OFICIALES Y ESTABLES
         window.obtenerTasaBCV = function(silencioso) {
-            fetch('https://rates.dolarvzla.com/bcv/current.json')
+            if(!silencioso) window.mostrarToast("📡 Consultando BCV...");
+
+            // Intento 1: API Directa de Dólar Venezuela
+            fetch('https://ve.dolarapi.com/v1/dolares/oficial')
             .then(function(res) { return res.json(); })
             .then(function(data) {
-                if (data && data.price) {
-                    var valorBcv = parseFloat(data.price);
+                if (data && data.promedio) {
+                    var valorBcv = parseFloat(data.promedio);
                     if (!isNaN(valorBcv) && valorBcv > 0) {
-                        tasaDia = valorBcv;
-                        var inputTasa = document.getElementById('input-tasa-global');
-                        if (inputTasa) inputTasa.value = tasaDia;
-                        localStorage.setItem('geomercado_tasa_v19', tasaDia);
-                        window.recalcularTotalesCarrito();
-                        window.renderizarCarritoCaja();
-                        if (!silencioso) window.mostrarToast("✓ Tasa BCV actualizada: " + tasaDia.toFixed(2) + " Bs");
+                        window.aplicarNuevaTasaBCV(valorBcv, silencioso);
+                        return;
                     }
                 }
+                throw new Error("Formato respuesta no esperado");
             })
             .catch(function(err) {
-                if (!silencioso) window.mostrarToast("⚠️ No se pudo obtener la tasa BCV");
+                // Intento 2: Respaldo en Rates
+                fetch('https://rates.dolarvzla.com/bcv/current.json')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data && data.price) {
+                        var valorBcv = parseFloat(data.price);
+                        if (!isNaN(valorBcv) && valorBcv > 0) {
+                            window.aplicarNuevaTasaBCV(valorBcv, silencioso);
+                            return;
+                        }
+                    }
+                    if (!silencioso) window.mostrarFeedbackAnimado('error', 'Ingresa Tasa Manualmente');
+                })
+                .catch(function() {
+                    if (!silencioso) window.mostrarFeedbackAnimado('error', 'Fallo conexión BCV');
+                });
             });
+        };
+
+        window.aplicarNuevaTasaBCV = function(valor, silencioso) {
+            tasaDia = valor;
+            var inputTasa = document.getElementById('input-tasa-global');
+            if (inputTasa) inputTasa.value = tasaDia.toFixed(2);
+            localStorage.setItem('geomercado_tasa_v19', tasaDia);
+            window.recalcularTotalesCarrito();
+            window.renderizarCarritoCaja();
+            if (!silencioso) window.mostrarFeedbackAnimado('exito', 'Tasa: ' + tasaDia.toFixed(2) + ' Bs');
         };
 
         window.recalcularTotalesCarrito = function() {
@@ -1709,7 +1792,6 @@
             var tlf = (perfilNegocio.pmTlf || "04121234567").replace(/\D/g, '');
             var mto = totalVentaVES.toFixed(2);
 
-            // Estructura URI estándar compatible con el escáner del Banco de Venezuela
             var qrEstructurado = "pagoMovil:v1?banco=" + bco + "&cedula=" + ced + "&telefono=" + tlf + "&monto=" + mto;
             
             var qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(qrEstructurado);
