@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Geo Mercado V19.1 - Sin Tanto Embrollo</title>
 
-    <!-- Inyección dinámica de Manifest.json para App PWA -->
+    <!-- Manifest.json Inyectado para PWA -->
     <script>
         (function() {
             var manifestData = {
@@ -98,7 +98,7 @@
         .btn-tool:active { background: #242c3d; color: #fff; transform: scale(0.95); }
 
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; animation: fadeIn 0.2s ease; }
-        .modal-content { background: #11151d; border: 1px solid #00ff66; padding: 16px; border-radius: 14px; width: 90%; max-width: 350px; display: flex; flex-direction: column; gap: 10px; max-height: 80vh; overflow-y: auto; box-shadow: 0 0 20px rgba(0,255,102,0.15); }
+        .modal-content { background: #11151d; border: 1px solid #00ff66; padding: 16px; border-radius: 14px; width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 10px; max-height: 85vh; overflow-y: auto; box-shadow: 0 0 20px rgba(0,255,102,0.15); }
         .modal-content h3 { margin: 0; color: #00ff66; text-align: center; }
 
         .cart-card { background-color: #11151d; border: 1px dashed #242c3d; border-radius: 12px; padding: 10px; width: 100%; box-sizing: border-box; }
@@ -231,7 +231,7 @@
 
         <div id="toast" class="toast-notification"></div>
 
-        <!-- PANTALLA PRINCIPAL DE AUTENTICACIÓN (LOGIN ROLES Y CLAVES) -->
+        <!-- PANTALLA PRINCIPAL DE AUTENTICACIÓN -->
         <div id="section-login" class="login-card">
             <div class="logo-grande" style="margin: 0 auto 10px auto;">
                 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -259,6 +259,8 @@
             <input type="password" id="login-pin" placeholder="Ingresa clave">
 
             <button class="btn-charge" style="width:100%;" onclick="window.ejecutarLogin()">INGRESAR AL SISTEMA</button>
+            
+            <button class="btn-clear" style="margin-top:10px; width:100%; border-color:#ffc107; color:#ffc107;" onclick="document.getElementById('modal-licencia').style.display='flex'">🔒 Activar / Pagar Licencia</button>
         </div>
 
         <!-- MODAL CONFIRMACIÓN -->
@@ -282,12 +284,13 @@
             </div>
         </div>
 
-        <!-- MODAL GENERADOR CÓDIGO QR PAGO MÓVIL -->
+        <!-- MODAL GENERADOR CÓDIGO QR PAGO MÓVIL ESTÁNDAR BANCOS -->
         <div id="modal-qr" class="modal-overlay">
             <div class="modal-content" style="text-align: center;">
-                <h3>📲 QR de Pago Móvil Dinámico</h3>
+                <h3>📲 QR Pago Móvil BDV / Bancos</h3>
+                <p style="font-size:10px; color:#8fa0b7; margin:0;">Escanéalo directo desde la App del Banco de Venezuela o cualquier banco nacional.</p>
                 <div style="background:#fff; padding:10px; border-radius:10px; display:inline-block; margin:8px auto;">
-                    <img id="img-qr-code" src="" alt="Código QR Pago Móvil" style="width:180px; height:180px;">
+                    <img id="img-qr-code" src="" alt="Código QR Pago Móvil" style="width:190px; height:190px;">
                 </div>
                 <div id="qr-text-info" style="font-size:11px; color:#fff; text-align:left; background:#0b0e14; padding:8px; border-radius:8px;"></div>
                 <div style="display:flex; gap:6px; margin-top:8px;">
@@ -297,14 +300,30 @@
             </div>
         </div>
 
-        <!-- MODAL LICENCIA / SUSCRIPCIÓN DE LA APP -->
+        <!-- MODAL SUSCRIPCIÓN / PAGO DE LICENCIA CON PAGO MÓVIL -->
         <div id="modal-licencia" class="modal-overlay">
-            <div class="modal-content" style="text-align: center;">
-                <h3 style="color:#ffc107;">🔒 Comprar / Activar Licencia POS</h3>
-                <p style="font-size:12px; color:#fff;">Suscripción mensual: <strong>5$</strong> | Anual: <strong>45$</strong></p>
-                <p style="font-size:11px; color:#8fa0b7;">Introduce tu código de desbloqueo o referencia para activar la app:</p>
-                <input type="text" id="licencia-codigo" placeholder="Código de Activación" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center;">
-                <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.activarLicencia()">Desbloquear App</button>
+            <div class="modal-content">
+                <h3 style="color:#ffc107;">🔒 Pago de Licencia / Suscripción</h3>
+                <div style="background:#0b0e14; padding:10px; border-radius:8px; border:1px solid #242c3d; font-size:11px; color:#fff;">
+                    <p style="margin:0 0 6px 0; color:#00ff66; font-weight:bold;">📲 Datos para Renovar por Pago Móvil:</p>
+                    <div>• <strong>Banco:</strong> Banco de Venezuela (0102)</div>
+                    <div>• <strong>Cédula:</strong> V-26000000</div>
+                    <div>• <strong>Teléfono:</strong> 0412-0000000</div>
+                    <div>• <strong>Monto Mensual:</strong> $5 (Bs a Tasa BCV)</div>
+                    <div>• <strong>Monto Anual:</strong> $45 (Bs a Tasa BCV)</div>
+                </div>
+
+                <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">
+                    Una vez realizado el Pago Móvil, envía el comprobante por WhatsApp para recibir tu código o introduce tu clave maestra:
+                </p>
+
+                <input type="password" id="licencia-codigo" placeholder="Introduce Código Maestro" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                
+                <div style="display:flex; gap:6px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-licencia').style.display='none'">Cerrar</button>
+                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.activarLicencia()">Desbloquear App</button>
+                </div>
+                <button class="btn-clear" style="border-color:#25D366; color:#25D366; width:100%;" onclick="window.solicitarLicenciaWS()">📲 Solicitar Código por WhatsApp</button>
             </div>
         </div>
 
@@ -313,7 +332,7 @@
             <div class="modal-content">
                 <h3>📝 Datos de Facturación</h3>
                 <input type="text" id="cliente-nombre" placeholder="Nombre y Apellido" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
-                <input type="text" id="cliente-cedula" placeholder="Cédula o RIF" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+                <input type="text" id="cliente-cedula" placeholder="Cédula o RIF (Ej. V12345678)" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
                 <input type="text" id="cliente-dir" placeholder="Dirección del Cliente" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
                 <div style="display:flex; gap:10px;">
                     <button class="btn-clear" onclick="document.getElementById('modal-cliente').style.display='none'">Cancelar</button>
@@ -599,10 +618,10 @@
                 </div>
 
                 <div class="admin-form-box" style="border-color:#00ff66;">
-                    <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor (Verificación y QR)</label>
-                    <input type="text" id="cfg-pm-banco" placeholder="Banco (Ej. BDV, Banesco, Mercantil)" onchange="window.guardarPerfil()">
-                    <input type="text" id="cfg-pm-cedula" placeholder="Cédula / RIF Destino" onchange="window.guardarPerfil()">
-                    <input type="text" id="cfg-pm-tlf" placeholder="Teléfono Pago Móvil Destino" onchange="window.guardarPerfil()">
+                    <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor (Estándar Bancos)</label>
+                    <input type="text" id="cfg-pm-banco" placeholder="Código Banco 4 Dígitos (Ej. 0102 BDV, 0134 Banesco)" onchange="window.guardarPerfil()">
+                    <input type="text" id="cfg-pm-cedula" placeholder="Cédula/RIF con Letra (Ej. V12345678)" onchange="window.guardarPerfil()">
+                    <input type="text" id="cfg-pm-tlf" placeholder="Teléfono 11 Dígitos (Ej. 04121234567)" onchange="window.guardarPerfil()">
                 </div>
 
                 <div class="admin-form-box" style="border-color:#00ff66;">
@@ -661,7 +680,7 @@
         var fiados = [];
         var usuariosCajeros = [{ id: 1, nombre: "Cajero Principal", clave: "1234" }];
         var fondoCaja = { usd: 0, ves: 0 };
-        var perfilNegocio = { nombre: "Geo Mercado 🛍️", rif: "", dir: "", tlf: "", pin: "612003", pmBanco: "", pmCedula: "", pmTlf: "" };
+        var perfilNegocio = { nombre: "Geo Mercado 🛍️", rif: "", dir: "", tlf: "", pin: "612003", pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567" };
         var productoEnEdicion = null;
         var html5QrScannerInstancia = null;
         var licenciaActiva = localStorage.getItem('geomercado_licencia') === 'true';
@@ -695,9 +714,9 @@
             document.getElementById('cfg-tlf').value = perfilNegocio.tlf || "";
             document.getElementById('cfg-dir').value = perfilNegocio.dir || "";
             document.getElementById('cfg-pin').value = perfilNegocio.pin || "612003";
-            document.getElementById('cfg-pm-banco').value = perfilNegocio.pmBanco || "";
-            document.getElementById('cfg-pm-cedula').value = perfilNegocio.pmCedula || "";
-            document.getElementById('cfg-pm-tlf').value = perfilNegocio.pmTlf || "";
+            document.getElementById('cfg-pm-banco').value = perfilNegocio.pmBanco || "0102";
+            document.getElementById('cfg-pm-cedula').value = perfilNegocio.pmCedula || "V12345678";
+            document.getElementById('cfg-pm-tlf').value = perfilNegocio.pmTlf || "04121234567";
             
             document.getElementById('input-fondo-usd').value = fondoCaja.usd || "";
             document.getElementById('input-fondo-ves').value = fondoCaja.ves || "";
@@ -717,6 +736,12 @@
             } else {
                 alert("Código de activación inválido.");
             }
+        };
+
+        window.solicitarLicenciaWS = function() {
+            var msj = "👋 Hola, deseo solicitar / renovar el código de activación de mi sistema Geo Mercado POS.";
+            var url = "https://api.whatsapp.com/send?text=" + encodeURIComponent(msj);
+            window.open(url, '_blank');
         };
 
         // INICIO DE SESIÓN CON CAJEROS Y ADMINISTRADOR
@@ -978,9 +1003,9 @@
             perfilNegocio.dir = document.getElementById('cfg-dir').value || "";
             perfilNegocio.pin = document.getElementById('cfg-pin').value || "612003";
             
-            perfilNegocio.pmBanco = document.getElementById('cfg-pm-banco').value || "";
-            perfilNegocio.pmCedula = document.getElementById('cfg-pm-cedula').value || "";
-            perfilNegocio.pmTlf = document.getElementById('cfg-pm-tlf').value || "";
+            perfilNegocio.pmBanco = (document.getElementById('cfg-pm-banco').value || "0102").replace(/\D/g, '');
+            perfilNegocio.pmCedula = (document.getElementById('cfg-pm-cedula').value || "V12345678").toUpperCase().replace(/\s/g, '');
+            perfilNegocio.pmTlf = (document.getElementById('cfg-pm-tlf').value || "04121234567").replace(/\D/g, '');
 
             localStorage.setItem('geomercado_perfil_v19', JSON.stringify(perfilNegocio));
             window.mostrarToast("Perfil actualizado");
@@ -1675,20 +1700,34 @@
             });
         };
 
-        // GENERACIÓN DE QR Y WHATSAPP
+        // GENERACIÓN DE QR ESTÁNDAR PAGO MÓVIL BANCOS VENEZUELA
         window.generarQRPagoMovil = function() {
             if(totalVentaVES <= 0) { window.mostrarFeedbackAnimado('error', 'Agrega productos a la caja'); return; }
-            var info = "PAGO MOVIL " + (perfilNegocio.nombre || "") + "\nBanco: " + (perfilNegocio.pmBanco || "No asignado") + "\nCI/RIF: " + (perfilNegocio.pmCedula || "No asignado") + "\nTel: " + (perfilNegocio.pmTlf || "No asignado") + "\nMonto: " + totalVentaVES.toFixed(2) + " Bs";
             
-            var qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(info);
+            var bco = (perfilNegocio.pmBanco || "0102").padStart(4, '0');
+            var ced = (perfilNegocio.pmCedula || "V12345678").toUpperCase().replace(/\s/g, '');
+            var tlf = (perfilNegocio.pmTlf || "04121234567").replace(/\D/g, '');
+            var mto = totalVentaVES.toFixed(2);
+
+            // Estructura URI estándar compatible con el escáner del Banco de Venezuela
+            var qrEstructurado = "pagoMovil:v1?banco=" + bco + "&cedula=" + ced + "&telefono=" + tlf + "&monto=" + mto;
+            
+            var qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(qrEstructurado);
             document.getElementById('img-qr-code').src = qrUrl;
-            document.getElementById('qr-text-info').innerText = info;
+            
+            var infoTexto = "🏢 *" + (perfilNegocio.nombre || "Geo Mercado") + "*\n";
+            infoTexto += "🏦 Banco: " + bco + "\n";
+            infoTexto += "🪪 CI/RIF: " + ced + "\n";
+            infoTexto += "📞 Teléfono: " + tlf + "\n";
+            infoTexto += "💵 Monto a Pagar: *" + mto + " Bs*";
+            
+            document.getElementById('qr-text-info').innerText = infoTexto.replace(/\*/g, '');
             document.getElementById('modal-qr').style.display = 'flex';
         };
 
         window.enviarQRPorWS = function() {
             var tlfClient = document.getElementById('pm-phone').value.replace(/\D/g, '');
-            var msj = "📲 *DATOS PAGO MÓVIL*\n\n" + document.getElementById('qr-text-info').innerText;
+            var msj = "📲 *DATOS PAGO MÓVIL PARA ESCANEAR*\n\n" + document.getElementById('qr-text-info').innerText;
             var url = tlfClient ? ("https://api.whatsapp.com/send?phone=" + tlfClient + "&text=" + encodeURIComponent(msj)) : ("https://api.whatsapp.com/send?text=" + encodeURIComponent(msj));
             window.open(url, '_blank');
         };
@@ -1697,9 +1736,9 @@
             var tlfCliente = document.getElementById('pm-phone').value || "";
             var msj = "📲 *DATOS DE PAGO MÓVIL*\n\n";
             msj += "🏢 *" + perfilNegocio.nombre + "*\n";
-            msj += "🏦 Banco: " + (perfilNegocio.pmBanco || "No configurado") + "\n";
-            msj += "🪪 CI/RIF: " + (perfilNegocio.pmCedula || "No configurado") + "\n";
-            msj += "📞 Teléfono: " + (perfilNegocio.pmTlf || "No configurado") + "\n\n";
+            msj += "🏦 Banco: " + (perfilNegocio.pmBanco || "0102") + "\n";
+            msj += "🪪 CI/RIF: " + (perfilNegocio.pmCedula || "V12345678") + "\n";
+            msj += "📞 Teléfono: " + (perfilNegocio.pmTlf || "04121234567") + "\n\n";
             msj += "💵 Total a pagar: *" + window.formatVE(totalVentaVES) + "* (" + window.formatUSD(totalVentaUSD) + ")\n\n";
             msj += "Por favor envía el comprobante por este medio. ¡Muchas gracias!";
 
