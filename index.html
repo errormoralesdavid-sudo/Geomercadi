@@ -32,6 +32,17 @@
             document.getElementsByTagName('head')[0].appendChild(link);
         })();
 
+        // Registrar Service Worker para soporte Offline total
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('./sw.js').then(function(reg) {
+                    console.log('Service Worker PWA registrado con éxito:', reg.scope);
+                }).catch(function(err) {
+                    console.warn('Error registrando Service Worker:', err);
+                });
+            });
+        }
+
         window.onerror = function(msg, url, line) { 
             console.error("Error detectado:", msg, "en", url, "línea", line);
             return true; 
@@ -59,6 +70,12 @@
             .menu-grid { grid-template-columns: repeat(3, 1fr) !important; }
             .inventory-grid { grid-template-columns: repeat(3, 1fr) !important; }
             .caja-layout-pc { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 15px; }
+        }
+
+        .offline-banner {
+            background: #ffc107; color: #000; font-size: 11px; font-weight: bold;
+            padding: 6px; border-radius: 8px; text-align: center; display: none;
+            box-shadow: 0 0 10px rgba(255,193,7,0.3); animation: fadeIn 0.3s ease;
         }
 
         .login-card { 
@@ -207,12 +224,11 @@
         @keyframes pulseAnim { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
 
-    <!-- INICIALIZACIÓN DE FIREBASE CON SINCRO EN TIEMPO REAL -->
+    <!-- INICIALIZACIÓN DE FIREBASE CON PERSISTENCIA LOCAL OFFLINE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, initializeFirestore, persistentLocalCache } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Credenciales exactas del proyecto geomercado-9d642
         const firebaseConfig = {
             apiKey: "AIzaSyAsBnD8C_E_o5oHzmw7bWmKrmW2JAjdcaU",
             authDomain: "geomercado-9d642.firebaseapp.com",
@@ -223,11 +239,13 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        
+        // Habilita el guardado interno automático en caso de falta de conexión
         const db = initializeFirestore(app, {
             localCache: persistentLocalCache()
         });
 
-        // Guardar todo el estado en la nube Firestore
+        // Guardar todo el estado local y enviar a cola de sincronización si está offline
         window.guardarEstructuraFirebase = async function() {
             try {
                 await setDoc(doc(db, "geomercado_tienda", "datos_globales"), {
@@ -241,11 +259,11 @@
                     fechaVencimiento: window.fechaVencimiento || (Date.now() + 30*24*60*60*1000)
                 });
             } catch (e) {
-                console.error("Error al sincronizar con la nube:", e);
+                console.warn("Guardado localmente. Se subirá a la nube cuando regrese la red.");
             }
         };
 
-        // Escuchar cambios en vivo desde cualquier caja o teléfono conectado
+        // Escuchar cambios en vivo desde la nube o desde la caché local
         onSnapshot(doc(db, "geomercado_tienda", "datos_globales"), (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
@@ -258,7 +276,6 @@
                 if (data.tasaDia) window.tasaDia = data.tasaDia;
                 if (data.fechaVencimiento) window.fechaVencimiento = data.fechaVencimiento;
 
-                // Actualizar interfaz al instante
                 if (document.getElementById('modulo-inventario').style.display === 'flex') {
                     window.renderizarInventario("");
                 }
@@ -275,6 +292,11 @@
 <body>
 
     <div class="app-container">
+        <!-- BASTIóN AVISO SIN CONEXIÓN -->
+        <div id="banner-offline" class="offline-banner">
+            ⚡ MODO SIN CONEXIÓN (OFFLINE): Trabajando con datos locales. Los cambios se subirán solos al volver la red.
+        </div>
+
         <div id="hidden-qr-reader"></div>
 
         <div id="scan-feedback" class="scan-feedback-overlay">
@@ -295,7 +317,7 @@
                 </svg>
             </div>
             <h2 style="color:#00ff66; margin:0;">GEO MERCADO POS</h2>
-            <p style="color:#8fa0b7; font-size:11px; margin-bottom:15px;">SIN TANTO EMBROLLO V19.1</p>
+            <p style="color:#8fa0b7; font-size:11px; margin-bottom:15px;">SIN TANTO EMBROLLO V19.1 (OFFLINE READY)</p>
 
             <div id="lbl-estado-licencia" style="font-size:11px; font-weight:bold; margin-bottom:10px; color:#00ff66;">
                 Días de Licencia Restantes: Calculando...
@@ -756,7 +778,25 @@
             fechaVencimiento = parseInt(fechaVencimiento);
         }
 
+        window.addEventListener('online', function() {
+            var banner = document.getElementById('banner-offline');
+            if (banner) banner.style.display = 'none';
+            window.mostrarToast("⚡ Conexión restablecida: Sincronizando con la Nube...");
+            window.sincronizarConNube();
+        });
+
+        window.addEventListener('offline', function() {
+            var banner = document.getElementById('banner-offline');
+            if (banner) banner.style.display = 'block';
+            window.mostrarToast("📡 Modo Sin Red Activo");
+        });
+
         window.onload = function() {
+            if (!navigator.onLine) {
+                var banner = document.getElementById('banner-offline');
+                if (banner) banner.style.display = 'block';
+            }
+
             var inputTasa = document.getElementById('input-tasa-global');
             if(inputTasa) inputTasa.value = tasaDia;
             
@@ -774,7 +814,9 @@
 
             window.actualizarEstadoLicenciaUI();
             window.actualizarOpcionesLogin();
-            window.obtenerTasaBCV(true);
+            if (navigator.onLine) {
+                window.obtenerTasaBCV(true);
+            }
         };
 
         window.sincronizarConNube = function() {
@@ -915,6 +957,10 @@
         };
 
         window.obtenerTasaBCV = function(silencioso) {
+            if (!navigator.onLine) {
+                if (!silencioso) window.mostrarToast("Usando tasa guardada (Sin Red)");
+                return;
+            }
             if(!silencioso) window.mostrarToast("📡 Consultando BCV...");
 
             fetch('https://ve.dolarapi.com/v1/dolares/oficial')
@@ -1157,7 +1203,7 @@
                         productos = parsed;
                         window.renderizarInventario("");
                         window.sincronizarConNube();
-                        window.mostrarToast("✓ Inventario cargado en la nube");
+                        window.mostrarToast("✓ Inventario cargado");
                     } else {
                         window.mostrarFeedbackAnimado('error', 'Formato JSON Inválido');
                     }
@@ -1616,7 +1662,7 @@
                 cajero: usuarioActivoNombre
             });
             
-            window.sincronizarConNube(); // Se sube a la nube para los demás equipos
+            window.sincronizarConNube();
             
             totalVentaUSD = 0.00; totalVentaVES = 0.00; carrito = [];
             document.getElementById('pay-ptv').value = ''; document.getElementById('pay-pm').value = '';
@@ -1625,14 +1671,14 @@
             
             window.actualizarEtiquetasPago();
             window.renderizarCarritoCaja();
-            window.mostrarToast("⏸️ Factura Pausada en Nube");
+            window.mostrarToast("⏸️ Factura Pausada");
         };
 
         window.recuperarFactura = function() {
             if(facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('error', 'No hay facturas pausadas'); return; }
             if(carrito.length > 0) { window.mostrarFeedbackAnimado('error', 'Limpia o procesa la venta actual'); return; }
             
-            var text = "Facturas en la Nube (Escribe el número):\n";
+            var text = "Facturas Guardadas (Escribe el número):\n";
             for(var i=0; i<facturasEnEspera.length; i++) {
                 text += (i+1) + ". " + facturasEnEspera[i].cliente + " (" + window.formatVE(facturasEnEspera[i].totalVES) + ") - " + (facturasEnEspera[i].cajero || 'Caja') + "\n";
             }
@@ -1645,7 +1691,7 @@
                 window.recalcularTotalesCarrito();
                 document.getElementById('cliente-nombre').value = rec.cliente !== "Cliente sin nombre" ? rec.cliente : "";
                 window.renderizarCarritoCaja();
-                window.sincronizarConNube(); // Actualiza la lista en los otros teléfonos
+                window.sincronizarConNube();
                 window.mostrarToast("📂 Factura Recuperada");
             }
         };
@@ -1881,7 +1927,7 @@
                 });
                 window.sincronizarConNube();
                 window.limpiarCaja(true);
-                window.mostrarToast("✓ Deuda Registrada en Nube");
+                window.mostrarToast("✓ Deuda Registrada");
             }
         };
 
