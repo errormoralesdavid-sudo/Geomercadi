@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geo Mercado V19.1 - POS Control</title>
+    <title>Geo Mercado V19.1 - Multi-Caja POS</title>
 
     <!-- Manifest.json Inyectado para PWA -->
     <script>
@@ -175,16 +175,6 @@
         .pm-status-success { background: rgba(0, 255, 102, 0.15); border: 1px solid #00ff66; color: #00ff66; }
         .pm-status-warning { background: rgba(255, 193, 7, 0.15); border: 1px solid #ffc107; color: #ffc107; }
 
-        .spinner-loader {
-            width: 32px; height: 32px;
-            border: 4px solid rgba(0, 255, 102, 0.2);
-            border-top: 4px solid #00ff66;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-bottom: 10px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
         .toast-notification {
             position: fixed; bottom: 20px; left: 50%;
             transform: translateX(-50%) translateY(100px);
@@ -216,6 +206,67 @@
         .pulse-number { animation: pulseAnim 0.2s ease-out; }
         @keyframes pulseAnim { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
+
+    <!-- INICIALIZACIÓN DE FIREBASE EN TIEMPO REAL -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Credenciales extraídas de tu proyecto de Firebase (geomercado-9d642)
+        const firebaseConfig = {
+          apiKey: "AIzaSyAsBnD8C_E_o5oHzmw7...", // Sustituir por tu clave completa si lo requieres
+          authDomain: "geomercado-9d642.firebaseapp.com",
+          projectId: "geomercado-9d642",
+          storageBucket: "geomercado-9d642.appspot.com",
+          messagingSenderId: "521126834575",
+          appId: "1:521126834575:web:4c847d..."
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Guardar estado en la nube Firestore
+        window.guardarEstructuraFirebase = async function() {
+            try {
+                await setDoc(doc(db, "geomercado_tienda", "datos_globales"), {
+                    productos: window.productos,
+                    ventasHistorico: window.ventasHistorico,
+                    fiados: window.fiados,
+                    perfilNegocio: window.perfilNegocio,
+                    usuariosCajeros: window.usuariosCajeros,
+                    tasaDia: window.tasaDia,
+                    fechaVencimiento: window.fechaVencimiento
+                });
+            } catch (e) {
+                console.error("Error al guardar en Firestore:", e);
+            }
+        };
+
+        // Escuchar cambios en vivo desde cualquier caja conectada
+        onSnapshot(doc(db, "geomercado_tienda", "datos_globales"), (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data();
+                if (data.productos) window.productos = data.productos;
+                if (data.ventasHistorico) window.ventasHistorico = data.ventasHistorico;
+                if (data.fiados) window.fiados = data.fiados;
+                if (data.perfilNegocio) window.perfilNegocio = data.perfilNegocio;
+                if (data.usuariosCajeros) window.usuariosCajeros = data.usuariosCajeros;
+                if (data.tasaDia) window.tasaDia = data.tasaDia;
+                if (data.fechaVencimiento) window.fechaVencimiento = data.fechaVencimiento;
+
+                // Renderizar cambios al instante en pantalla
+                if (document.getElementById('modulo-inventario').style.display === 'flex') {
+                    window.renderizarInventario("");
+                }
+                if (document.getElementById('modulo-cierre').style.display === 'flex') {
+                    window.renderizarCierreDeCaja();
+                }
+                if (document.getElementById('modulo-fiados').style.display === 'flex') {
+                    window.renderizarFiados();
+                }
+            }
+        });
+    </script>
 </head>
 <body>
 
@@ -366,7 +417,7 @@
                     </svg>
                 </div>
                 <div class="main-title"><span style="color:#00ff66;">GEO MERCADO 🛍️</span></div>
-                <div class="version-tag">V19.1 EDICIÓN VENEZUELA</div>
+                <div class="version-tag">V19.1 EDICIÓN VENEZUELA (MULTI-CAJA)</div>
                 <div class="role-badge">Usuario: <span id="txt-rol">Administrador 👑</span></div>
 
                 <div class="menu-grid">
@@ -547,7 +598,7 @@
 
                     <select id="prod-type" onchange="window.conmutarCampoCantidad(this.value)">
                         <option value="unidad">Venta por Unidad 📦</option>
-                        <option value="peso">Venta al Peso / Kilo 秤️</option>
+                        <option value="peso">Venta al Peso / Kilo ⚖️</option>
                         <option value="combo" style="color:#00ff66; font-weight:bold;">Combo / Oferta 🎁</option>
                     </select>
                     <input type="number" id="prod-qty" placeholder="Cantidad Disponible en Tienda">
@@ -691,36 +742,14 @@
         var productoEnEdicion = null;
         var html5QrScannerInstancia = null;
 
-        // SISTEMA DE CONTROL DE FECHA Y SUSCRIPCIÓN
         var fechaVencimiento = localStorage.getItem('geomercado_vencimiento');
         if (!fechaVencimiento) {
-            // Si es la primera vez que se abre la app, otorga 30 días iniciales
             var hoy = new Date();
             hoy.setDate(hoy.getDate() + 30);
             fechaVencimiento = hoy.getTime();
             localStorage.setItem('geomercado_vencimiento', fechaVencimiento);
         } else {
             fechaVencimiento = parseInt(fechaVencimiento);
-        }
-
-        // CARGA PERSISTENTE DE LOCALSTORAGE
-        try {
-            var db = localStorage.getItem('geomercado_db_v19');
-            productos = db ? JSON.parse(db) : [];
-            var dbVentas = localStorage.getItem('geomercado_ventas_v19');
-            ventasHistorico = dbVentas ? JSON.parse(dbVentas) : [];
-            var dbFiados = localStorage.getItem('geomercado_fiados_v19');
-            fiados = dbFiados ? JSON.parse(dbFiados) : [];
-            var dbFondo = localStorage.getItem('geomercado_fondo_v19');
-            if(dbFondo) fondoCaja = JSON.parse(dbFondo);
-            var dbEspera = localStorage.getItem('geomercado_espera_v19');
-            if(dbEspera) facturasEnEspera = JSON.parse(dbEspera);
-            var dbPerfil = localStorage.getItem('geomercado_perfil_v19');
-            if(dbPerfil) perfilNegocio = JSON.parse(dbPerfil);
-            var dbCajeros = localStorage.getItem('geomercado_cajeros_v19');
-            if(dbCajeros) usuariosCajeros = JSON.parse(dbCajeros);
-        } catch(e) {
-            console.error("Error al cargar localStorage:", e);
         }
 
         window.onload = function() {
@@ -744,7 +773,12 @@
             window.obtenerTasaBCV(true);
         };
 
-        // GESTIÓN DE SUSCRIPCIÓN Y DÍAS DE LICENCIA
+        window.sincronizarConNube = function() {
+            if (typeof window.guardarEstructuraFirebase === 'function') {
+                window.guardarEstructuraFirebase();
+            }
+        };
+
         window.actualizarEstadoLicenciaUI = function() {
             var hoy = new Date().getTime();
             var diffMs = fechaVencimiento - hoy;
@@ -786,6 +820,7 @@
             fechaVencimiento = nuevaFecha;
             localStorage.setItem('geomercado_vencimiento', fechaVencimiento);
             window.actualizarEstadoLicenciaUI();
+            window.sincronizarConNube();
         };
 
         window.solicitarLicenciaWS = function() {
@@ -794,7 +829,6 @@
             window.open(url, '_blank');
         };
 
-        // INICIO DE SESIÓN CON CAJEROS Y ADMINISTRADOR CON VERIFICACIÓN DE VENCIMIENTO
         window.actualizarOpcionesLogin = function() {
             var rol = document.getElementById('login-rol').value;
             var box = document.getElementById('box-select-cajero');
@@ -815,7 +849,6 @@
         };
 
         window.ejecutarLogin = function() {
-            // Verificar si la licencia está vencida
             var dias = window.actualizarEstadoLicenciaUI();
             if (dias <= 0) {
                 window.mostrarFeedbackAnimado('error', 'Suscripción Vencida');
@@ -867,21 +900,19 @@
             var clav = document.getElementById('nuevo-cajero-clave').value.trim();
             if(nom && clav) {
                 usuariosCajeros.push({ id: Date.now(), nombre: nom, clave: clav });
-                localStorage.setItem('geomercado_cajeros_v19', JSON.stringify(usuariosCajeros));
                 document.getElementById('nuevo-cajero-nombre').value = "";
                 document.getElementById('nuevo-cajero-clave').value = "";
                 window.actualizarOpcionesLogin();
+                window.sincronizarConNube();
                 window.mostrarToast("✓ Cajero Creado con Éxito");
             } else {
                 window.mostrarFeedbackAnimado('error', 'Ingresa Nombre y Clave');
             }
         };
 
-        // ACTUALIZACIÓN DE TASA BCV DESDE FUENTES OFICIALES Y ESTABLES
         window.obtenerTasaBCV = function(silencioso) {
             if(!silencioso) window.mostrarToast("📡 Consultando BCV...");
 
-            // Intento 1: API Directa de Dólar Venezuela
             fetch('https://ve.dolarapi.com/v1/dolares/oficial')
             .then(function(res) { return res.json(); })
             .then(function(data) {
@@ -894,8 +925,7 @@
                 }
                 throw new Error("Formato respuesta no esperado");
             })
-            .catch(function(err) {
-                // Intento 2: Respaldo en Rates
+            .catch(function() {
                 fetch('https://rates.dolarvzla.com/bcv/current.json')
                 .then(function(res) { return res.json(); })
                 .then(function(data) {
@@ -921,6 +951,7 @@
             localStorage.setItem('geomercado_tasa_v19', tasaDia);
             window.recalcularTotalesCarrito();
             window.renderizarCarritoCaja();
+            window.sincronizarConNube();
             if (!silencioso) window.mostrarFeedbackAnimado('exito', 'Tasa: ' + tasaDia.toFixed(2) + ' Bs');
         };
 
@@ -1075,7 +1106,7 @@
         window.guardarFondoCaja = function() {
             fondoCaja.usd = parseFloat(document.getElementById('input-fondo-usd').value) || 0;
             fondoCaja.ves = parseFloat(document.getElementById('input-fondo-ves').value) || 0;
-            localStorage.setItem('geomercado_fondo_v19', JSON.stringify(fondoCaja));
+            window.sincronizarConNube();
             window.mostrarToast("Fondo de caja guardado");
         };
 
@@ -1090,7 +1121,7 @@
             perfilNegocio.pmCedula = (document.getElementById('cfg-pm-cedula').value || "V12345678").toUpperCase().replace(/\s/g, '');
             perfilNegocio.pmTlf = (document.getElementById('cfg-pm-tlf').value || "04121234567").replace(/\D/g, '');
 
-            localStorage.setItem('geomercado_perfil_v19', JSON.stringify(perfilNegocio));
+            window.sincronizarConNube();
             window.mostrarToast("Perfil actualizado");
         };
 
@@ -1099,6 +1130,7 @@
             localStorage.setItem('geomercado_tasa_v19', tasaDia);
             window.recalcularTotalesCarrito();
             window.renderizarCarritoCaja();
+            window.sincronizarConNube();
         };
 
         window.exportarProductosJSON = function() {
@@ -1119,9 +1151,9 @@
                     var parsed = JSON.parse(e.target.result);
                     if(Array.isArray(parsed)) {
                         productos = parsed;
-                        localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
                         window.renderizarInventario("");
-                        window.mostrarToast("✓ Inventario cargado");
+                        window.sincronizarConNube();
+                        window.mostrarToast("✓ Inventario cargado en la nube");
                     } else {
                         window.mostrarFeedbackAnimado('error', 'Formato JSON Inválido');
                     }
@@ -1134,7 +1166,6 @@
             }
         };
 
-        // GESTIÓN Y CATALOGACIÓN DE PRODUCTOS
         window.calcularGanancia = function() {
             var costo = parseFloat(document.getElementById('prod-costo').value) || 0;
             var margen = parseFloat(document.getElementById('prod-margen').value) || 0;
@@ -1181,8 +1212,8 @@
                         break;
                     }
                 }
-                localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
                 window.renderizarInventario(document.getElementById('buscador-inventario').value);
+                window.sincronizarConNube();
                 window.mostrarToast("Producto eliminado");
             });
         };
@@ -1281,12 +1312,11 @@
                 window.mostrarToast("✓ Producto guardado");
             }
             
-            localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+            window.sincronizarConNube();
             window.cancelarEdicion();
             window.renderizarInventario("");
         };
 
-        // LÓGICA DE FACTURACIÓN Y CARRITO DE COMPRA
         window.filtrarBuscadorCaja = function(texto) {
             var contenedor = document.getElementById('resultados-busqueda-caja');
             if(!texto || texto.length === 0) {
@@ -1368,7 +1398,7 @@
 
                 if(p.tipo !== 'combo') {
                     p.qty -= 1;
-                    localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                    window.sincronizarConNube();
                 }
 
                 if(indexEnCarrito !== -1) {
@@ -1400,7 +1430,7 @@
             if(item.tipo !== 'combo') {
                 if(!p || p.qty < 1) { window.mostrarFeedbackAnimado('error', 'Sin más stock'); return; }
                 p.qty -= 1; 
-                localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                window.sincronizarConNube();
             }
 
             item.qtyVenta += 1;
@@ -1423,7 +1453,7 @@
                         break;
                     }
                 }
-                localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                window.sincronizarConNube();
             }
 
             item.qtyVenta -= 1;
@@ -1448,7 +1478,7 @@
                         break;
                     }
                 }
-                localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                window.sincronizarConNube();
             }
             
             carrito.splice(index, 1);
@@ -1578,7 +1608,6 @@
                 totalUSD: totalVentaUSD,
                 totalVES: totalVentaVES
             });
-            localStorage.setItem('geomercado_espera_v19', JSON.stringify(facturasEnEspera));
             
             totalVentaUSD = 0.00; totalVentaVES = 0.00; carrito = [];
             document.getElementById('pay-ptv').value = ''; document.getElementById('pay-pm').value = '';
@@ -1601,7 +1630,6 @@
             var idx = parseInt(resp) - 1;
             if(!isNaN(idx) && facturasEnEspera[idx]) {
                 var rec = facturasEnEspera.splice(idx, 1)[0];
-                localStorage.setItem('geomercado_espera_v19', JSON.stringify(facturasEnEspera));
                 
                 carrito = rec.items;
                 window.recalcularTotalesCarrito();
@@ -1611,7 +1639,6 @@
             }
         };
 
-        // ESCÁNER CÁMARA Y SERIALES (HTML5-QRCode)
         window.abrirCamaraEnVivo = function(modo) {
             if (typeof Html5Qrcode === 'undefined') { window.mostrarFeedbackAnimado('error', 'Cargando escáner...'); return; }
             document.getElementById('modal-camara').style.display = 'flex';
@@ -1704,7 +1731,6 @@
             .catch(function() { window.mostrarFeedbackAnimado('error', 'No se detectó código'); });
         };
 
-        // LECTOR OCR PARA CAPTURAS DE PAGO MÓVIL (Tesseract.js)
         window.escanearCapturePagoCompleto = function(event) {
             if (typeof Tesseract === 'undefined') { window.mostrarToast("Cargando motor OCR..."); return; }
             var input = event.target;
@@ -1783,7 +1809,6 @@
             });
         };
 
-        // GENERACIÓN DE QR ESTÁNDAR PAGO MÓVIL BANCOS VENEZUELA
         window.generarQRPagoMovil = function() {
             if(totalVentaVES <= 0) { window.mostrarFeedbackAnimado('error', 'Agrega productos a la caja'); return; }
             
@@ -1829,7 +1854,6 @@
             window.open(url, '_blank', 'noopener,noreferrer');
         };
 
-        // MÓDULO DE FIADOS / DEUDAS
         window.registrarFiado = function() {
             if(carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
             var nom = document.getElementById('cliente-nombre').value || prompt("Nombre del Cliente a Fiar:");
@@ -1844,7 +1868,7 @@
                     items: carrito.slice(),
                     fecha: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString()
                 });
-                localStorage.setItem('geomercado_fiados_v19', JSON.stringify(fiados));
+                window.sincronizarConNube();
                 window.limpiarCaja(true);
                 window.mostrarToast("✓ Deuda Registrada");
             }
@@ -1879,13 +1903,12 @@
         window.cobrarFiado = function(idx) {
             window.mostrarConfirmacion("💳 Cobrar Deuda", "¿Confirmas que el cliente canceló la deuda completa?", function() {
                 fiados.splice(idx, 1);
-                localStorage.setItem('geomercado_fiados_v19', JSON.stringify(fiados));
+                window.sincronizarConNube();
                 window.renderizarFiados();
                 window.mostrarToast("✓ Deuda Saldada");
             });
         };
 
-        // COBRO Y LIMPIEZA
         window.procesarCobro = function(imprimirTicketBooleano) {
             if(carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
             var ptv = window.extraerNumeroLimpio('pay-ptv');
@@ -1912,10 +1935,11 @@
                 totalVES: totalVentaVES,
                 costoUSD: costoTotalVentaUSD,
                 ptv: ptv, pm: pm, usd: usd, ves: ves,
+                cajero: usuarioActivoNombre,
                 cliente: cNombre, cedula: cCedula, dir: cDir, tlf: cTlf
             };
             ventasHistorico.push(venta);
-            localStorage.setItem('geomercado_ventas_v19', JSON.stringify(ventasHistorico));
+            window.sincronizarConNube();
             
             window.mostrarFeedbackAnimado('exito', 'Venta Cobrada Exitosamente');
 
@@ -1938,7 +1962,7 @@
                         }
                     }
                 }
-                localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
+                window.sincronizarConNube();
                 window.mostrarToast("Venta cancelada, stock devuelto");
             }
 
@@ -1955,7 +1979,6 @@
             window.renderizarCarritoCaja();
         };
 
-        // HISTORIAL, CIERRES E IMPRESIÓN
         window.renderizarCierreDeCaja = function() {
             var totalPM = 0; var totalUSDFisico = 0; var totalVESFisico = 0; var totalPTV = 0; 
             var totalVentasUSD = 0; var totalCostoUSD = 0;
@@ -1970,7 +1993,7 @@
                 
                 var itemsStr = v.items.map(function(it){ return window.escapeHTML(it.nombre) + " (x" + (it.qtyVenta || it.detalle) + ")"; }).join(', ');
                 html += '<div class="cierre-card">';
-                html += '<div style="display:flex; justify-content:space-between;"><h4>🛒 ' + v.fecha + '</h4></div>';
+                html += '<div style="display:flex; justify-content:space-between;"><h4>🛒 ' + v.fecha + ' (' + (v.cajero || 'Caja') + ')</h4></div>';
                 if(v.cliente) html += '<div style="color:#fff; font-size:11px; margin-bottom:4px;">Cliente: ' + window.escapeHTML(v.cliente) + '</div>';
                 
                 html += '<div class="cierre-item">Artículos: <span>' + itemsStr + '</span></div>';
@@ -2025,10 +2048,9 @@
                             }
                         }
                     }
-                    localStorage.setItem('geomercado_db_v19', JSON.stringify(productos));
                 }
                 ventasHistorico.splice(index, 1);
-                localStorage.setItem('geomercado_ventas_v19', JSON.stringify(ventasHistorico));
+                window.sincronizarConNube();
                 window.renderizarCierreDeCaja();
                 window.mostrarToast("Venta anulada con éxito");
             });
@@ -2037,7 +2059,7 @@
         window.borrarHistorial = function() {
             window.mostrarConfirmacion("⚠️ Reiniciar Día", "¿Estás seguro de borrar todas las ventas registradas?", function() {
                 ventasHistorico = [];
-                localStorage.removeItem('geomercado_ventas_v19');
+                window.sincronizarConNube();
                 window.renderizarCierreDeCaja();
                 window.mostrarToast("Historial borrado");
             });
