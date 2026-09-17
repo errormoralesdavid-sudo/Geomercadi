@@ -207,54 +207,58 @@
         @keyframes pulseAnim { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
     </style>
 
-    <!-- INICIALIZACIÓN DE FIREBASE EN TIEMPO REAL -->
+    <!-- INICIALIZACIÓN DE FIREBASE CON SINCRO EN TIEMPO REAL -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, initializeFirestore, persistentLocalCache } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Credenciales extraídas de tu proyecto de Firebase (geomercado-9d642)
+        // Credenciales exactas del proyecto geomercado-9d642
         const firebaseConfig = {
-          apiKey: "AIzaSyAsBnD8C_E_o5oHzmw7...", // Sustituir por tu clave completa si lo requieres
-          authDomain: "geomercado-9d642.firebaseapp.com",
-          projectId: "geomercado-9d642",
-          storageBucket: "geomercado-9d642.appspot.com",
-          messagingSenderId: "521126834575",
-          appId: "1:521126834575:web:4c847d..."
+            apiKey: "AIzaSyAsBnD8C_E_o5oHzmw7bWmKrmW2JAjdcaU",
+            authDomain: "geomercado-9d642.firebaseapp.com",
+            projectId: "geomercado-9d642",
+            storageBucket: "geomercado-9d642.firebasestorage.app",
+            messagingSenderId: "521126834575",
+            appId: "1:521126834575:web:4c847dec3dd57d9a439bfa"
         };
 
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        const db = initializeFirestore(app, {
+            localCache: persistentLocalCache()
+        });
 
-        // Guardar estado en la nube Firestore
+        // Guardar todo el estado en la nube Firestore
         window.guardarEstructuraFirebase = async function() {
             try {
                 await setDoc(doc(db, "geomercado_tienda", "datos_globales"), {
-                    productos: window.productos,
-                    ventasHistorico: window.ventasHistorico,
-                    fiados: window.fiados,
-                    perfilNegocio: window.perfilNegocio,
-                    usuariosCajeros: window.usuariosCajeros,
-                    tasaDia: window.tasaDia,
-                    fechaVencimiento: window.fechaVencimiento
+                    productos: window.productos || [],
+                    ventasHistorico: window.ventasHistorico || [],
+                    facturasEnEspera: window.facturasEnEspera || [],
+                    fiados: window.fiados || [],
+                    perfilNegocio: window.perfilNegocio || {},
+                    usuariosCajeros: window.usuariosCajeros || [],
+                    tasaDia: window.tasaDia || 623.02,
+                    fechaVencimiento: window.fechaVencimiento || (Date.now() + 30*24*60*60*1000)
                 });
             } catch (e) {
-                console.error("Error al guardar en Firestore:", e);
+                console.error("Error al sincronizar con la nube:", e);
             }
         };
 
-        // Escuchar cambios en vivo desde cualquier caja conectada
+        // Escuchar cambios en vivo desde cualquier caja o teléfono conectado
         onSnapshot(doc(db, "geomercado_tienda", "datos_globales"), (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
                 if (data.productos) window.productos = data.productos;
                 if (data.ventasHistorico) window.ventasHistorico = data.ventasHistorico;
+                if (data.facturasEnEspera) window.facturasEnEspera = data.facturasEnEspera;
                 if (data.fiados) window.fiados = data.fiados;
                 if (data.perfilNegocio) window.perfilNegocio = data.perfilNegocio;
                 if (data.usuariosCajeros) window.usuariosCajeros = data.usuariosCajeros;
                 if (data.tasaDia) window.tasaDia = data.tasaDia;
                 if (data.fechaVencimiento) window.fechaVencimiento = data.fechaVencimiento;
 
-                // Renderizar cambios al instante en pantalla
+                // Actualizar interfaz al instante
                 if (document.getElementById('modulo-inventario').style.display === 'flex') {
                     window.renderizarInventario("");
                 }
@@ -1602,29 +1606,35 @@
         window.aparcarFactura = function() {
             if(carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
             var cliente = document.getElementById('cliente-nombre').value || "Cliente sin nombre";
+            
             facturasEnEspera.push({
+                id: Date.now(),
                 cliente: cliente,
                 items: carrito.slice(),
                 totalUSD: totalVentaUSD,
-                totalVES: totalVentaVES
+                totalVES: totalVentaVES,
+                cajero: usuarioActivoNombre
             });
+            
+            window.sincronizarConNube(); // Se sube a la nube para los demás equipos
             
             totalVentaUSD = 0.00; totalVentaVES = 0.00; carrito = [];
             document.getElementById('pay-ptv').value = ''; document.getElementById('pay-pm').value = '';
             document.getElementById('pay-usd').value = ''; document.getElementById('pay-ves').value = '';
             document.getElementById('cliente-nombre').value = ''; document.getElementById('cliente-cedula').value = ''; document.getElementById('cliente-dir').value = '';
+            
             window.actualizarEtiquetasPago();
             window.renderizarCarritoCaja();
-            window.mostrarToast("⏸️ Factura Pausada");
+            window.mostrarToast("⏸️ Factura Pausada en Nube");
         };
 
         window.recuperarFactura = function() {
             if(facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('error', 'No hay facturas pausadas'); return; }
             if(carrito.length > 0) { window.mostrarFeedbackAnimado('error', 'Limpia o procesa la venta actual'); return; }
             
-            var text = "Elige qué factura recuperar (escribe el número):\n";
+            var text = "Facturas en la Nube (Escribe el número):\n";
             for(var i=0; i<facturasEnEspera.length; i++) {
-                text += (i+1) + ". " + facturasEnEspera[i].cliente + " (" + window.formatVE(facturasEnEspera[i].totalVES) + ")\n";
+                text += (i+1) + ". " + facturasEnEspera[i].cliente + " (" + window.formatVE(facturasEnEspera[i].totalVES) + ") - " + (facturasEnEspera[i].cajero || 'Caja') + "\n";
             }
             var resp = prompt(text);
             var idx = parseInt(resp) - 1;
@@ -1635,6 +1645,7 @@
                 window.recalcularTotalesCarrito();
                 document.getElementById('cliente-nombre').value = rec.cliente !== "Cliente sin nombre" ? rec.cliente : "";
                 window.renderizarCarritoCaja();
+                window.sincronizarConNube(); // Actualiza la lista en los otros teléfonos
                 window.mostrarToast("📂 Factura Recuperada");
             }
         };
@@ -1870,7 +1881,7 @@
                 });
                 window.sincronizarConNube();
                 window.limpiarCaja(true);
-                window.mostrarToast("✓ Deuda Registrada");
+                window.mostrarToast("✓ Deuda Registrada en Nube");
             }
         };
 
