@@ -3,23 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geo Mercado V19.1 - Multi-Caja POS</title>
+    <title>Geo Mercado V19.2 - Multi-Caja POS</title>
 
-    <!-- Enlaces a archivos externos -->
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./style.css">
 
-    <!-- LIBRERÍAS EXTERNAS PARA OCR Y LECTOR DE CÓDIGOS BARRAS -->
     <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script defer src="https://unpkg.com/html5-qrcode"></script>
 
-    <!-- Script Principal (Módulo para soportar Firebase) -->
     <script type="module" src="./app.js" defer></script>
 </head>
 <body>
 
     <div class="app-container">
-        <!-- BASTIÓN AVISO SIN CONEXIÓN -->
         <div id="banner-offline" class="offline-banner">
             ⚡ MODO SIN CONEXIÓN (OFFLINE): Trabajando con datos locales. Los cambios se subirán solos al volver la red.
         </div>
@@ -44,11 +40,7 @@
                 </svg>
             </div>
             <h2 style="color:#00ff66; margin:0;">GEO MERCADO POS</h2>
-            <p style="color:#8fa0b7; font-size:11px; margin-bottom:15px;">SIN TANTO EMBROLLO V19.1 (OFFLINE READY)</p>
-
-            <div id="lbl-estado-licencia" style="font-size:11px; font-weight:bold; margin-bottom:10px; color:#00ff66;">
-                Días de Licencia Restantes: Calculando...
-            </div>
+            <p style="color:#8fa0b7; font-size:11px; margin-bottom:15px;">V19.2 (OFFLINE READY)</p>
 
             <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Rol de Usuario:</label>
             <select id="login-rol" onchange="window.actualizarOpcionesLogin()">
@@ -65,8 +57,6 @@
             <input type="password" id="login-pin" placeholder="Ingresa clave">
 
             <button class="btn-charge" style="width:100%;" onclick="window.ejecutarLogin()">INGRESAR AL SISTEMA</button>
-            
-            <button class="btn-clear" style="margin-top:10px; width:100%; border-color:#ffc107; color:#ffc107;" onclick="document.getElementById('modal-licencia').style.display='flex'">🔒 Activar / Pagar Licencia</button>
         </div>
 
         <!-- MODAL CONFIRMACIÓN -->
@@ -84,7 +74,7 @@
         <!-- MODAL ESCÁNER CÁMARA CÓDIGO BARRAS / SERIALES -->
         <div id="modal-camara" class="modal-overlay">
             <div class="modal-content" style="max-width: 400px; text-align: center;">
-                <h3>📸 Escanear Código de Barras / Serial</h3>
+                <h3>📸 Escanear Código de Barras</h3>
                 <div id="interactive-scanner" style="width: 100%; height: 240px; background: #000; border-radius: 8px; overflow: hidden; position: relative;"></div>
                 <button class="btn-clear" onclick="window.cerrarCamaraEnVivo()" style="margin-top: 10px;">Cancelar</button>
             </div>
@@ -103,33 +93,6 @@
                     <button class="btn-clear" onclick="document.getElementById('modal-qr').style.display='none'">Cerrar</button>
                     <button class="btn-charge" onclick="window.enviarQRPorWS()">📲 WhatsApp</button>
                 </div>
-            </div>
-        </div>
-
-        <!-- MODAL SUSCRIPCIÓN / PAGO DE LICENCIA CON PAGO MÓVIL -->
-        <div id="modal-licencia" class="modal-overlay">
-            <div class="modal-content">
-                <h3 style="color:#ffc107;">🔒 Pago de Licencia / Suscripción</h3>
-                <div style="background:#0b0e14; padding:10px; border-radius:8px; border:1px solid #242c3d; font-size:11px; color:#fff;">
-                    <p style="margin:0 0 6px 0; color:#00ff66; font-weight:bold;">📲 Datos para Renovar por Pago Móvil:</p>
-                    <div>• <strong>Banco:</strong> Banco de Venezuela (0102)</div>
-                    <div>• <strong>Cédula:</strong> V-26000000</div>
-                    <div>• <strong>Teléfono:</strong> 0412-0000000</div>
-                    <div>• <strong>Monto Mensual:</strong> $5 (Bs a Tasa BCV)</div>
-                    <div>• <strong>Monto Anual:</strong> $45 (Bs a Tasa BCV)</div>
-                </div>
-
-                <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">
-                    Ingresa el Código Maestro recibido tras tu pago para extender el sistema por 30 días más:
-                </p>
-
-                <input type="password" id="licencia-codigo" placeholder="Introduce Código Maestro" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center;">
-                
-                <div style="display:flex; gap:6px;">
-                    <button class="btn-clear" onclick="document.getElementById('modal-licencia').style.display='none'">Cerrar</button>
-                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.activarLicencia()">Desbloquear / Renovar</button>
-                </div>
-                <button class="btn-clear" style="border-color:#25D366; color:#25D366; width:100%;" onclick="window.solicitarLicenciaWS()">📲 Solicitar Código por WhatsApp</button>
             </div>
         </div>
 
@@ -170,7 +133,7 @@
                     </svg>
                 </div>
                 <div class="main-title"><span style="color:#00ff66;">GEO MERCADO 🛍️</span></div>
-                <div class="version-tag">V19.1 EDICIÓN VENEZUELA (MULTI-CAJA)</div>
+                <div class="version-tag">V19.2 EDICIÓN VENEZUELA (MULTI-CAJA)</div>
                 <div class="role-badge">Usuario: <span id="txt-rol">Administrador 👑</span></div>
 
                 <div class="menu-grid">
@@ -217,10 +180,15 @@
                             <h3 id="grand-total-usd" style="font-size:14px; color:#8fa0b7;">$0.00</h3>
                         </div>
 
-                        <button class="scanner-trigger" style="margin-top:6px;" onclick="window.abrirCamaraEnVivo('caja')">
-                            <span style="font-size:18px;">📸</span> LEER CÓDIGO / SERIAL
-                        </button>
-                        <input type="file" id="file-barcode-caja" class="hidden-file-input" accept="image/*" capture="environment" onchange="window.escanearBarcodeFoto(event, 'caja')">
+                        <div style="display:flex; gap:6px; margin-top:6px;">
+                            <button class="scanner-trigger" style="flex:2;" onclick="window.abrirCamaraEnVivo('caja')">
+                                <span style="font-size:18px;">📸</span> LEER CÓDIGO
+                            </button>
+                            <button class="btn-clear" style="flex:1; border-color:#00ff66; color:#00ff66;" onclick="document.getElementById('file-barcode-caja').click()">
+                                📂 GALERÍA
+                            </button>
+                        </div>
+                        <input type="file" id="file-barcode-caja" class="hidden-file-input" accept="image/*" onchange="window.escanearBarcodeFoto(event, 'caja')">
                     </div>
 
                     <div>
@@ -328,6 +296,11 @@
                 <div class="admin-form-box" id="form-registro-prod">
                     <h4 style="margin:0; color:#00ff66; text-align:center;">Registrar / Editar Artículo</h4>
                     
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <input type="file" id="prod-imagen-file" accept="image/*" style="display:none;" onchange="document.getElementById('lbl-img-upload').innerText = '✓ Imagen Lista'">
+                        <button class="btn-clear" id="lbl-img-upload" style="border-color:#25D366; color:#25D366; width:100%;" onclick="document.getElementById('prod-imagen-file').click()">📸 Subir Foto de Producto (Opcional)</button>
+                    </div>
+
                     <input type="text" id="prod-name" placeholder="Nombre (Ej. Mantequilla Nelly)">
                     
                     <div style="display:flex; gap:8px;">
@@ -356,13 +329,16 @@
                     </select>
                     <input type="number" id="prod-qty" placeholder="Cantidad Disponible en Tienda">
 
-                    <input type="text" id="prod-emoji" placeholder="Elige un Emoji (Ej. 📦, 🧴)" maxlength="2">
-
                     <input type="tel" id="prod-serial" placeholder="Serial / Código de Barras">
-                    <button class="btn-clear" style="border:1px solid #00ff66; color:#00ff66; width:100%; display:flex; justify-content:center; gap:8px;" onclick="window.abrirCamaraEnVivo('registro')">
-                        <span style="font-size:16px;">📸</span> SCANNER CÓDIGO BARRAS
-                    </button>
-                    <input type="file" id="file-barcode-reg" class="hidden-file-input" accept="image/*" capture="environment" onchange="window.escanearBarcodeFoto(event, 'registro')">
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-clear" style="flex:2; border-color:#00ff66; color:#00ff66;" onclick="window.abrirCamaraEnVivo('registro')">
+                            <span style="font-size:16px;">📸</span> CÁMARA BARRAS
+                        </button>
+                        <button class="btn-clear" style="flex:1; border-color:#ffc107; color:#ffc107;" onclick="document.getElementById('file-barcode-reg').click()">
+                            📂 GALERÍA
+                        </button>
+                    </div>
+                    <input type="file" id="file-barcode-reg" class="hidden-file-input" accept="image/*" onchange="window.escanearBarcodeFoto(event, 'registro')">
                     
                     <button id="btn-guardar-prod" class="btn-charge" onclick="window.agregarProductoNuevo()">Guardar Producto</button>
                     <button id="btn-cancelar-edicion" class="btn-clear" style="display:none; border-color:#ff5252; color:#ff5252;" onclick="window.cancelarEdicion()">Cancelar Edición</button>
@@ -413,11 +389,6 @@
                 <div class="header-modulo">
                     <h3>⚙️ Ajustes y Perfil</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
-                </div>
-                
-                <div class="admin-form-box" style="border-color:#ffc107;">
-                    <label style="color:#ffc107; font-weight:bold;">🔑 Renovación de Suscripción</label>
-                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.extenderSuscripcion(30)">➕ Renovar 30 Días de Licencia</button>
                 </div>
 
                 <div class="admin-form-box" style="border-color:#00ff66;">
