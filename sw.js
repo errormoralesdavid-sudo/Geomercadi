@@ -1,4 +1,4 @@
-const CACHE_NAME = 'geomercado-v19.1-cache';
+const CACHE_NAME = 'geomercado-v19.2-cache';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const ASSETS_TO_CACHE = [
   './manifest.json',
   'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js',
   'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js',
+  'https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js',
   'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
   'https://unpkg.com/html5-qrcode'
 ];
