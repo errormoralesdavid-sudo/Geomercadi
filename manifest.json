@@ -1,21 +1,21 @@
 {
-  "short_name": "POS App",
-  "name": "Sistema POS & Control de Ventas",
+  "short_name": "GeoMercado",
+  "name": "Sistema POS & Control de Ventas V19",
   "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3081/3081559.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
     {
       "src": "https://via.placeholder.com/192",
       "sizes": "192x192",
       "type": "image/png"
-    },
-    {
-      "src": "https://via.placeholder.com/512",
-      "sizes": "512x512",
-      "type": "image/png"
     }
   ],
   "start_url": "./index.html",
-  "background_color": "#2c3e50",
-  "theme_color": "#2c3e50",
+  "background_color": "#0b0e14",
+  "theme_color": "#00ff66",
   "display": "standalone",
   "orientation": "any"
 }
