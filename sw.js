@@ -1,16 +1,10 @@
-const CACHE_NAME = 'geomercado-clean-cache-v1';
+const CACHE_NAME = 'geomercado-clean-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
   './app.js',
-  './manifest.json',
-  'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js',
-  'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js',
-  'https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js',
-  'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js',
-  'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
-  'https://unpkg.com/html5-qrcode'
+  './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
