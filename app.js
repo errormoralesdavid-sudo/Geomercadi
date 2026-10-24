@@ -20,20 +20,31 @@ window.tiendaActivaID = localStorage.getItem('geomercado_tienda_id') || "datos_g
 window.unsubscribeSnapshot = null;
 
 window.tasaDia = parseFloat(localStorage.getItem('geomercado_tasa_v19')) || 623.02;
+window.subtotalVentaUSD = 0.00;
+window.montoIGTF_USD = 0.00;
 window.totalVentaUSD = 0.00;
 window.totalVentaVES = 0.00; 
+
 window.rolActual = "Cajero 👤"; 
 window.usuarioActivoNombre = "Sin Seleccionar";
+window.categoriaCajaActiva = "Todas";
+
 window.carrito = [];
 window.productos = [];
 window.ventasHistorico = [];
+window.gastosCaja = [];
 window.facturasEnEspera = [];
 window.fiados = [];
 window.usuariosCajeros = [{ id: 1, nombre: "Caja Principal", clave: "1234" }];
 window.fondoCaja = { usd: 0, ves: 0 };
-window.perfilNegocio = { nombre: "GeoMercado", rif: "", dir: "", tlf: "", pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567" };
+window.perfilNegocio = { 
+    nombre: "GeoMercado", rif: "", dir: "", tlf: "", 
+    pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567",
+    cobrarIGTF: false
+};
 
 window.productoEnEdicion = null;
+window.productoBalanzaTemp = null;
 window.imagenComprimidaTemp = null;
 window.ingredientesComboTemp = [];
 window.fiadoEnAbonoIdx = null;
@@ -71,6 +82,37 @@ function iniciarSistema() {
         });
     }
 
+    let inputBalanza = document.getElementById('balanza-input-kg');
+    if (inputBalanza) {
+        inputBalanza.addEventListener('input', window.actualizarCalculoBalanza);
+    }
+
+    // ATAJOS DE TECLADO FÍSICO PARA PC / LAPTOP
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
+            window.cerrarCamaraEnVivo();
+            return;
+        }
+        let enCaja = document.getElementById('modulo-caja') && document.getElementById('modulo-caja').style.display === 'flex';
+        if (!enCaja) return;
+
+        if (e.key === 'F2') {
+            e.preventDefault();
+            let busc = document.getElementById('buscador-caja');
+            if (busc) { busc.focus(); busc.select(); }
+        } else if (e.key === 'F4') {
+            e.preventDefault();
+            window.aparcarFactura();
+        } else if (e.key === 'F8') {
+            e.preventDefault();
+            window.llenarMaximo('ptv');
+        } else if (e.key === 'F9' || (e.ctrlKey && e.key === 'Enter')) {
+            e.preventDefault();
+            window.procesarCobro(false);
+        }
+    });
+
     window.suscribirTiendaFirebase(window.tiendaActivaID);
     if (navigator.onLine) window.obtenerTasaBCV(true);
 }
@@ -94,9 +136,10 @@ window.suscribirTiendaFirebase = function(docId) {
             const data = snapshot.data();
             window.productos = data.productos || [];
             window.ventasHistorico = data.ventasHistorico || [];
+            window.gastosCaja = data.gastosCaja || [];
             window.facturasEnEspera = data.facturasEnEspera || [];
             window.fiados = data.fiados || [];
-            window.perfilNegocio = data.perfilNegocio || { nombre: "GeoMercado", pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567" };
+            window.perfilNegocio = data.perfilNegocio || { nombre: "GeoMercado", pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567", cobrarIGTF: false };
             window.usuariosCajeros = data.usuariosCajeros || [{ id: 1, nombre: "Caja Principal", clave: "1234" }];
             window.fondoCaja = data.fondoCaja || { usd: 0, ves: 0 };
             if (data.tasaDia) window.tasaDia = data.tasaDia;
@@ -105,13 +148,13 @@ window.suscribirTiendaFirebase = function(docId) {
             window.actualizarOpcionesLogin();
             window.renderizarListaCajerosAdmin();
             window.verificarAlertasStock();
+            window.actualizarBadgeRecuperar();
 
             if (document.getElementById('modulo-inventario').style.display === 'flex') window.renderizarInventario(document.getElementById('buscador-inventario').value);
             if (document.getElementById('modulo-cierre').style.display === 'flex') window.renderizarCierreDeCaja();
             if (document.getElementById('modulo-fiados').style.display === 'flex') window.renderizarFiados();
             if (document.getElementById('modulo-caja').style.display === 'flex') window.filtrarBuscadorCaja(document.getElementById('buscador-caja').value);
         } else {
-            // Inicializar tienda nueva si aún no existe en la nube
             window.guardarEstructuraFirebase();
         }
     });
@@ -131,6 +174,7 @@ window.guardarEstructuraFirebase = async function() {
         await setDoc(doc(db, "geomercado_tienda", window.tiendaActivaID), {
             productos: window.productos || [],
             ventasHistorico: window.ventasHistorico || [],
+            gastosCaja: window.gastosCaja || [],
             facturasEnEspera: window.facturasEnEspera || [],
             fiados: window.fiados || [],
             perfilNegocio: window.perfilNegocio || {},
@@ -154,6 +198,8 @@ window.sincronizarCamposAdminUI = function() {
     document.getElementById('cfg-pm-banco').value = window.perfilNegocio.pmBanco || "0102";
     document.getElementById('cfg-pm-cedula').value = window.perfilNegocio.pmCedula || "V12345678";
     document.getElementById('cfg-pm-tlf').value = window.perfilNegocio.pmTlf || "04121234567";
+    let chkIgtf = document.getElementById('cfg-igtf');
+    if (chkIgtf) chkIgtf.checked = !!window.perfilNegocio.cobrarIGTF;
     document.getElementById('input-fondo-usd').value = window.fondoCaja.usd || "";
     document.getElementById('input-fondo-ves').value = window.fondoCaja.ves || "";
     document.getElementById('input-tasa-global').value = window.tasaDia.toFixed(2);
@@ -362,8 +408,10 @@ window.cambiarModulo = function(idModulo) {
     if(idModulo === 'modulo-caja') {
         let busc = document.getElementById('buscador-caja');
         busc.value = "";
+        window.categoriaCajaActiva = "Todas";
         window.filtrarBuscadorCaja(""); 
         window.renderizarCarritoCaja();
+        window.actualizarBadgeRecuperar();
         setTimeout(() => busc.focus(), 200);
     }
     if(idModulo === 'modulo-cierre') window.renderizarCierreDeCaja();
@@ -409,9 +457,14 @@ window.guardarPerfil = function() {
     window.perfilNegocio.pmBanco = (document.getElementById('cfg-pm-banco').value || "0102").replace(/\D/g, '');
     window.perfilNegocio.pmCedula = (document.getElementById('cfg-pm-cedula').value || "V12345678").toUpperCase().replace(/\s/g, '');
     window.perfilNegocio.pmTlf = (document.getElementById('cfg-pm-tlf').value || "04121234567").replace(/\D/g, '');
+    let chkIgtf = document.getElementById('cfg-igtf');
+    if (chkIgtf) window.perfilNegocio.cobrarIGTF = chkIgtf.checked;
+    
     document.getElementById('lbl-titulo-negocio').innerText = window.perfilNegocio.nombre;
+    window.recalcularTotalesCarrito();
+    window.renderizarCarritoCaja();
     window.sincronizarConNube();
-    window.mostrarToast("Perfil actualizado");
+    window.mostrarToast("Ajustes actualizados");
 };
 
 window.cambiarTasaManual = function(nuevaTasa) {
@@ -458,7 +511,7 @@ window.calcularGanancia = function() {
 window.conmutarCampoCantidad = function(tipo) {
     let eQty = document.getElementById('prod-qty');
     let boxCombo = document.getElementById('box-constructor-combo');
-    if(eQty) eQty.style.display = (tipo === ' unidad' || tipo === 'unidad') ? 'block' : 'none';
+    if(eQty) eQty.style.display = (tipo === 'unidad') ? 'block' : 'none';
     if(boxCombo) {
         if (tipo === 'combo') {
             boxCombo.style.display = 'block';
@@ -503,7 +556,7 @@ window.renderizarIngredientesComboTemp = function() {
     `).join('');
 };
 
-// COMPRESOR DE IMÁGENES EN CANVAS (SIN STORAGE EXTERNO)
+// COMPRESOR DE IMÁGENES EN CANVAS
 window.previsualizarImagenRegistro = function(event) {
     let file = event.target.files[0];
     if (!file) return;
@@ -701,7 +754,14 @@ window.agregarProductoNuevo = async function() {
     await window.sincronizarConNube();
 };
 
-// DETECTOR DE PISTOLA LÁSER USB / BLUETOOTH
+// DETECTOR DE PISTOLA LÁSER Y CATEGORÍAS TÁCTILES EN CAJA
+window.seleccionarCategoriaCaja = function(cat, btnEl) {
+    window.categoriaCajaActiva = cat;
+    document.querySelectorAll('.cat-tab-btn').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+    window.filtrarBuscadorCaja(document.getElementById('buscador-caja').value);
+};
+
 window.detectarPistolaLaser = function(event) {
     if (event.key === 'Enter') {
         event.preventDefault();
@@ -735,42 +795,79 @@ window.filtrarBuscadorCaja = function(texto) {
     let textoFiltro = texto ? texto.toLowerCase().trim() : "";
 
     window.productos.forEach(p => {
-        if((p.tipo === 'peso' || p.qty > 0 || p.tipo === 'combo') && (!textoFiltro || p.nombre.toLowerCase().includes(textoFiltro) || (p.serial && p.serial.toLowerCase().includes(textoFiltro)))) {
+        let disponible = (p.tipo === 'peso' || p.qty > 0 || p.tipo === 'combo');
+        if (!disponible) return;
+
+        if (window.categoriaCajaActiva !== "Todas") {
+            if (window.categoriaCajaActiva === "Combos" && p.tipo !== "combo") return;
+            if (window.categoriaCajaActiva !== "Combos" && p.categoria !== window.categoriaCajaActiva) return;
+        }
+
+        if(!textoFiltro || p.nombre.toLowerCase().includes(textoFiltro) || (p.serial && p.serial.toLowerCase().includes(textoFiltro))) {
             let precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
             let miniatura = p.imagenUrl 
-                ? `<img src="${p.imagenUrl}" onclick="event.stopPropagation(); window.verImagenProducto(${p.id})" style="width:28px; height:28px; border-radius:4px; object-fit:cover; display:inline-block; vertical-align:middle; margin-right:6px; border:1px solid #00ff66;">` 
-                : `<span onclick="event.stopPropagation(); window.verImagenProducto(${p.id})" style="margin-right:6px; font-size:16px;">${p.tipo==='combo'?'🎁':'📦'}</span>`;
+                ? `<img src="${p.imagenUrl}" onclick="event.stopPropagation(); window.verImagenProducto(${p.id})" class="pos-item-thumb">` 
+                : `<div onclick="event.stopPropagation(); window.verImagenProducto(${p.id})" class="pos-item-emoji">${p.tipo==='combo'?'🎁':(p.tipo==='peso'?'⚖️':'📦')}</div>`;
             
             html += `<div class="btn-search-result" onclick="window.agregarAlCarritoDesdeCaja(${p.id})">
-                <div style="display:flex; align-items:center;">${miniatura} <span>${window.escapeHTML(p.nombre)}</span></div>
-                <span style="color:#00ff66; font-weight:bold;">${window.formatUSD(precioFinalUSD)}</span>
+                <div class="pos-card-inner">${miniatura} <span class="pos-item-title">${window.escapeHTML(p.nombre)}</span></div>
+                <div class="pos-item-price">${window.formatUSD(precioFinalUSD)} <small style="color:#8fa0b7; font-weight:normal; display:block; font-size:9px;">${window.formatVE(precioFinalUSD * window.tasaDia)}</small></div>
             </div>`;
             encontrados++;
         }
     });
-    contenedor.innerHTML = encontrados === 0 ? '<div style="color:#8fa0b7; font-size:12px; text-align:center; padding:6px;">Sin resultados disponibles</div>' : html;
+    contenedor.innerHTML = encontrados === 0 ? '<div style="grid-column:1/-1; color:#8fa0b7; font-size:12px; text-align:center; padding:12px;">Sin productos en esta vista</div>' : html;
 };
 
-window.abrirModalCombos = function() {
-    let container = document.getElementById('lista-combos-activos');
-    let html = ""; let hayCombos = false;
-    
-    window.productos.forEach(p => {
-        if(p.tipo === 'combo') {
-            hayCombos = true;
-            let precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
-            let desc = p.componentes && p.componentes.length ? `<small style="display:block; color:#8fa0b7; font-size:10px;">Lleva: ${p.componentes.map(c=>c.qty+'x '+c.nombre).join(', ')}</small>` : '';
-            html += `<button class="btn-search-result" style="border-color:#00ff66;" onclick="window.agregarCombo(${p.id})">
-                <div>🎁 <strong>${window.escapeHTML(p.nombre)}</strong>${desc}</div>
-                <span style="color:#00ff66; font-weight:bold;">${window.formatUSD(precioFinalUSD)}</span>
-            </button>`;
-        }
+// BALANZA DIGITAL PROPIA (SIN PROMPT DEL NAVEGADOR)
+window.abrirModalBalanza = function(prodObj) {
+    window.productoBalanzaTemp = prodObj;
+    let precioFinalUSD = prodObj.iva ? (prodObj.precio * 1.16) : prodObj.precio;
+    document.getElementById('balanza-prod-nombre').innerText = `⚖️ ${prodObj.nombre} (${window.formatUSD(precioFinalUSD)} / Kg)`;
+    let inputKg = document.getElementById('balanza-input-kg');
+    inputKg.value = "1.00";
+    window.actualizarCalculoBalanza();
+    document.getElementById('modal-balanza').style.display = 'flex';
+    setTimeout(() => { inputKg.focus(); inputKg.select(); }, 150);
+};
+
+window.fijarPesoRapido = function(kg) {
+    document.getElementById('balanza-input-kg').value = kg.toFixed(3);
+    window.actualizarCalculoBalanza();
+};
+
+window.actualizarCalculoBalanza = function() {
+    if (!window.productoBalanzaTemp) return;
+    let kg = parseFloat(document.getElementById('balanza-input-kg').value) || 0;
+    let precioUnitario = window.productoBalanzaTemp.iva ? (window.productoBalanzaTemp.precio * 1.16) : window.productoBalanzaTemp.precio;
+    let subUSD = precioUnitario * kg;
+    document.getElementById('balanza-subtotal-calc').innerText = `Total: ${window.formatUSD(subUSD)} (${window.formatVE(subUSD * window.tasaDia)})`;
+};
+
+window.confirmarPesoBalanza = function() {
+    let p = window.productoBalanzaTemp;
+    if (!p) return;
+    let kilos = parseFloat(document.getElementById('balanza-input-kg').value);
+    if (isNaN(kilos) || kilos <= 0) { window.mostrarFeedbackAnimado('error', 'Peso inválido'); return; }
+
+    let precioUnitarioCalculado = p.iva ? (p.precio * 1.16) : p.precio;
+    let costoUnitarioCalculado = p.costo || 0;
+
+    window.carrito.push({ 
+        id: p.id, nombre: p.nombre, 
+        totalUSD: precioUnitarioCalculado * kilos, 
+        costoTotalUSD: costoUnitarioCalculado * kilos, 
+        detalle: kilos + ' kg', tipo: p.tipo, qtyVenta: kilos, 
+        precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado, 
+        imagenUrl: p.imagenUrl 
     });
-    container.innerHTML = hayCombos ? html : '<div style="color:#8fa0b7; text-align:center; padding:10px;">No hay combos creados.</div>';
-    document.getElementById('modal-combos').style.display = 'flex';
-};
 
-window.agregarCombo = function(id) { window.agregarAlCarritoDesdeCaja(id); document.getElementById('modal-combos').style.display = 'none'; };
+    document.getElementById('modal-balanza').style.display = 'none';
+    window.productoBalanzaTemp = null;
+    window.reproducirBeep(true);
+    window.recalcularTotalesCarrito();
+    window.renderizarCarritoCaja();
+};
 
 window.agregarAlCarritoDesdeCaja = function(idProd) {
     let p = window.productos.find(x => x.id == idProd);
@@ -780,11 +877,9 @@ window.agregarAlCarritoDesdeCaja = function(idProd) {
     let costoUnitarioCalculado = p.costo || 0;
 
     if(p.tipo === 'peso') {
-        let kilos = parseFloat(prompt("⚖️ Cantidad en Kilos para " + p.nombre + ":", "1.0"));
-        if(isNaN(kilos) || kilos <= 0) return;
-        window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado * kilos, costoTotalUSD: costoUnitarioCalculado * kilos, detalle: kilos + ' kg', tipo: p.tipo, qtyVenta: kilos, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado, imagenUrl: p.imagenUrl });
+        window.abrirModalBalanza(p);
+        return;
     } else if (p.tipo === 'combo') {
-        // Verificar y descontar stock de cada componente del combo
         if (p.componentes && p.componentes.length > 0) {
             for (let comp of p.componentes) {
                 let prodReal = window.productos.find(x => x.id === comp.id);
@@ -873,7 +968,17 @@ window.eliminarDelCarrito = function(index) {
 };
 
 window.recalcularTotalesCarrito = function() {
-    window.totalVentaUSD = window.carrito.reduce((sum, item) => sum + item.totalUSD, 0);
+    window.subtotalVentaUSD = window.carrito.reduce((sum, item) => sum + item.totalUSD, 0);
+    let usdFisico = parseFloat(document.getElementById('pay-usd')?.value) || 0;
+    
+    if (window.perfilNegocio.cobrarIGTF && usdFisico > 0) {
+        let baseImponible = Math.min(usdFisico, window.subtotalVentaUSD);
+        window.montoIGTF_USD = baseImponible * 0.03;
+    } else {
+        window.montoIGTF_USD = 0.00;
+    }
+
+    window.totalVentaUSD = window.subtotalVentaUSD + window.montoIGTF_USD;
     window.totalVentaVES = window.totalVentaUSD * window.tasaDia;
 };
 
@@ -916,9 +1021,6 @@ window.renderizarCarritoCaja = function() {
         container.innerHTML = html;
     }
 
-    document.getElementById('grand-total-usd').innerText = window.formatUSD(window.totalVentaUSD);
-    let vesEl = document.getElementById('grand-total-ves');
-    if(vesEl) vesEl.innerText = window.formatVE(window.totalVentaVES);
     window.calcularCaja();
 };
 
@@ -948,7 +1050,7 @@ window.llenarMaximo = function(tipo) {
     if(tipo === 'ves') ingresadoActual -= ves;
     if(tipo === 'usd') ingresadoActual -= (usd * window.tasaDia);
 
-    let faltanteVES = Math.max(0, window.totalVentaVES - ingresadoActual);
+    let faltanteVES = Math.max(0, (window.subtotalVentaUSD * window.tasaDia) - ingresadoActual);
 
     if(tipo === 'usd') {
         document.getElementById('pay-usd').value = Math.ceil(faltanteVES / window.tasaDia);
@@ -962,6 +1064,22 @@ window.llenarMaximo = function(tipo) {
 };
 
 window.calcularCaja = function() {
+    window.recalcularTotalesCarrito();
+
+    document.getElementById('grand-total-usd').innerText = window.formatUSD(window.totalVentaUSD);
+    let vesEl = document.getElementById('grand-total-ves');
+    if(vesEl) vesEl.innerText = window.formatVE(window.totalVentaVES);
+
+    let rowIgtf = document.getElementById('row-igtf-info');
+    if (rowIgtf) {
+        if (window.montoIGTF_USD > 0) {
+            rowIgtf.style.display = 'flex';
+            document.getElementById('val-igtf-ves').innerText = `+ ${window.formatVE(window.montoIGTF_USD * window.tasaDia)} (${window.formatUSD(window.montoIGTF_USD)})`;
+        } else {
+            rowIgtf.style.display = 'none';
+        }
+    }
+
     let ptv = window.extraerNumeroLimpio('pay-ptv');
     let pm = window.extraerNumeroLimpio('pay-pm');
     let usd = parseFloat(document.getElementById('pay-usd').value) || 0; 
@@ -995,6 +1113,8 @@ window.procesarCobro = function(imprimirTicket) {
         id: Date.now(),
         fecha: new Date().toLocaleString(),
         items: window.carrito.slice(),
+        subtotalUSD: window.subtotalVentaUSD,
+        igtfUSD: window.montoIGTF_USD,
         totalUSD: window.totalVentaUSD,
         totalVES: window.totalVentaVES,
         costoUSD: window.carrito.reduce((sum, c) => sum + (c.costoTotalUSD || 0), 0),
@@ -1034,7 +1154,7 @@ window.limpiarCaja = function(silencioso) {
         window.mostrarToast("Venta cancelada, stock devuelto");
     }
 
-    window.totalVentaUSD = 0; window.totalVentaVES = 0; window.carrito = [];
+    window.subtotalVentaUSD = 0; window.montoIGTF_USD = 0; window.totalVentaUSD = 0; window.totalVentaVES = 0; window.carrito = [];
     ['pay-ptv','pay-pm','pay-usd','pay-ves','cliente-nombre','cliente-cedula','cliente-dir','pm-phone','pm-ref'].forEach(id => {
         let el = document.getElementById(id);
         if(el) el.value = '';
@@ -1047,11 +1167,21 @@ window.limpiarCaja = function(silencioso) {
     window.renderizarCarritoCaja();
 };
 
+// FACTURAS EN ESPERA CON MODAL VISUAL PROPIO
+window.actualizarBadgeRecuperar = function() {
+    let btn = document.getElementById('btn-top-recuperar');
+    if (btn) {
+        let cant = window.facturasEnEspera.length;
+        btn.innerHTML = cant > 0 ? `📂 Recuperar <span style="background:#ffc107; color:#000; padding:1px 5px; border-radius:8px; margin-left:3px;">${cant}</span>` : `📂 Recuperar`;
+    }
+};
+
 window.aparcarFactura = function() {
     if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
     window.facturasEnEspera.push({
         id: Date.now(),
-        cliente: document.getElementById('cliente-nombre').value || "Cliente sin nombre",
+        hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        cliente: document.getElementById('cliente-nombre').value || "Cliente Mostrador",
         items: window.carrito.slice(),
         totalUSD: window.totalVentaUSD,
         totalVES: window.totalVentaVES,
@@ -1059,41 +1189,121 @@ window.aparcarFactura = function() {
     });
     window.sincronizarConNube();
     window.limpiarCaja(true);
+    window.actualizarBadgeRecuperar();
     window.mostrarToast("⏸️ Factura Pausada");
 };
 
 window.recuperarFactura = function() {
-    if(window.facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('error', 'No hay facturas pausadas'); return; }
-    if(window.carrito.length > 0) { window.mostrarFeedbackAnimado('error', 'Limpia o procesa la venta actual'); return; }
-    
-    let text = "Facturas Guardadas (Escribe el número):\n\n" + window.facturasEnEspera.map((f, i) => `${i+1}. 👤 ${f.cliente} (${window.formatVE(f.totalVES)}) - Por: ${f.cajero}`).join('\n');
-    let idx = parseInt(prompt(text)) - 1;
-    
-    if(!isNaN(idx) && window.facturasEnEspera[idx]) {
-        let rec = window.facturasEnEspera.splice(idx, 1)[0];
+    if(window.facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('error', 'No hay cuentas pausadas'); return; }
+    let cont = document.getElementById('lista-facturas-pausadas');
+    cont.innerHTML = window.facturasEnEspera.map((f, i) => `
+        <div class="cierre-card" style="margin-bottom:4px; border-color:#313c52;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="color:#00ff66; font-size:13px;">👤 ${window.escapeHTML(f.cliente)}</strong>
+                <small style="color:#8fa0b7;">🕒 ${f.hora || ''} | 🏷️ ${window.escapeHTML(f.cajero)}</small>
+            </div>
+            <div style="font-size:11px; color:#8fa0b7; margin:4px 0;">${f.items.map(x=>x.qtyVenta+'x '+x.nombre).join(', ')}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+                <strong style="color:#fff; font-size:14px;">${window.formatVE(f.totalVES)} (${window.formatUSD(f.totalUSD)})</strong>
+                <div style="display:flex; gap:6px;">
+                    <button class="btn-remove-item" onclick="window.descartarFacturaPausada(${i})">🗑️</button>
+                    <button class="btn-charge" style="padding:6px 12px;" onclick="window.cargarFacturaPausadaEnCaja(${i})">Retomar</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    document.getElementById('modal-recuperar').style.display = 'flex';
+};
+
+window.cargarFacturaPausadaEnCaja = function(idx) {
+    if(window.carrito.length > 0) { window.mostrarFeedbackAnimado('error', 'Limpia o cobra la cuenta actual primero'); return; }
+    let rec = window.facturasEnEspera.splice(idx, 1)[0];
+    if (rec) {
         window.carrito = rec.items;
+        document.getElementById('cliente-nombre').value = rec.cliente !== "Cliente Mostrador" ? rec.cliente : "";
+        document.getElementById('modal-recuperar').style.display = 'none';
         window.recalcularTotalesCarrito();
-        document.getElementById('cliente-nombre').value = rec.cliente !== "Cliente sin nombre" ? rec.cliente : "";
         window.renderizarCarritoCaja();
+        window.actualizarBadgeRecuperar();
         window.sincronizarConNube();
-        window.mostrarToast("📂 Factura Recuperada");
+        window.mostrarToast("📂 Cuenta Retomada");
     }
 };
 
-// FIADOS CON ABONOS PARCIALES
+window.descartarFacturaPausada = function(idx) {
+    let rec = window.facturasEnEspera.splice(idx, 1)[0];
+    if (rec && rec.items) {
+        rec.items.forEach(c => {
+            if(c.tipo === 'unidad') {
+                let p = window.productos.find(x => x.id === c.id);
+                if(p) p.qty += c.qtyVenta;
+            }
+        });
+    }
+    window.actualizarBadgeRecuperar();
+    window.sincronizarConNube();
+    if (window.facturasEnEspera.length === 0) document.getElementById('modal-recuperar').style.display = 'none';
+    else window.recuperarFactura();
+    window.mostrarToast("Cuenta descartada y stock devuelto");
+};
+
+// CONTROL DE GASTOS MENORES / SALIDAS DE CAJA CHICA
+window.abrirModalGasto = function() {
+    document.getElementById('gasto-motivo').value = "";
+    document.getElementById('gasto-monto').value = "";
+    document.getElementById('modal-gasto').style.display = 'flex';
+};
+
+window.confirmarGastoCaja = function() {
+    let motivo = document.getElementById('gasto-motivo').value.trim();
+    let moneda = document.getElementById('gasto-moneda').value;
+    let monto = parseFloat(document.getElementById('gasto-monto').value) || 0;
+
+    if (!motivo || monto <= 0) { window.mostrarFeedbackAnimado('error', 'Ingresa motivo y monto'); return; }
+
+    window.gastosCaja.push({
+        id: Date.now(),
+        fecha: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        motivo: motivo,
+        moneda: moneda,
+        monto: monto,
+        cajero: window.usuarioActivoNombre
+    });
+
+    document.getElementById('modal-gasto').style.display = 'none';
+    window.sincronizarConNube();
+    window.mostrarToast("💸 Salida de caja registrada");
+};
+
+window.eliminarGastoCaja = function(idx) {
+    window.gastosCaja.splice(idx, 1);
+    window.sincronizarConNube();
+    window.renderizarCierreDeCaja();
+};
+
+// FIADOS CON MODAL PROPIO Y ABONOS PARCIALES
 window.registrarFiado = function() {
     if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
-    let nom = document.getElementById('cliente-nombre').value || prompt("Nombre del Cliente a Fiar:");
-    if(nom) {
-        window.fiados.push({
-            id: Date.now(), cliente: nom, tlf: document.getElementById('pm-phone').value || "",
-            montoUSD: window.totalVentaUSD, items: window.carrito.slice(), fecha: new Date().toLocaleString(),
-            abonos: []
-        });
-        window.sincronizarConNube();
-        window.limpiarCaja(true);
-        window.mostrarToast("✓ Deuda Registrada");
-    }
+    document.getElementById('fiado-input-nombre').value = document.getElementById('cliente-nombre').value || "";
+    document.getElementById('fiado-input-tlf').value = document.getElementById('pm-phone').value || "";
+    document.getElementById('fiado-lbl-total').innerText = `Monto a Fiar: ${window.formatUSD(window.totalVentaUSD)} (${window.formatVE(window.totalVentaVES)})`;
+    document.getElementById('modal-nuevo-fiado').style.display = 'flex';
+};
+
+window.confirmarNuevoFiado = function() {
+    let nom = document.getElementById('fiado-input-nombre').value.trim();
+    let tlf = document.getElementById('fiado-input-tlf').value.trim();
+    if (!nom) { window.mostrarFeedbackAnimado('error', 'Escribe el nombre del cliente'); return; }
+
+    window.fiados.push({
+        id: Date.now(), cliente: nom, tlf: tlf,
+        montoUSD: window.totalVentaUSD, items: window.carrito.slice(), fecha: new Date().toLocaleString(),
+        abonos: []
+    });
+    document.getElementById('modal-nuevo-fiado').style.display = 'none';
+    window.sincronizarConNube();
+    window.limpiarCaja(true);
+    window.mostrarToast("✓ Cuenta guardada en Fiados");
 };
 
 window.renderizarFiados = function() {
@@ -1149,7 +1359,6 @@ window.confirmarAbonoFiado = function() {
     if (!f.abonos) f.abonos = [];
     f.abonos.push({ usd: abonoUSD, fecha: new Date().toLocaleDateString() });
 
-    // Registrar el ingreso en la caja del día
     window.ventasHistorico.push({
         id: Date.now(),
         fecha: new Date().toLocaleString(),
@@ -1266,10 +1475,16 @@ window.enviarQRPorWS = function() {
     window.open(tlf ? `https://api.whatsapp.com/send?phone=${tlf}&text=${encodeURIComponent(msj)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(msj)}`, '_blank');
 };
 
-// CIERRE DE CAJA CON GRÁFICAS Y ESTADÍSTICAS
+// CIERRE DE CAJA CON GASTOS, GRÁFICAS Y ESTADÍSTICAS
 window.renderizarCierreDeCaja = function() {
     let tPM = 0, tUSD = 0, tVES = 0, tPTV = 0, tVUSD = 0, tCUSD = 0;
+    let gastosUSD = 0, gastosVES = 0;
     let conteoProd = {};
+
+    window.gastosCaja.forEach(g => {
+        if (g.moneda === 'usd') gastosUSD += g.monto;
+        else gastosVES += g.monto;
+    });
 
     let html = window.ventasHistorico.map((v, i) => {
         tPM += v.pm; tUSD += v.usd; tVES += v.ves; tPTV += v.ptv; 
@@ -1297,18 +1512,35 @@ window.renderizarCierreDeCaja = function() {
     document.getElementById('resumen-ves').innerText = window.formatVE(tVES);
     document.getElementById('resumen-ganancia-ves').innerText = window.formatVE((tVUSD - tCUSD) * window.tasaDia);
     document.getElementById('resumen-efectivo-usd').innerText = "$" + tUSD.toFixed(2);
+    
     document.getElementById('cierre-fondo-usd').innerText = "$" + window.fondoCaja.usd.toFixed(2);
     document.getElementById('cierre-fondo-ves').innerText = window.formatVE(window.fondoCaja.ves);
-    document.getElementById('esperado-usd').innerText = "$" + (window.fondoCaja.usd + tUSD).toFixed(2);
-    document.getElementById('esperado-ves').innerText = window.formatVE(window.fondoCaja.ves + tVES);
+    document.getElementById('cierre-gastos-usd').innerText = "- $" + gastosUSD.toFixed(2);
+    document.getElementById('cierre-gastos-ves').innerText = "- " + window.formatVE(gastosVES);
 
-    // Barras proporcionales de pagos en Bs
+    document.getElementById('esperado-usd').innerText = "$" + (window.fondoCaja.usd + tUSD - gastosUSD).toFixed(2);
+    document.getElementById('esperado-ves').innerText = window.formatVE(window.fondoCaja.ves + tVES - gastosVES);
+
+    let boxGastos = document.getElementById('lista-gastos-cierre');
+    if (boxGastos) {
+        boxGastos.innerHTML = window.gastosCaja.length === 0 
+            ? '<div style="color:#57687e; font-size:11px; text-align:center;">Sin salidas de caja chica hoy.</div>'
+            : window.gastosCaja.map((g, idx) => `
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; background:#0b0e14; padding:6px 8px; border-radius:6px;">
+                    <span>💸 <strong>${window.escapeHTML(g.motivo)}</strong> (${g.cajero})</span>
+                    <div>
+                        <strong style="color:#ff5252; margin-right:6px;">-${g.moneda === 'usd' ? '$' + g.monto.toFixed(2) : window.formatVE(g.monto)}</strong>
+                        <button class="btn-remove-item" onclick="window.eliminarGastoCaja(${idx})">X</button>
+                    </div>
+                </div>
+            `).join('');
+    }
+
     let maxPagoBs = Math.max(tPTV + tPM + tVES, 1);
     document.getElementById('bar-ptv').style.width = Math.round((tPTV / maxPagoBs) * 100) + "%";
     document.getElementById('bar-pm').style.width = Math.round((tPM / maxPagoBs) * 100) + "%";
     document.getElementById('bar-ves').style.width = Math.round((tVES / maxPagoBs) * 100) + "%";
 
-    // Gráfico Top 5 Productos
     let topArr = Object.entries(conteoProd).sort((a,b) => b[1] - a[1]).slice(0, 5);
     let maxQty = topArr.length ? topArr[0][1] : 1;
     let boxTop = document.getElementById('grafico-top-productos');
@@ -1343,8 +1575,9 @@ window.anularVenta = function(idx) {
 };
 
 window.borrarHistorial = function() {
-    window.mostrarConfirmacion("⚠️ Reiniciar Día", "¿Borrar todas las ventas registradas hoy?", function() {
+    window.mostrarConfirmacion("⚠️ Reiniciar Día", "¿Borrar todas las ventas y gastos de hoy?", function() {
         window.ventasHistorico = [];
+        window.gastosCaja = [];
         window.sincronizarConNube();
         window.renderizarCierreDeCaja();
     });
@@ -1356,6 +1589,7 @@ window.imprimirCierreZ = function() {
     let html = `<html><head><style>body{font-family:monospace; width:280px; padding:10px; font-size:12px; color:#000;} .center{text-align:center;} .line{border-bottom:1px dashed #000; margin:5px 0;} .row{display:flex; justify-content:space-between;}</style></head>
     <body><div class="center"><strong>${window.escapeHTML(window.perfilNegocio.nombre)}</strong><br>REPORTE Z<br>${new Date().toLocaleString()}</div><div class="line"></div>`;
     html += `<div class="row"><span>Transacciones:</span><span>${window.ventasHistorico.length}</span></div>`;
+    html += `<div class="row"><span>Gastos Registrados:</span><span>${window.gastosCaja.length}</span></div>`;
     html += `<div class="line"></div><div class="center">Firma Responsable</div><script>window.onload=function(){window.print();window.close();}<\/script></body></html>`;
     pw.document.write(html); pw.document.close();
 };
@@ -1366,9 +1600,11 @@ window.imprimirTicket = function(idx) {
     let pw = window.open('', '_blank');
     if(!pw) return;
     let itemsStr = v.items.map(it => `<div>${window.escapeHTML(it.nombre)}</div><div class="row"><span>${it.qtyVenta || it.detalle} x ${window.formatUSD(it.precioUnitario)}</span><span>${window.formatVE(it.totalUSD * window.tasaDia)}</span></div>`).join('');
+    let igtfStr = v.igtfUSD && v.igtfUSD > 0 ? `<div class="row"><span>IGTF (3% Divisas):</span><span>${window.formatVE(v.igtfUSD * window.tasaDia)}</span></div>` : '';
     let html = `<html><head><style>body{font-family:monospace; width:280px; padding:10px; font-size:12px; color:#000;} .center{text-align:center;} .line{border-bottom:1px dashed #000; margin:5px 0;} .row{display:flex; justify-content:space-between;}</style></head>
     <body><div class="center"><strong>${window.escapeHTML(window.perfilNegocio.nombre)}</strong><br>Fecha: ${v.fecha}<br>Cajero: ${v.cajero || 'Caja'}</div><div class="line"></div>
     ${itemsStr}<div class="line"></div>
+    ${igtfStr}
     <div class="row"><strong>TOTAL:</strong><strong>${window.formatVE(v.totalVES)}</strong></div>
     <div class="center">¡Gracias por su compra!</div><script>window.onload=function(){window.print();window.close();}<\/script></body></html>`;
     pw.document.write(html); pw.document.close();
