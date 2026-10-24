@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geo Mercado V19.2 - Multi-Caja POS</title>
+    <title>Geo Mercado V19.3 - Multi-Caja POS</title>
 
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./style.css">
@@ -40,23 +40,31 @@
                 </svg>
             </div>
             <h2 style="color:#00ff66; margin:0;">GEO MERCADO POS</h2>
-            <p style="color:#8fa0b7; font-size:11px; margin-bottom:15px;">V19.2 (OFFLINE READY)</p>
+            <p style="color:#8fa0b7; font-size:11px; margin-bottom:15px;">V19.3 (FIREBASE SECURE)</p>
 
-            <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Rol de Usuario:</label>
-            <select id="login-rol" onchange="window.actualizarOpcionesLogin()">
-                <option value="cajero">Cajero 👤</option>
-                <option value="admin">Administrador 👑</option>
-            </select>
-
-            <div id="box-select-cajero">
+            <!-- LOGIN DE CAJEROS (Por Defecto) -->
+            <div id="form-login-cajero">
                 <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Seleccionar Cajero:</label>
                 <select id="login-cajero-usuario"></select>
+
+                <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:10px;">PIN de Acceso:</label>
+                <input type="password" id="login-pin" placeholder="Ingresa tu PIN de 4 dígitos">
+
+                <button class="btn-charge" style="width:100%;" onclick="window.ejecutarLoginCajero()">INGRESAR A CAJA</button>
+                <p style="color:#00ff66; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('admin')">¿Eres el Administrador? Inicia sesión aquí</p>
             </div>
 
-            <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">PIN / Clave de Acceso:</label>
-            <input type="password" id="login-pin" placeholder="Ingresa clave">
+            <!-- LOGIN DE ADMINISTRADOR (Firebase Auth) -->
+            <div id="form-login-admin" style="display:none;">
+                <label style="color:#ffc107; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Correo de Administrador:</label>
+                <input type="email" id="login-email" placeholder="tucorreo@empresa.com">
 
-            <button class="btn-charge" style="width:100%;" onclick="window.ejecutarLogin()">INGRESAR AL SISTEMA</button>
+                <label style="color:#ffc107; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:10px;">Contraseña Segura:</label>
+                <input type="password" id="login-pass-admin" placeholder="Ingresa contraseña de Firebase">
+
+                <button class="btn-charge" style="width:100%; background:#ffc107; color:#000;" onclick="window.ejecutarLoginAdmin()">INGRESAR COMO ADMIN</button>
+                <p style="color:#8fa0b7; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('cajero')">← Volver al acceso de Cajeros</p>
+            </div>
         </div>
 
         <!-- MODAL CONFIRMACIÓN -->
@@ -133,7 +141,7 @@
                     </svg>
                 </div>
                 <div class="main-title"><span style="color:#00ff66;">GEO MERCADO 🛍️</span></div>
-                <div class="version-tag">V19.2 EDICIÓN VENEZUELA (MULTI-CAJA)</div>
+                <div class="version-tag">V19.3 (AUTENTICACIÓN EN LA NUBE)</div>
                 <div class="role-badge">Usuario: <span id="txt-rol">Administrador 👑</span></div>
 
                 <div class="menu-grid">
@@ -154,8 +162,8 @@
                 </div>
 
                 <div class="tools-carousel">
-                    <button class="btn-tool" onclick="window.aparcarFactura()">⏸️ Pausar</button>
-                    <button class="btn-tool" onclick="window.recuperarFactura()">📂 Recuperar</button>
+                    <button class="btn-tool" onclick="window.aparcarFactura()">⏸️ Pausar Venta</button>
+                    <button class="btn-tool" onclick="window.recuperarFactura()">📂 Recuperar Pausada</button>
                     <button class="btn-tool" onclick="document.getElementById('modal-cliente').style.display='flex'">📝 Cliente</button>
                     <button class="btn-tool" onclick="window.abrirModalCombos()" style="color:#00ff66; border-color:#00ff66;">🎁 Combos</button>
                     <button class="btn-tool" onclick="window.generarQRPagoMovil()" style="color:#00ff66; border-color:#00ff66;">📲 Generar QR PM</button>
@@ -170,7 +178,7 @@
                         </div>
 
                         <div class="input-group" style="padding:8px; margin-top:6px;">
-                            <input type="text" id="buscador-caja" class="search-input" placeholder="🔍 Buscar producto..." oninput="window.filtrarBuscadorCaja(this.value)">
+                            <input type="text" id="buscador-caja" class="search-input" placeholder="🔍 Buscar producto por nombre..." oninput="window.filtrarBuscadorCaja(this.value)">
                             <div id="resultados-busqueda-caja" class="search-results-box"></div>
                         </div>
 
@@ -182,7 +190,7 @@
 
                         <div style="display:flex; gap:6px; margin-top:6px;">
                             <button class="scanner-trigger" style="flex:2;" onclick="window.abrirCamaraEnVivo('caja')">
-                                <span style="font-size:18px;">📸</span> LEER CÓDIGO
+                                <span style="font-size:18px;">📸</span> LEER CÓDIGO BARRAS
                             </button>
                             <button class="btn-clear" style="flex:1; border-color:#00ff66; color:#00ff66;" onclick="document.getElementById('file-barcode-caja').click()">
                                 📂 GALERÍA
@@ -296,12 +304,13 @@
                 <div class="admin-form-box" id="form-registro-prod">
                     <h4 style="margin:0; color:#00ff66; text-align:center;">Registrar / Editar Artículo</h4>
                     
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <input type="file" id="prod-imagen-file" accept="image/*" style="display:none;" onchange="document.getElementById('lbl-img-upload').innerText = '✓ Imagen Lista'">
+                    <div style="display:flex; flex-direction:column; gap:8px; align-items:center; border: 1px dashed #242c3d; padding:10px; border-radius:8px;">
+                        <img id="preview-img-upload" src="" style="display:none; width:120px; height:120px; object-fit:cover; border-radius:8px;">
+                        <input type="file" id="prod-imagen-file" accept="image/*" style="display:none;" onchange="window.previsualizarImagenRegistro(event)">
                         <button class="btn-clear" id="lbl-img-upload" style="border-color:#25D366; color:#25D366; width:100%;" onclick="document.getElementById('prod-imagen-file').click()">📸 Subir Foto de Producto (Opcional)</button>
                     </div>
 
-                    <input type="text" id="prod-name" placeholder="Nombre (Ej. Mantequilla Nelly)">
+                    <input type="text" id="prod-name" placeholder="Nombre (Ej. Harina P.A.N.)">
                     
                     <div style="display:flex; gap:8px;">
                         <input type="number" step="0.01" id="prod-costo" placeholder="Costo ($)" oninput="window.calcularGanancia()">
@@ -387,7 +396,7 @@
             <!-- MÓDULO CONFIGURACIÓN Y PERFIL -->
             <div id="modulo-admin" class="modulo-app">
                 <div class="header-modulo">
-                    <h3>⚙️ Ajustes y Perfil</h3>
+                    <h3>⚙️ Ajustes de Sistema</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
 
@@ -400,42 +409,38 @@
                 </div>
 
                 <div class="admin-form-box" style="border-color:#00ff66;">
-                    <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor (Estándar Bancos)</label>
-                    <input type="text" id="cfg-pm-banco" placeholder="Código Banco 4 Dígitos (Ej. 0102 BDV, 0134 Banesco)" onchange="window.guardarPerfil()">
+                    <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor (Para QR)</label>
+                    <input type="text" id="cfg-pm-banco" placeholder="Código Banco 4 Dígitos (Ej. 0102 BDV)" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-pm-cedula" placeholder="Cédula/RIF con Letra (Ej. V12345678)" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-pm-tlf" placeholder="Teléfono 11 Dígitos (Ej. 04121234567)" onchange="window.guardarPerfil()">
                 </div>
 
-                <div class="admin-form-box" style="border-color:#00ff66;">
-                    <label style="color:#00ff66; font-weight:bold;">👥 Agregar Nuevo Cajero con Clave</label>
+                <div class="admin-form-box" style="border-color:#ffc107;">
+                    <label style="color:#ffc107; font-weight:bold;">👥 Crear Nuevo Cajero (Sub-Usuario)</label>
+                    <p style="font-size:10px; color:#8fa0b7; margin:0 0 6px 0; text-align:center;">Para que los empleados operen la caja sin permisos de administrador.</p>
                     <input type="text" id="nuevo-cajero-nombre" placeholder="Nombre del Cajero">
-                    <input type="password" id="nuevo-cajero-clave" placeholder="Clave Personalizada">
-                    <button class="btn-charge" onclick="window.guardarNuevoCajero()">Guardar Nuevo Cajero</button>
+                    <input type="password" id="nuevo-cajero-clave" placeholder="PIN de 4 dígitos">
+                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.guardarNuevoCajero()">Guardar Nuevo Cajero</button>
                 </div>
 
                 <div class="admin-form-box">
-                    <label style="color:#8fa0b7; font-weight:bold;">🔐 Seguridad Administrador</label>
-                    <input type="password" id="cfg-pin" placeholder="PIN Administrador (Ej. 612003)" onchange="window.guardarPerfil()">
-                </div>
-
-                <div class="admin-form-box">
-                    <label style="color:#00ff66; font-weight:bold;">💵 APERTURA: Fondo de Caja</label>
-                    <input type="number" step="0.01" id="input-fondo-usd" placeholder="Sencillo Físico ($)" onchange="window.guardarFondoCaja()">
-                    <input type="number" step="0.01" id="input-fondo-ves" placeholder="Sencillo Físico (Bs)" onchange="window.guardarFondoCaja()">
+                    <label style="color:#00ff66; font-weight:bold;">💵 APERTURA: Fondo Físico de Caja</label>
+                    <input type="number" step="0.01" id="input-fondo-usd" placeholder="Sencillo Físico Inicial ($)" onchange="window.guardarFondoCaja()">
+                    <input type="number" step="0.01" id="input-fondo-ves" placeholder="Sencillo Físico Inicial (Bs)" onchange="window.guardarFondoCaja()">
                 </div>
                 
                 <div class="admin-form-box">
                     <label>📈 Modificar Tasa del Dólar (Bs):</label>
                     <div style="display:flex; gap:6px;">
                         <input type="number" step="0.01" id="input-tasa-global" value="623.02" oninput="window.cambiarTasaManual(this.value)">
-                        <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; flex:none; padding:0 10px;" onclick="window.obtenerTasaBCV()">📡 BCV</button>
+                        <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; flex:none; padding:0 10px;" onclick="window.obtenerTasaBCV()">📡 Consultar BCV</button>
                     </div>
                 </div>
 
                 <div class="admin-form-box">
-                    <label style="color:#00ff66; font-weight:bold;">💾 Gestión de Datos del Catálogo</label>
-                    <button class="btn-charge" style="background:#242c3d; color:#fff;" onclick="window.exportarProductosJSON()">📤 Exportar Inventario (JSON)</button>
-                    <button class="btn-charge" style="background:#161a23; border: 1px solid #00ff66; color:#00ff66;" onclick="document.getElementById('input-import-json').click()">📥 Importar Inventario (JSON)</button>
+                    <label style="color:#8fa0b7; font-weight:bold;">💾 Copia de Seguridad Local (JSON)</label>
+                    <button class="btn-charge" style="background:#242c3d; color:#fff;" onclick="window.exportarProductosJSON()">📤 Exportar Inventario</button>
+                    <button class="btn-charge" style="background:#161a23; border: 1px solid #ff5252; color:#ff5252;" onclick="document.getElementById('input-import-json').click()">📥 Importar (Sobrescribe todo)</button>
                     <input type="file" id="input-import-json" class="hidden-file-input" accept=".json" onchange="window.importarProductosJSON(event)">
                 </div>
             </div>
