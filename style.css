@@ -41,8 +41,8 @@ body {
 #menu-principal { display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: 10px; width: 100%; animation: fadeIn 0.3s ease-in-out; }
 .logo-grande { width: 90px; height: 90px; margin-bottom: 6px; filter: drop-shadow(0 0 12px #00ff66); transition: transform 0.3s ease; }
 .logo-grande:hover { transform: scale(1.05); }
-.main-title { font-size: 26px; font-weight: 900; letter-spacing: 2px; }
-.version-tag { font-size: 10px; color: #8fa0b7; font-weight: bold; letter-spacing: 1px; margin-bottom: 10px; text-transform: uppercase; }
+.main-title { font-size: 26px; font-weight: 900; letter-spacing: 1px; }
+.version-tag { font-size: 10px; color: #8fa0b7; font-weight: bold; letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase; }
 .role-badge { background-color: #161a23; border: 1px solid #242c3d; padding: 4px 12px; border-radius: 20px; font-size: 12px; color: #8fa0b7; margin-bottom: 15px; font-weight: bold; }
 
 .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
@@ -79,7 +79,7 @@ body {
 
 .search-input { width: 100%; background: #0b0e14; border: 1px solid #00ff66; color: #fff; padding: 8px 12px; border-radius: 8px; box-sizing: border-box; text-align: left; font-size: 13px; margin-bottom: 4px; outline: none; transition: box-shadow 0.2s; }
 .search-input:focus { box-shadow: 0 0 8px rgba(0, 255, 102, 0.4); }
-.search-results-box { display: flex; flex-direction: column; gap: 4px; max-height: 100px; overflow-y: auto; }
+.search-results-box { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; }
 .btn-search-result { background: #161a23; border: 1px solid #242c3d; color: #fff; padding: 8px; border-radius: 8px; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 12px; transition: transform 0.1s; }
 .btn-search-result:active { transform: scale(0.97); }
 
