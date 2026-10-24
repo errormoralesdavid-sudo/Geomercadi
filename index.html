@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeoMercado - POS</title>
+    <title>GeoMercado</title>
 
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./style.css">
@@ -11,7 +11,6 @@
     <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script defer src="https://unpkg.com/html5-qrcode"></script>
 
-    <!-- Eliminado el 'defer' extra porque type="module" ya es diferido por naturaleza -->
     <script type="module" src="./app.js"></script>
 </head>
 <body>
@@ -30,7 +29,7 @@
 
         <div id="toast" class="toast-notification"></div>
 
-        <!-- PANTALLA DE INICIO -->
+        <!-- PANTALLA DE INICIO MULTI-TIENDA -->
         <div id="section-login" class="login-card">
             <div class="logo-grande" style="margin: 0 auto 10px auto;">
                 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -39,31 +38,69 @@
                     <circle cx="50" cy="50" r="6" fill="#ffffff"/>
                 </svg>
             </div>
-            <h2 style="color:#00ff66; margin:0; letter-spacing:1px;">GeoMercado</h2>
-            <p style="color:#8fa0b7; font-size:11px; margin-bottom:15px; letter-spacing:2px;">SISTEMA POS</p>
+            <h2 style="color:#00ff66; margin:0 0 18px 0; letter-spacing:1px;">GeoMercado</h2>
 
             <!-- LOGIN DE CAJEROS -->
             <div id="form-login-cajero">
+                <label style="color:#00ff66; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Código de Tienda / Negocio:</label>
+                <div style="display:flex; gap:6px; margin-bottom:12px;">
+                    <input type="text" id="login-codigo-tienda" placeholder="Ej. A1B2C3" style="margin-bottom:0; text-transform:uppercase; font-weight:bold; letter-spacing:2px;">
+                    <button class="btn-clear" style="flex:none; width:auto; padding:0 12px; border-color:#00ff66; color:#00ff66;" onclick="window.conectarCodigoTienda()">Conectar</button>
+                </div>
+
                 <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Seleccionar Cajero:</label>
                 <select id="login-cajero-usuario"></select>
 
-                <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:10px;">PIN de Acceso:</label>
+                <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:6px;">PIN de Acceso:</label>
                 <input type="password" id="login-pin" placeholder="Ingresa tu PIN">
 
                 <button class="btn-charge" style="width:100%;" onclick="window.ejecutarLoginCajero()">INGRESAR A CAJA</button>
-                <p style="color:#00ff66; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('admin')">Acceso de Administrador</p>
+                <p style="color:#00ff66; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('admin')">Acceso de Administrador (Dueño)</p>
             </div>
 
             <!-- LOGIN DE ADMINISTRADOR -->
             <div id="form-login-admin" style="display:none;">
-                <label style="color:#ffc107; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Correo de Administrador:</label>
-                <input type="email" id="login-email" placeholder="tucorreo@empresa.com">
+                <label style="color:#ffc107; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Correo del Negocio:</label>
+                <input type="email" id="login-email" placeholder="tucorreo@negocio.com">
 
-                <label style="color:#ffc107; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:10px;">Contraseña:</label>
-                <input type="password" id="login-pass-admin" placeholder="Contraseña de Firebase">
+                <label style="color:#ffc107; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:6px;">Contraseña:</label>
+                <input type="password" id="login-pass-admin" placeholder="Contraseña Segura">
 
-                <button class="btn-charge" style="width:100%; background:#ffc107; color:#000;" onclick="window.ejecutarLoginAdmin()">INGRESAR COMO ADMIN</button>
+                <button class="btn-charge" style="width:100%; background:#ffc107; color:#000;" onclick="window.ejecutarLoginAdmin()">INGRESAR COMO DUEÑO</button>
                 <p style="color:#8fa0b7; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('cajero')">← Volver a Cajeros</p>
+            </div>
+        </div>
+
+        <!-- MODAL VISOR DE IMAGEN EN GRANDE (ZOOM) -->
+        <div id="modal-zoom-img" class="modal-overlay" onclick="this.style.display='none'">
+            <div class="modal-content" style="max-width: 340px; text-align: center;" onclick="event.stopPropagation()">
+                <h3 id="zoom-title" style="color:#00ff66;">Producto</h3>
+                <img id="zoom-img-src" src="" alt="Foto" style="width:100%; height:240px; object-fit:contain; background:#0b0e14; border-radius:10px; border:1px solid #242c3d;">
+                <div id="zoom-details" style="font-size:13px; color:#fff; background:#161a23; padding:10px; border-radius:8px;"></div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-zoom-img').style.display='none'">Cerrar</button>
+                    <button class="btn-charge" id="zoom-btn-add">➕ Agregar a Venta</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL ABONO PARCIAL DE FIADOS -->
+        <div id="modal-abono" class="modal-overlay">
+            <div class="modal-content" style="max-width: 320px; text-align: center;">
+                <h3 style="color:#ffc107;">💵 Registrar Abono</h3>
+                <p id="abono-cliente-info" style="font-size:12px; color:#8fa0b7; margin:0;"></p>
+                <input type="number" step="0.01" id="abono-monto-usd" placeholder="Monto a abonar en Dólares ($)" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center; font-size:15px; font-weight:bold;">
+                <div id="abono-equiv-bs" style="font-size:12px; color:#00ff66; font-weight:bold;">Equivalente: 0,00 Bs</div>
+                <select id="abono-metodo" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                    <option value="pm">📲 Pago Móvil (Bs)</option>
+                    <option value="ptv">💳 Punto de Venta (Bs)</option>
+                    <option value="ves">🫴 Efectivo Bolívares (Bs)</option>
+                    <option value="usd">💵 Efectivo Divisas ($)</option>
+                </select>
+                <div style="display:flex; gap:8px; margin-top:6px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-abono').style.display='none'">Cancelar</button>
+                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.confirmarAbonoFiado()">Aplicar Abono</button>
+                </div>
             </div>
         </div>
 
@@ -134,15 +171,19 @@
                         <circle cx="50" cy="50" r="6" fill="#ffffff"/>
                     </svg>
                 </div>
-                <div class="main-title"><span style="color:#00ff66;">GeoMercado</span></div>
-                <div class="version-tag">SISTEMA POS</div>
-                <div class="role-badge">Usuario: <span id="txt-rol">Administrador 👑</span></div>
+                <div class="main-title"><span style="color:#00ff66;" id="lbl-titulo-negocio">GeoMercado</span></div>
+                <div class="role-badge" style="margin-top:6px;">
+                    <span id="txt-rol">Administrador 👑</span> | Tienda: <strong style="color:#00ff66;" id="txt-cod-tienda">---</strong>
+                </div>
+
+                <!-- ALERTA DE STOCK BAJO EN MENÚ -->
+                <div id="alerta-stock-menu" class="stock-alert-banner" style="display:none;" onclick="window.cambiarModulo('modulo-inventario')"></div>
 
                 <div class="menu-grid">
                     <button class="btn-menu" onclick="window.cambiarModulo('modulo-caja')"><span class="icon">🛒</span>Caja</button>
                     <button class="btn-menu" onclick="window.cambiarModulo('modulo-inventario')"><span class="icon">📦</span>Inventario</button>
                     <button class="btn-menu" onclick="window.cambiarModulo('modulo-fiados')"><span class="icon">📋</span>Deudas</button>
-                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-cierre')"><span class="icon">📊</span>Historial</button>
+                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-cierre')"><span class="icon">📊</span>Cierre y Estadísticas</button>
                     <button class="btn-menu" onclick="window.cambiarModulo('modulo-admin')"><span class="icon">⚙️</span>Ajustes</button>
                     <button class="btn-menu" onclick="window.cerrarSesion()" style="border-color:#ff5252;"><span class="icon" style="color:#ff5252;">🚪</span>Salir</button>
                 </div>
@@ -171,7 +212,7 @@
                         </div>
 
                         <div class="input-group" style="padding:8px; margin-top:6px;">
-                            <input type="text" id="buscador-caja" class="search-input" placeholder="🔍 Buscar por nombre..." oninput="window.filtrarBuscadorCaja(this.value)">
+                            <input type="text" id="buscador-caja" class="search-input" placeholder="🔫 Pistola Láser o buscar nombre..." oninput="window.filtrarBuscadorCaja(this.value)" onkeydown="window.detectarPistolaLaser(event)">
                             <div id="resultados-busqueda-caja" class="search-results-box"></div>
                         </div>
 
@@ -273,7 +314,7 @@
                 </div>
             </div>
 
-            <!-- MÓDULO FIADOS -->
+            <!-- MÓDULO FIADOS CON ABONOS -->
             <div id="modulo-fiados" class="modulo-app">
                 <div class="header-modulo">
                     <h3>📋 Cuentas por Cobrar</h3>
@@ -281,7 +322,7 @@
                 </div>
                 <div class="admin-form-box">
                     <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">
-                        💡 Las deudas quedan registradas en Dólares ($) y se recalculan automáticamente en Bolívares al precio del dólar BCV del día.
+                        💡 Las deudas se guardan en Dólares ($) y se actualizan solas a la tasa BCV del día. Puedes registrar pagos completos o abonos parciales.
                     </p>
                 </div>
                 <div id="lista-fiados-container" style="display:flex; flex-direction:column; gap:8px;"></div>
@@ -295,7 +336,7 @@
                 </div>
 
                 <div class="admin-form-box" id="form-registro-prod">
-                    <h4 style="margin:0; color:#00ff66; text-align:center;">Registrar / Editar</h4>
+                    <h4 style="margin:0; color:#00ff66; text-align:center;">Registrar / Editar Artículo</h4>
                     
                     <div style="display:flex; flex-direction:column; gap:8px; align-items:center; border: 1px dashed #242c3d; padding:10px; border-radius:8px;">
                         <img id="preview-img-upload" src="" style="display:none; width:120px; height:120px; object-fit:cover; border-radius:8px;">
@@ -309,7 +350,7 @@
                         <input type="number" step="0.01" id="prod-costo" placeholder="Costo ($)" oninput="window.calcularGanancia()">
                         <input type="number" step="0.01" id="prod-margen" placeholder="Margen %" oninput="window.calcularGanancia()">
                     </div>
-                    <div style="text-align:center; color:#00ff66; font-size:12px;">Precio Sugerido: <strong id="lbl-precio-calc">$0.00</strong></div>
+                    <div style="text-align:center; color:#00ff66; font-size:12px;">Precio Final: <strong id="lbl-precio-calc">$0.00</strong></div>
 
                     <div style="display:flex; align-items:center; justify-content:center; gap:8px; background:#0b0e14; padding:8px; border-radius:8px;">
                         <input type="checkbox" id="prod-iva" style="width:18px; height:18px;"> 
@@ -327,9 +368,21 @@
                     <select id="prod-type" onchange="window.conmutarCampoCantidad(this.value)">
                         <option value="unidad">Venta por Unidad 📦</option>
                         <option value="peso">Venta al Peso / Kilo ⚖️</option>
-                        <option value="combo" style="color:#00ff66; font-weight:bold;">Combo / Oferta 🎁</option>
+                        <option value="combo" style="color:#00ff66; font-weight:bold;">Combo Compuesto 🎁</option>
                     </select>
+
                     <input type="number" id="prod-qty" placeholder="Cantidad en Tienda">
+
+                    <!-- CONSTRUCTOR DE COMBOS REALES -->
+                    <div id="box-constructor-combo" style="display:none; background:#0b0e14; padding:10px; border-radius:8px; border:1px solid #00ff66;">
+                        <p style="font-size:11px; color:#00ff66; margin:0 0 6px 0; font-weight:bold;">🎁 Selecciona qué productos descuenta este Combo:</p>
+                        <div style="display:flex; gap:6px; margin-bottom:6px;">
+                            <select id="combo-select-prod" style="flex:2; margin:0;"></select>
+                            <input type="number" id="combo-input-qty" placeholder="Cant." value="1" style="flex:1; margin:0;">
+                            <button type="button" class="btn-charge" style="flex:none; width:auto; padding:0 12px;" onclick="window.agregarIngredienteCombo()">+</button>
+                        </div>
+                        <div id="lista-ingredientes-combo" style="font-size:11px; color:#fff; display:flex; flex-direction:column; gap:4px;"></div>
+                    </div>
 
                     <input type="tel" id="prod-serial" placeholder="Serial / Código de Barras">
                     <div style="display:flex; gap:6px;">
@@ -346,33 +399,45 @@
                     <button id="btn-cancelar-edicion" class="btn-clear" style="display:none; border-color:#ff5252; color:#ff5252;" onclick="window.cancelarEdicion()">Cancelar Edición</button>
                 </div>
 
-                <input type="text" id="buscador-inventario" class="search-input" placeholder="🔍 Buscar..." oninput="window.renderizarInventario(this.value)">
+                <input type="text" id="buscador-inventario" class="search-input" placeholder="🔍 Buscar en catálogo..." oninput="window.renderizarInventario(this.value)">
                 <div class="inventory-grid" id="lista-productos"></div>
             </div>
 
-            <!-- CIERRE -->
+            <!-- CIERRE Y ESTADÍSTICAS -->
             <div id="modulo-cierre" class="modulo-app">
                 <div class="header-modulo">
-                    <h3>📊 Cierre y Facturas</h3>
+                    <h3>📊 Cierre y Estadísticas</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
                 
                 <div class="cierre-card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px dashed #313c52; padding-bottom:4px;">
-                        <h4 style="margin:0; border:none; padding:0;">1. Ventas Netas del Día</h4>
+                        <h4 style="margin:0; border:none; padding:0;">1. Ingresos y Métodos de Pago</h4>
                         <button style="background:#fff; color:#000; border:none; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:10px; cursor:pointer;" onclick="window.imprimirCierreZ()">🖨️ IMPRIMIR Z</button>
                     </div>
                     
                     <div class="cierre-item">Punto de Venta: <span id="resumen-ptv">0,00 Bs</span></div>
-                    <div class="cierre-item">Pago Móvil: <span id="resumen-pm">0,00 Bs</span></div>
-                    <div class="cierre-item">Efectivo (Bs): <span id="resumen-ves">0,00 Bs</span></div>
-                    <hr style="border-top:1px dashed #313c52; margin:6px 0;">
-                    <div class="cierre-item" style="color:#00ff66; font-size:14px;">Ganancia Total: <span id="resumen-ganancia-ves">0,00 Bs</span></div>
-                    <div class="cierre-item" style="color:#8fa0b7; font-size:11px;">Divisas ($) Físico: <span id="resumen-efectivo-usd" style="color:#fff;">$0.00</span></div>
+                    <div class="stat-bar-bg"><div id="bar-ptv" class="stat-bar-fill" style="background:#38bdf8;"></div></div>
+
+                    <div class="cierre-item" style="margin-top:4px;">Pago Móvil: <span id="resumen-pm">0,00 Bs</span></div>
+                    <div class="stat-bar-bg"><div id="bar-pm" class="stat-bar-fill" style="background:#00ff66;"></div></div>
+
+                    <div class="cierre-item" style="margin-top:4px;">Efectivo (Bs): <span id="resumen-ves">0,00 Bs</span></div>
+                    <div class="stat-bar-bg"><div id="bar-ves" class="stat-bar-fill" style="background:#facc15;"></div></div>
+
+                    <hr style="border-top:1px dashed #313c52; margin:8px 0;">
+                    <div class="cierre-item" style="color:#00ff66; font-size:14px;">Ganancia Neta Estimada: <span id="resumen-ganancia-ves">0,00 Bs</span></div>
+                    <div class="cierre-item" style="color:#8fa0b7; font-size:11px;">Efectivo Divisas ($) Recibido: <span id="resumen-efectivo-usd" style="color:#fff;">$0.00</span></div>
+                </div>
+
+                <!-- GRÁFICO TOP 5 PRODUCTOS MÁS VENDIDOS -->
+                <div class="cierre-card">
+                    <h4>🏆 Top 5 Productos Más Vendidos Hoy</h4>
+                    <div id="grafico-top-productos" style="display:flex; flex-direction:column; gap:6px;"></div>
                 </div>
 
                 <div class="cierre-card highlight-box">
-                    <h4 style="color:#fff;">2. Cuadre de Gaveta</h4>
+                    <h4 style="color:#fff;">2. Cuadre de Gaveta Física</h4>
                     <div class="cierre-item" style="color:#8fa0b7;">Fondo Inicial ($): <span id="cierre-fondo-usd">0.00 $</span></div>
                     <div class="cierre-item" style="color:#8fa0b7;">Fondo Inicial (Bs): <span id="cierre-fondo-ves">0,00 Bs</span></div>
                     <hr style="border-top:1px dashed #313c52; margin:6px 0;">
@@ -382,18 +447,24 @@
 
                 <h4 style="color:#8fa0b7; margin: 8px 0 4px 0; font-size:13px;">Historial de Facturas:</h4>
                 <div id="lista-historial-ventas"></div>
-                <button class="btn-clear" style="margin-top:10px; width:100%; background:#ff5252; color:#fff;" onclick="window.borrarHistorial()">BORRAR TODO Y REINICIAR</button>
+                <button class="btn-clear" style="margin-top:10px; width:100%; background:#ff5252; color:#fff;" onclick="window.borrarHistorial()">BORRAR TODO Y REINICIAR DÍA</button>
             </div>
 
             <!-- ADMIN -->
             <div id="modulo-admin" class="modulo-app">
                 <div class="header-modulo">
-                    <h3>⚙️ Ajustes</h3>
+                    <h3>⚙️ Ajustes del Negocio</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
 
+                <div class="admin-form-box" style="border-color:#00ff66; text-align:center;">
+                    <label style="color:#00ff66; font-weight:bold;">🔑 Código Único de tu Tienda</label>
+                    <div id="admin-box-codigo" style="font-size:22px; font-weight:900; color:#fff; letter-spacing:3px; background:#0b0e14; padding:8px; border-radius:8px; border:1px dashed #00ff66;">---</div>
+                    <p style="font-size:10px; color:#8fa0b7; margin:0;">Comparte este código con tus cajeros para que sus teléfonos carguen tu inventario y ventas en vivo.</p>
+                </div>
+
                 <div class="admin-form-box" style="border-color:#00ff66;">
-                    <label style="color:#00ff66; font-weight:bold;">🏢 Perfil del Negocio</label>
+                    <label style="color:#00ff66; font-weight:bold;">🏢 Perfil del Negocio (Tickets)</label>
                     <input type="text" id="cfg-nombre" placeholder="Nombre de la Tienda" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-rif" placeholder="RIF (Ej. J-1234567)" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-tlf" placeholder="Teléfono" onchange="window.guardarPerfil()">
@@ -408,11 +479,11 @@
                 </div>
 
                 <div class="admin-form-box" style="border-color:#ffc107;">
-                    <label style="color:#ffc107; font-weight:bold;">👥 Crear Nuevo Cajero</label>
-                    <p style="font-size:10px; color:#8fa0b7; margin:0 0 6px 0; text-align:center;">Para que los empleados operen la caja sin permisos de administrador.</p>
-                    <input type="text" id="nuevo-cajero-nombre" placeholder="Nombre del Cajero">
-                    <input type="password" id="nuevo-cajero-clave" placeholder="PIN Numérico">
-                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.guardarNuevoCajero()">Guardar Cajero</button>
+                    <label style="color:#ffc107; font-weight:bold;">👥 Gestión de Cajeros</label>
+                    <input type="text" id="nuevo-cajero-nombre" placeholder="Nombre del Cajero (Ej. David)">
+                    <input type="password" id="nuevo-cajero-clave" placeholder="Asignar PIN (Ej. 1234)">
+                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.guardarNuevoCajero()">Agregar Cajero</button>
+                    <div id="lista-cajeros-admin" style="display:flex; flex-direction:column; gap:4px; margin-top:6px;"></div>
                 </div>
 
                 <div class="admin-form-box">
@@ -425,14 +496,14 @@
                     <label>📈 Tasa Dólar (Bs):</label>
                     <div style="display:flex; gap:6px;">
                         <input type="number" step="0.01" id="input-tasa-global" value="623.02" oninput="window.cambiarTasaManual(this.value)">
-                        <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; flex:none; padding:0 10px;" onclick="window.obtenerTasaBCV()">📡 Consultar BCV</button>
+                        <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; flex:none; padding:0 10px;" onclick="window.obtenerTasaBCV()">📡 BCV</button>
                     </div>
                 </div>
 
                 <div class="admin-form-box">
                     <label style="color:#8fa0b7; font-weight:bold;">💾 Copia de Seguridad JSON</label>
                     <button class="btn-charge" style="background:#242c3d; color:#fff;" onclick="window.exportarProductosJSON()">📤 Exportar Inventario</button>
-                    <button class="btn-charge" style="background:#161a23; border: 1px solid #ff5252; color:#ff5252;" onclick="document.getElementById('input-import-json').click()">📥 Importar (Sobrescribe todo)</button>
+                    <button class="btn-charge" style="background:#161a23; border: 1px solid #ff5252; color:#ff5252;" onclick="document.getElementById('input-import-json').click()">📥 Importar Inventario</button>
                     <input type="file" id="input-import-json" class="hidden-file-input" accept=".json" onchange="window.importarProductosJSON(event)">
                 </div>
             </div>
