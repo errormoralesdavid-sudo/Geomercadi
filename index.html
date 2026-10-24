@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geo Mercado V19.3 - Multi-Caja POS</title>
+    <title>GeoMercado - POS</title>
 
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./style.css">
@@ -17,7 +17,7 @@
 
     <div class="app-container">
         <div id="banner-offline" class="offline-banner">
-            ⚡ MODO SIN CONEXIÓN (OFFLINE): Trabajando con datos locales. Los cambios se subirán solos al volver la red.
+            ⚡ MODO SIN CONEXIÓN (OFFLINE): Trabajando con datos locales.
         </div>
 
         <div id="hidden-qr-reader"></div>
@@ -29,48 +29,47 @@
 
         <div id="toast" class="toast-notification"></div>
 
-        <!-- PANTALLA PRINCIPAL DE AUTENTICACIÓN -->
+        <!-- PANTALLA DE INICIO -->
         <div id="section-login" class="login-card">
             <div class="logo-grande" style="margin: 0 auto 10px auto;">
                 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M15 25 h15 l12 32 h33 l10 -22 h-50" fill="none" stroke="#00ff66" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                    <circle cx="45" cy="70" r="6" fill="none" stroke="#00ff66" stroke-width="3"/>
-                    <circle cx="70" cy="70" r="6" fill="none" stroke="#00ff66" stroke-width="3"/>
-                    <circle cx="58" cy="44" r="7" fill="#ffffff"/>
+                    <path d="M50 15 L85 35 V65 L50 85 L15 65 V35 Z" fill="none" stroke="#00ff66" stroke-width="4" stroke-linejoin="round"/>
+                    <path d="M50 15 V50 L85 35 M50 50 L15 35 M50 50 V85" fill="none" stroke="#00ff66" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+                    <circle cx="50" cy="50" r="6" fill="#ffffff"/>
                 </svg>
             </div>
-            <h2 style="color:#00ff66; margin:0;">GEO MERCADO POS</h2>
-            <p style="color:#8fa0b7; font-size:11px; margin-bottom:15px;">V19.3 (FIREBASE SECURE)</p>
+            <h2 style="color:#00ff66; margin:0; letter-spacing:1px;">GeoMercado</h2>
+            <p style="color:#8fa0b7; font-size:11px; margin-bottom:15px; letter-spacing:2px;">SISTEMA POS</p>
 
-            <!-- LOGIN DE CAJEROS (Por Defecto) -->
+            <!-- LOGIN DE CAJEROS -->
             <div id="form-login-cajero">
                 <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Seleccionar Cajero:</label>
                 <select id="login-cajero-usuario"></select>
 
                 <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:10px;">PIN de Acceso:</label>
-                <input type="password" id="login-pin" placeholder="Ingresa tu PIN de 4 dígitos">
+                <input type="password" id="login-pin" placeholder="Ingresa tu PIN">
 
                 <button class="btn-charge" style="width:100%;" onclick="window.ejecutarLoginCajero()">INGRESAR A CAJA</button>
-                <p style="color:#00ff66; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('admin')">¿Eres el Administrador? Inicia sesión aquí</p>
+                <p style="color:#00ff66; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('admin')">Acceso de Administrador</p>
             </div>
 
-            <!-- LOGIN DE ADMINISTRADOR (Firebase Auth) -->
+            <!-- LOGIN DE ADMINISTRADOR -->
             <div id="form-login-admin" style="display:none;">
                 <label style="color:#ffc107; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Correo de Administrador:</label>
                 <input type="email" id="login-email" placeholder="tucorreo@empresa.com">
 
-                <label style="color:#ffc107; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:10px;">Contraseña Segura:</label>
-                <input type="password" id="login-pass-admin" placeholder="Ingresa contraseña de Firebase">
+                <label style="color:#ffc107; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:10px;">Contraseña:</label>
+                <input type="password" id="login-pass-admin" placeholder="Contraseña de Firebase">
 
                 <button class="btn-charge" style="width:100%; background:#ffc107; color:#000;" onclick="window.ejecutarLoginAdmin()">INGRESAR COMO ADMIN</button>
-                <p style="color:#8fa0b7; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('cajero')">← Volver al acceso de Cajeros</p>
+                <p style="color:#8fa0b7; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('cajero')">← Volver a Cajeros</p>
             </div>
         </div>
 
-        <!-- MODAL CONFIRMACIÓN -->
+        <!-- MODALES DE CONFIRMACIÓN Y HERRAMIENTAS -->
         <div id="modal-confirm" class="modal-overlay">
             <div class="modal-content" style="max-width: 320px; text-align: center;">
-                <h3 id="confirm-title" style="color:#00ff66;">Confirmar Acción</h3>
+                <h3 id="confirm-title" style="color:#00ff66;">Confirmar</h3>
                 <p id="confirm-msg" style="color:#fff; font-size:13px; margin: 10px 0;"></p>
                 <div style="display:flex; gap:10px; margin-top: 10px;">
                     <button class="btn-clear" id="confirm-btn-cancel">Cancelar</button>
@@ -79,22 +78,20 @@
             </div>
         </div>
 
-        <!-- MODAL ESCÁNER CÁMARA CÓDIGO BARRAS / SERIALES -->
         <div id="modal-camara" class="modal-overlay">
             <div class="modal-content" style="max-width: 400px; text-align: center;">
-                <h3>📸 Escanear Código de Barras</h3>
+                <h3>📸 Escáner</h3>
                 <div id="interactive-scanner" style="width: 100%; height: 240px; background: #000; border-radius: 8px; overflow: hidden; position: relative;"></div>
                 <button class="btn-clear" onclick="window.cerrarCamaraEnVivo()" style="margin-top: 10px;">Cancelar</button>
             </div>
         </div>
 
-        <!-- MODAL GENERADOR CÓDIGO QR PAGO MÓVIL ESTÁNDAR BANCOS -->
         <div id="modal-qr" class="modal-overlay">
             <div class="modal-content" style="text-align: center;">
-                <h3>📲 QR Pago Móvil BDV / Bancos</h3>
-                <p style="font-size:10px; color:#8fa0b7; margin:0;">Escanéalo directo desde la App del Banco de Venezuela o cualquier banco nacional.</p>
+                <h3>📲 QR Pago Móvil</h3>
+                <p style="font-size:10px; color:#8fa0b7; margin:0;">Escanéalo desde la App de tu banco.</p>
                 <div style="background:#fff; padding:10px; border-radius:10px; display:inline-block; margin:8px auto;">
-                    <img id="img-qr-code" src="" alt="Código QR Pago Móvil" style="width:190px; height:190px;">
+                    <img id="img-qr-code" src="" alt="QR" style="width:190px; height:190px;">
                 </div>
                 <div id="qr-text-info" style="font-size:11px; color:#fff; text-align:left; background:#0b0e14; padding:8px; border-radius:8px;"></div>
                 <div style="display:flex; gap:6px; margin-top:8px;">
@@ -104,13 +101,12 @@
             </div>
         </div>
 
-        <!-- MODAL CLIENTE -->
         <div id="modal-cliente" class="modal-overlay">
             <div class="modal-content">
-                <h3>📝 Datos de Facturación</h3>
+                <h3>📝 Cliente</h3>
                 <input type="text" id="cliente-nombre" placeholder="Nombre y Apellido" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
-                <input type="text" id="cliente-cedula" placeholder="Cédula o RIF (Ej. V12345678)" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
-                <input type="text" id="cliente-dir" placeholder="Dirección del Cliente" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+                <input type="text" id="cliente-cedula" placeholder="Cédula o RIF" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+                <input type="text" id="cliente-dir" placeholder="Dirección" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
                 <div style="display:flex; gap:10px;">
                     <button class="btn-clear" onclick="document.getElementById('modal-cliente').style.display='none'">Cancelar</button>
                     <button class="btn-charge" onclick="document.getElementById('modal-cliente').style.display='none'; window.mostrarToast('✓ Cliente guardado');">Aplicar</button>
@@ -118,7 +114,6 @@
             </div>
         </div>
 
-        <!-- MODAL COMBOS -->
         <div id="modal-combos" class="modal-overlay">
             <div class="modal-content">
                 <h3>🎁 Combos y Ofertas</h3>
@@ -127,58 +122,55 @@
             </div>
         </div>
 
-        <!-- CONTENIDO PRINCIPAL DEL SISTEMA -->
+        <!-- PANEL DE APLICACIÓN -->
         <div id="app-content" style="display:none; width:100%;">
 
-            <!-- MENÚ PRINCIPAL -->
             <div id="menu-principal">
                 <div class="logo-grande">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15 25 h15 l12 32 h33 l10 -22 h-50" fill="none" stroke="#00ff66" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                        <circle cx="45" cy="70" r="6" fill="none" stroke="#00ff66" stroke-width="3"/>
-                        <circle cx="70" cy="70" r="6" fill="none" stroke="#00ff66" stroke-width="3"/>
-                        <circle cx="58" cy="44" r="7" fill="#ffffff"/>
+                        <path d="M50 15 L85 35 V65 L50 85 L15 65 V35 Z" fill="none" stroke="#00ff66" stroke-width="4" stroke-linejoin="round"/>
+                        <path d="M50 15 V50 L85 35 M50 50 L15 35 M50 50 V85" fill="none" stroke="#00ff66" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+                        <circle cx="50" cy="50" r="6" fill="#ffffff"/>
                     </svg>
                 </div>
-                <div class="main-title"><span style="color:#00ff66;">GEO MERCADO 🛍️</span></div>
-                <div class="version-tag">V19.3 (AUTENTICACIÓN EN LA NUBE)</div>
+                <div class="main-title"><span style="color:#00ff66;">GeoMercado</span></div>
+                <div class="version-tag">SISTEMA POS</div>
                 <div class="role-badge">Usuario: <span id="txt-rol">Administrador 👑</span></div>
 
                 <div class="menu-grid">
-                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-caja')"><span class="icon">🛒</span>Caja de Cobro</button>
+                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-caja')"><span class="icon">🛒</span>Caja</button>
                     <button class="btn-menu" onclick="window.cambiarModulo('modulo-inventario')"><span class="icon">📦</span>Inventario</button>
-                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-fiados')"><span class="icon">📋</span>Fiados / Deudas</button>
-                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-cierre')"><span class="icon">📊</span>Cierre / Historial</button>
-                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-admin')"><span class="icon">⚙️</span>Ajustes y Perfil</button>
-                    <button class="btn-menu" onclick="window.cerrarSesion()" style="border-color:#ff5252;"><span class="icon" style="color:#ff5252;">🚪</span>Cerrar Sesión</button>
+                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-fiados')"><span class="icon">📋</span>Deudas</button>
+                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-cierre')"><span class="icon">📊</span>Historial</button>
+                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-admin')"><span class="icon">⚙️</span>Ajustes</button>
+                    <button class="btn-menu" onclick="window.cerrarSesion()" style="border-color:#ff5252;"><span class="icon" style="color:#ff5252;">🚪</span>Salir</button>
                 </div>
             </div>
 
-            <!-- MÓDULO CAJA -->
+            <!-- CAJA -->
             <div id="modulo-caja" class="modulo-app">
                 <div class="header-modulo">
-                    <h3>🛒 Caja de Facturación</h3>
+                    <h3>🛒 Caja</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
 
                 <div class="tools-carousel">
                     <button class="btn-tool" onclick="window.aparcarFactura()">⏸️ Pausar Venta</button>
-                    <button class="btn-tool" onclick="window.recuperarFactura()">📂 Recuperar Pausada</button>
+                    <button class="btn-tool" onclick="window.recuperarFactura()">📂 Recuperar</button>
                     <button class="btn-tool" onclick="document.getElementById('modal-cliente').style.display='flex'">📝 Cliente</button>
                     <button class="btn-tool" onclick="window.abrirModalCombos()" style="color:#00ff66; border-color:#00ff66;">🎁 Combos</button>
-                    <button class="btn-tool" onclick="window.generarQRPagoMovil()" style="color:#00ff66; border-color:#00ff66;">📲 Generar QR PM</button>
-                    <button class="btn-tool" onclick="window.enviarDatosPagoMovilWS()" style="color:#25D366; border-color:#25D366;">📲 Datos por WhatsApp</button>
+                    <button class="btn-tool" onclick="window.generarQRPagoMovil()" style="color:#00ff66; border-color:#00ff66;">📲 Generar QR</button>
                 </div>
 
                 <div class="caja-layout-pc">
                     <div>
                         <div class="cart-card">
-                            <div class="cart-title">📝 Artículos en esta Venta</div>
+                            <div class="cart-title">📝 Artículos en Venta</div>
                             <div class="cart-items-container" id="items-carrito-factura"></div>
                         </div>
 
                         <div class="input-group" style="padding:8px; margin-top:6px;">
-                            <input type="text" id="buscador-caja" class="search-input" placeholder="🔍 Buscar producto por nombre..." oninput="window.filtrarBuscadorCaja(this.value)">
+                            <input type="text" id="buscador-caja" class="search-input" placeholder="🔍 Buscar por nombre..." oninput="window.filtrarBuscadorCaja(this.value)">
                             <div id="resultados-busqueda-caja" class="search-results-box"></div>
                         </div>
 
@@ -230,7 +222,7 @@
                                         <input type="tel" id="pm-phone" placeholder="Teléfono del Cliente">
                                         <input type="tel" id="pm-ref" placeholder="Número de Referencia">
                                         <div id="pm-status-banner" class="pm-status-banner"></div>
-                                        <button class="btn-clear" style="border:1px solid #00ff66; color:#00ff66; width:100%;" onclick="document.getElementById('file-ocr').click()">📸 LEER CAPTURE AUTO (OCR)</button>
+                                        <button class="btn-clear" style="border:1px solid #00ff66; color:#00ff66; width:100%;" onclick="document.getElementById('file-ocr').click()">📸 LEER CAPTURE (OCR)</button>
                                         <input type="file" id="file-ocr" class="hidden-file-input" accept="image/*" onchange="window.escanearCapturePagoCompleto(event)">
                                     </div>
                                 </div>
@@ -280,10 +272,10 @@
                 </div>
             </div>
 
-            <!-- MÓDULO FIADOS / DEUDAS DE CLIENTES -->
+            <!-- MÓDULO FIADOS -->
             <div id="modulo-fiados" class="modulo-app">
                 <div class="header-modulo">
-                    <h3>📋 Cuentas por Cobrar (Fiados)</h3>
+                    <h3>📋 Cuentas por Cobrar</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
                 <div class="admin-form-box">
@@ -294,20 +286,20 @@
                 <div id="lista-fiados-container" style="display:flex; flex-direction:column; gap:8px;"></div>
             </div>
 
-            <!-- MÓDULO INVENTARIO -->
+            <!-- INVENTARIO -->
             <div id="modulo-inventario" class="modulo-app">
                 <div class="header-modulo">
-                    <h3>📦 Catálogo de Mercancía</h3>
+                    <h3>📦 Catálogo</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
 
                 <div class="admin-form-box" id="form-registro-prod">
-                    <h4 style="margin:0; color:#00ff66; text-align:center;">Registrar / Editar Artículo</h4>
+                    <h4 style="margin:0; color:#00ff66; text-align:center;">Registrar / Editar</h4>
                     
                     <div style="display:flex; flex-direction:column; gap:8px; align-items:center; border: 1px dashed #242c3d; padding:10px; border-radius:8px;">
                         <img id="preview-img-upload" src="" style="display:none; width:120px; height:120px; object-fit:cover; border-radius:8px;">
                         <input type="file" id="prod-imagen-file" accept="image/*" style="display:none;" onchange="window.previsualizarImagenRegistro(event)">
-                        <button class="btn-clear" id="lbl-img-upload" style="border-color:#25D366; color:#25D366; width:100%;" onclick="document.getElementById('prod-imagen-file').click()">📸 Subir Foto de Producto (Opcional)</button>
+                        <button class="btn-clear" id="lbl-img-upload" style="border-color:#25D366; color:#25D366; width:100%;" onclick="document.getElementById('prod-imagen-file').click()">📸 Subir Foto (Opcional)</button>
                     </div>
 
                     <input type="text" id="prod-name" placeholder="Nombre (Ej. Harina P.A.N.)">
@@ -316,11 +308,11 @@
                         <input type="number" step="0.01" id="prod-costo" placeholder="Costo ($)" oninput="window.calcularGanancia()">
                         <input type="number" step="0.01" id="prod-margen" placeholder="Margen %" oninput="window.calcularGanancia()">
                     </div>
-                    <div style="text-align:center; color:#00ff66; font-size:12px;">Precio Final Sugerido: <strong id="lbl-precio-calc">$0.00</strong></div>
+                    <div style="text-align:center; color:#00ff66; font-size:12px;">Precio Sugerido: <strong id="lbl-precio-calc">$0.00</strong></div>
 
                     <div style="display:flex; align-items:center; justify-content:center; gap:8px; background:#0b0e14; padding:8px; border-radius:8px;">
                         <input type="checkbox" id="prod-iva" style="width:18px; height:18px;"> 
-                        <label style="color:#8fa0b7; font-size:12px; margin:0;">Sumar IVA (16%) al Vender</label>
+                        <label style="color:#8fa0b7; font-size:12px; margin:0;">Sumar IVA (16%)</label>
                     </div>
 
                     <select id="prod-cat">
@@ -336,12 +328,12 @@
                         <option value="peso">Venta al Peso / Kilo ⚖️</option>
                         <option value="combo" style="color:#00ff66; font-weight:bold;">Combo / Oferta 🎁</option>
                     </select>
-                    <input type="number" id="prod-qty" placeholder="Cantidad Disponible en Tienda">
+                    <input type="number" id="prod-qty" placeholder="Cantidad en Tienda">
 
                     <input type="tel" id="prod-serial" placeholder="Serial / Código de Barras">
                     <div style="display:flex; gap:6px;">
                         <button class="btn-clear" style="flex:2; border-color:#00ff66; color:#00ff66;" onclick="window.abrirCamaraEnVivo('registro')">
-                            <span style="font-size:16px;">📸</span> CÁMARA BARRAS
+                            <span style="font-size:16px;">📸</span> BARRAS
                         </button>
                         <button class="btn-clear" style="flex:1; border-color:#ffc107; color:#ffc107;" onclick="document.getElementById('file-barcode-reg').click()">
                             📂 GALERÍA
@@ -353,14 +345,14 @@
                     <button id="btn-cancelar-edicion" class="btn-clear" style="display:none; border-color:#ff5252; color:#ff5252;" onclick="window.cancelarEdicion()">Cancelar Edición</button>
                 </div>
 
-                <input type="text" id="buscador-inventario" class="search-input" placeholder="🔍 Buscar en inventario..." oninput="window.renderizarInventario(this.value)">
+                <input type="text" id="buscador-inventario" class="search-input" placeholder="🔍 Buscar..." oninput="window.renderizarInventario(this.value)">
                 <div class="inventory-grid" id="lista-productos"></div>
             </div>
 
-            <!-- MÓDULO CIERRE Y HISTORIAL -->
+            <!-- CIERRE -->
             <div id="modulo-cierre" class="modulo-app">
                 <div class="header-modulo">
-                    <h3>📊 Cierre de Caja y Facturas</h3>
+                    <h3>📊 Cierre y Facturas</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
                 
@@ -370,77 +362,75 @@
                         <button style="background:#fff; color:#000; border:none; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:10px; cursor:pointer;" onclick="window.imprimirCierreZ()">🖨️ IMPRIMIR Z</button>
                     </div>
                     
-                    <div class="cierre-item">Total Punto de Venta: <span id="resumen-ptv">0,00 Bs</span></div>
-                    <div class="cierre-item">Total Pago Móvil: <span id="resumen-pm">0,00 Bs</span></div>
-                    <div class="cierre-item">Total Efectivo (Bs): <span id="resumen-ves">0,00 Bs</span></div>
+                    <div class="cierre-item">Punto de Venta: <span id="resumen-ptv">0,00 Bs</span></div>
+                    <div class="cierre-item">Pago Móvil: <span id="resumen-pm">0,00 Bs</span></div>
+                    <div class="cierre-item">Efectivo (Bs): <span id="resumen-ves">0,00 Bs</span></div>
                     <hr style="border-top:1px dashed #313c52; margin:6px 0;">
-                    <div class="cierre-item" style="color:#00ff66; font-size:14px;">Ganancia Total (Bs): <span id="resumen-ganancia-ves">0,00 Bs</span></div>
-                    <div class="cierre-item" style="color:#8fa0b7; font-size:11px;">Efectivo Divisas ($) Físico: <span id="resumen-efectivo-usd" style="color:#fff;">$0.00</span></div>
+                    <div class="cierre-item" style="color:#00ff66; font-size:14px;">Ganancia Total: <span id="resumen-ganancia-ves">0,00 Bs</span></div>
+                    <div class="cierre-item" style="color:#8fa0b7; font-size:11px;">Divisas ($) Físico: <span id="resumen-efectivo-usd" style="color:#fff;">$0.00</span></div>
                 </div>
 
                 <div class="cierre-card highlight-box">
-                    <h4 style="color:#fff;">2. Cuadre de Gaveta Física</h4>
+                    <h4 style="color:#fff;">2. Cuadre de Gaveta</h4>
                     <div class="cierre-item" style="color:#8fa0b7;">Fondo Inicial ($): <span id="cierre-fondo-usd">0.00 $</span></div>
                     <div class="cierre-item" style="color:#8fa0b7;">Fondo Inicial (Bs): <span id="cierre-fondo-ves">0,00 Bs</span></div>
                     <hr style="border-top:1px dashed #313c52; margin:6px 0;">
-                    <div style="font-size:11px; color:#8fa0b7; margin-bottom:4px;">Dinero físico exacto que debe haber en caja:</div>
                     <div class="cierre-item" style="color:#00ff66;">Efectivo Esperado ($): <span id="esperado-usd">0.00 $</span></div>
                     <div class="cierre-item" style="color:#00ff66;">Efectivo Esperado (Bs): <span id="esperado-ves">0,00 Bs</span></div>
                 </div>
 
                 <h4 style="color:#8fa0b7; margin: 8px 0 4px 0; font-size:13px;">Historial de Facturas:</h4>
                 <div id="lista-historial-ventas"></div>
-                <button class="btn-clear" style="margin-top:10px; width:100%; background:#ff5252; color:#fff;" onclick="window.borrarHistorial()">BORRAR TODO Y REINICIAR DÍA</button>
+                <button class="btn-clear" style="margin-top:10px; width:100%; background:#ff5252; color:#fff;" onclick="window.borrarHistorial()">BORRAR TODO Y REINICIAR</button>
             </div>
 
-            <!-- MÓDULO CONFIGURACIÓN Y PERFIL -->
+            <!-- ADMIN -->
             <div id="modulo-admin" class="modulo-app">
                 <div class="header-modulo">
-                    <h3>⚙️ Ajustes de Sistema</h3>
+                    <h3>⚙️ Ajustes</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
 
                 <div class="admin-form-box" style="border-color:#00ff66;">
-                    <label style="color:#00ff66; font-weight:bold;">🏢 Perfil del Negocio (Para Facturas)</label>
+                    <label style="color:#00ff66; font-weight:bold;">🏢 Perfil del Negocio</label>
                     <input type="text" id="cfg-nombre" placeholder="Nombre de la Tienda" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-rif" placeholder="RIF (Ej. J-1234567)" onchange="window.guardarPerfil()">
-                    <input type="text" id="cfg-tlf" placeholder="Teléfono del Local" onchange="window.guardarPerfil()">
+                    <input type="text" id="cfg-tlf" placeholder="Teléfono" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-dir" placeholder="Dirección Corta" onchange="window.guardarPerfil()">
                 </div>
 
                 <div class="admin-form-box" style="border-color:#00ff66;">
-                    <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor (Para QR)</label>
+                    <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor</label>
                     <input type="text" id="cfg-pm-banco" placeholder="Código Banco 4 Dígitos (Ej. 0102 BDV)" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-pm-cedula" placeholder="Cédula/RIF con Letra (Ej. V12345678)" onchange="window.guardarPerfil()">
-                    <input type="text" id="cfg-pm-tlf" placeholder="Teléfono 11 Dígitos (Ej. 04121234567)" onchange="window.guardarPerfil()">
+                    <input type="text" id="cfg-pm-tlf" placeholder="Teléfono 11 Dígitos" onchange="window.guardarPerfil()">
                 </div>
 
                 <div class="admin-form-box" style="border-color:#ffc107;">
-                    <label style="color:#ffc107; font-weight:bold;">👥 Crear Nuevo Cajero (Sub-Usuario)</label>
-                    <p style="font-size:10px; color:#8fa0b7; margin:0 0 6px 0; text-align:center;">Para que los empleados operen la caja sin permisos de administrador.</p>
+                    <label style="color:#ffc107; font-weight:bold;">👥 Crear Nuevo Cajero</label>
                     <input type="text" id="nuevo-cajero-nombre" placeholder="Nombre del Cajero">
-                    <input type="password" id="nuevo-cajero-clave" placeholder="PIN de 4 dígitos">
-                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.guardarNuevoCajero()">Guardar Nuevo Cajero</button>
+                    <input type="password" id="nuevo-cajero-clave" placeholder="PIN Numérico">
+                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.guardarNuevoCajero()">Guardar Cajero</button>
                 </div>
 
                 <div class="admin-form-box">
-                    <label style="color:#00ff66; font-weight:bold;">💵 APERTURA: Fondo Físico de Caja</label>
-                    <input type="number" step="0.01" id="input-fondo-usd" placeholder="Sencillo Físico Inicial ($)" onchange="window.guardarFondoCaja()">
-                    <input type="number" step="0.01" id="input-fondo-ves" placeholder="Sencillo Físico Inicial (Bs)" onchange="window.guardarFondoCaja()">
+                    <label style="color:#00ff66; font-weight:bold;">💵 Fondo de Caja Físico</label>
+                    <input type="number" step="0.01" id="input-fondo-usd" placeholder="Inicial Físico ($)" onchange="window.guardarFondoCaja()">
+                    <input type="number" step="0.01" id="input-fondo-ves" placeholder="Inicial Físico (Bs)" onchange="window.guardarFondoCaja()">
                 </div>
                 
                 <div class="admin-form-box">
-                    <label>📈 Modificar Tasa del Dólar (Bs):</label>
+                    <label>📈 Tasa Dólar (Bs):</label>
                     <div style="display:flex; gap:6px;">
                         <input type="number" step="0.01" id="input-tasa-global" value="623.02" oninput="window.cambiarTasaManual(this.value)">
-                        <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; flex:none; padding:0 10px;" onclick="window.obtenerTasaBCV()">📡 Consultar BCV</button>
+                        <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; flex:none; padding:0 10px;" onclick="window.obtenerTasaBCV()">📡 BCV</button>
                     </div>
                 </div>
 
                 <div class="admin-form-box">
-                    <label style="color:#8fa0b7; font-weight:bold;">💾 Copia de Seguridad Local (JSON)</label>
+                    <label style="color:#8fa0b7; font-weight:bold;">💾 Copia de Seguridad JSON</label>
                     <button class="btn-charge" style="background:#242c3d; color:#fff;" onclick="window.exportarProductosJSON()">📤 Exportar Inventario</button>
-                    <button class="btn-charge" style="background:#161a23; border: 1px solid #ff5252; color:#ff5252;" onclick="document.getElementById('input-import-json').click()">📥 Importar (Sobrescribe todo)</button>
+                    <button class="btn-charge" style="background:#161a23; border: 1px solid #ff5252; color:#ff5252;" onclick="document.getElementById('input-import-json').click()">📥 Importar</button>
                     <input type="file" id="input-import-json" class="hidden-file-input" accept=".json" onchange="window.importarProductosJSON(event)">
                 </div>
             </div>
