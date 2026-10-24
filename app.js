@@ -18,6 +18,7 @@ const auth = getAuth(app);
 // VARIABLES MULTI-TIENDA Y ESTADO GLOBAL
 window.tiendaActivaID = localStorage.getItem('geomercado_tienda_id') || "datos_globales";
 window.unsubscribeSnapshot = null;
+window.datosCargadosDeNube = false;
 
 window.tasaDia = parseFloat(localStorage.getItem('geomercado_tasa_v19')) || 623.02;
 window.subtotalVentaUSD = 0.00;
@@ -119,7 +120,7 @@ function iniciarSistema() {
 
 document.addEventListener('DOMContentLoaded', iniciarSistema);
 
-// CONEXIÓN DINÁMICA MULTI-TIENDA EN FIREBASE
+// CONEXIÓN DINÁMICA MULTI-TIENDA EN FIREBASE CON PROTECCIÓN DE INVENTARIO
 window.suscribirTiendaFirebase = function(docId) {
     if (window.unsubscribeSnapshot) window.unsubscribeSnapshot();
     window.tiendaActivaID = docId;
@@ -134,7 +135,10 @@ window.suscribirTiendaFirebase = function(docId) {
     window.unsubscribeSnapshot = onSnapshot(doc(db, "geomercado_tienda", docId), (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.data();
-            window.productos = data.productos || [];
+            // Evita sobreescribir con arrays vacíos si ya tenemos datos cargados en memoria
+            if (data.productos && data.productos.length > 0 || !window.datosCargadosDeNube) {
+                window.productos = data.productos || [];
+            }
             window.ventasHistorico = data.ventasHistorico || [];
             window.gastosCaja = data.gastosCaja || [];
             window.facturasEnEspera = data.facturasEnEspera || [];
@@ -143,6 +147,7 @@ window.suscribirTiendaFirebase = function(docId) {
             window.usuariosCajeros = data.usuariosCajeros || [{ id: 1, nombre: "Caja Principal", clave: "1234" }];
             window.fondoCaja = data.fondoCaja || { usd: 0, ves: 0 };
             if (data.tasaDia) window.tasaDia = data.tasaDia;
+            window.datosCargadosDeNube = true;
 
             window.sincronizarCamposAdminUI();
             window.actualizarOpcionesLogin();
@@ -507,7 +512,18 @@ window.calcularGanancia = function() {
     document.getElementById('lbl-precio-calc').innerText = "$" + (costo + (costo * (margen / 100))).toFixed(2);
 };
 
-// CONSTRUCTOR DE COMBOS E INVENTARIO
+// AUTOMATIZACIÓN INTELIGENTE DE CATEGORÍA -> TIPO DE VENTA (Charcutería/Frutería = Kilo)
+window.cambiarCategoriaInventario = function(cat) {
+    let selType = document.getElementById('prod-type');
+    if (!selType) return;
+    if (cat === "Charcutería" || cat === "Frutería") {
+        selType.value = "peso";
+    } else {
+        selType.value = "unidad";
+    }
+    window.conmutarCampoCantidad(selType.value);
+};
+
 window.conmutarCampoCantidad = function(tipo) {
     let eQty = document.getElementById('prod-qty');
     let boxCombo = document.getElementById('box-constructor-combo');
@@ -818,6 +834,27 @@ window.filtrarBuscadorCaja = function(texto) {
     });
     contenedor.innerHTML = encontrados === 0 ? '<div style="grid-column:1/-1; color:#8fa0b7; font-size:12px; text-align:center; padding:12px;">Sin productos en esta vista</div>' : html;
 };
+
+window.abrirModalCombos = function() {
+    let container = document.getElementById('lista-combos-activos');
+    let html = ""; let hayCombos = false;
+    
+    window.productos.forEach(p => {
+        if(p.tipo === 'combo') {
+            hayCombos = true;
+            let precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
+            let desc = p.componentes && p.componentes.length ? `<small style="display:block; color:#8fa0b7; font-size:10px;">Lleva: ${p.componentes.map(c=>c.qty+'x '+c.nombre).join(', ')}</small>` : '';
+            html += `<button class="btn-search-result" style="border-color:#00ff66;" onclick="window.agregarCombo(${p.id})">
+                <div>🎁 <strong>${window.escapeHTML(p.nombre)}</strong>${desc}</div>
+                <span style="color:#00ff66; font-weight:bold;">${window.formatUSD(precioFinalUSD)}</span>
+            </button>`;
+        }
+    });
+    container.innerHTML = hayCombos ? html : '<div style="color:#8fa0b7; text-align:center; padding:10px;">No hay combos creados.</div>';
+    document.getElementById('modal-combos').style.display = 'flex';
+};
+
+window.agregarCombo = function(id) { window.agregarAlCarritoDesdeCaja(id); document.getElementById('modal-combos').style.display = 'none'; };
 
 // BALANZA DIGITAL PROPIA (SIN PROMPT DEL NAVEGADOR)
 window.abrirModalBalanza = function(prodObj) {
