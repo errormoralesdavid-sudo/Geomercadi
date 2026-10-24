@@ -1,4 +1,4 @@
-const CACHE_NAME = 'geomercado-pro-v3';
+const CACHE_NAME = 'geomercado-pro-v4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -32,6 +32,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
