@@ -176,3 +176,4 @@ body {
 .shake-effect { animation: shake 0.4s ease-in-out; }
 .pulse-number { animation: pulseAnim 0.2s ease-out; }
 @keyframes pulseAnim { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+<p style="color:#00ff66; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline; user-select: none; -webkit-user-select: none;" onclick="window.toggleLoginMode('admin')">Acceso de Administrador</p>
