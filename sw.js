@@ -2,13 +2,15 @@ const CACHE_NAME = 'geomercado-v19.1-cache';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './style.css',
+  './app.js',
+  './manifest.json',
   'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js',
   'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js',
   'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
   'https://unpkg.com/html5-qrcode'
 ];
 
-// Instalar y guardar recursos clave en la memoria caché del navegador
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -18,7 +20,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activar y limpiar cachés antiguas
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -34,12 +35,10 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Responder desde caché cuando no hay conexión a internet (Offline First)
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Devuelve la copia guardada localmente
         fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
