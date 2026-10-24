@@ -33,6 +33,27 @@ window.perfilNegocio = { nombre: "GeoMercado", rif: "", dir: "", tlf: "", pmBanc
 window.productoEnEdicion = null;
 window.html5QrScannerInstancia = null;
 
+// LÓGICA DE INICIALIZACIÓN (Solución pantalla congelada)
+function iniciarSistema() {
+    let inputTasa = document.getElementById('input-tasa-global');
+    if(inputTasa) inputTasa.value = window.tasaDia;
+    
+    document.getElementById('cfg-nombre').value = window.perfilNegocio.nombre || "";
+    document.getElementById('cfg-rif').value = window.perfilNegocio.rif || "";
+    document.getElementById('cfg-tlf').value = window.perfilNegocio.tlf || "";
+    document.getElementById('cfg-dir').value = window.perfilNegocio.dir || "";
+    document.getElementById('cfg-pm-banco').value = window.perfilNegocio.pmBanco || "0102";
+    document.getElementById('cfg-pm-cedula').value = window.perfilNegocio.pmCedula || "V12345678";
+    document.getElementById('cfg-pm-tlf').value = window.perfilNegocio.pmTlf || "04121234567";
+    document.getElementById('input-fondo-usd').value = window.fondoCaja.usd || "";
+    document.getElementById('input-fondo-ves').value = window.fondoCaja.ves || "";
+
+    window.actualizarOpcionesLogin();
+    if (navigator.onLine) window.obtenerTasaBCV(true);
+}
+
+document.addEventListener('DOMContentLoaded', iniciarSistema);
+
 window.guardarEstructuraFirebase = async function() {
     try {
         await setDoc(doc(db, "geomercado_tienda", "datos_globales"), {
@@ -45,7 +66,7 @@ window.guardarEstructuraFirebase = async function() {
             tasaDia: window.tasaDia || 623.02
         });
     } catch (e) {
-        console.warn("Guardado localmente. Se subirá a la nube cuando regrese la red.");
+        console.warn("Guardado local.");
     }
 };
 
@@ -70,53 +91,8 @@ onSnapshot(doc(db, "geomercado_tienda", "datos_globales"), (snapshot) => {
     }
 });
 
-window.addEventListener('online', function() {
-    let banner = document.getElementById('banner-offline');
-    if (banner) banner.style.display = 'none';
-    window.mostrarToast("⚡ Conexión restablecida...");
-    window.sincronizarConNube();
-});
-
-window.addEventListener('offline', function() {
-    let banner = document.getElementById('banner-offline');
-    if (banner) banner.style.display = 'block';
-    window.mostrarToast("📡 Modo Sin Red Activo");
-});
-
-function initApp() {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Error SW:', err));
-    }
-    if (!navigator.onLine) {
-        let banner = document.getElementById('banner-offline');
-        if (banner) banner.style.display = 'block';
-    }
-    let inputTasa = document.getElementById('input-tasa-global');
-    if(inputTasa) inputTasa.value = window.tasaDia;
-    
-    document.getElementById('cfg-nombre').value = window.perfilNegocio.nombre || "";
-    document.getElementById('cfg-rif').value = window.perfilNegocio.rif || "";
-    document.getElementById('cfg-tlf').value = window.perfilNegocio.tlf || "";
-    document.getElementById('cfg-dir').value = window.perfilNegocio.dir || "";
-    document.getElementById('cfg-pm-banco').value = window.perfilNegocio.pmBanco || "0102";
-    document.getElementById('cfg-pm-cedula').value = window.perfilNegocio.pmCedula || "V12345678";
-    document.getElementById('cfg-pm-tlf').value = window.perfilNegocio.pmTlf || "04121234567";
-    document.getElementById('input-fondo-usd').value = window.fondoCaja.usd || "";
-    document.getElementById('input-fondo-ves').value = window.fondoCaja.ves || "";
-
-    window.actualizarOpcionesLogin();
-    if (navigator.onLine) window.obtenerTasaBCV(true);
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initApp);
-} else {
-    initApp();
-}
-
 window.sincronizarConNube = async function() { await window.guardarEstructuraFirebase(); };
 
-// SISTEMA DE ACCESO
 window.toggleLoginMode = function(modo) {
     if (modo === 'admin') {
         document.getElementById('form-login-cajero').style.display = 'none';
@@ -157,7 +133,7 @@ window.ejecutarLoginAdmin = function() {
     
     if(!email || !pass) { window.mostrarFeedbackAnimado('error', 'Faltan datos'); return; }
 
-    window.mostrarToast("Verificando credenciales...");
+    window.mostrarToast("Verificando...");
     signInWithEmailAndPassword(auth, email, pass)
     .then((userCredential) => {
         window.rolActual = "Administrador 👑";
@@ -165,7 +141,6 @@ window.ejecutarLoginAdmin = function() {
         window.iniciarSesionExitosa();
     })
     .catch((error) => {
-        console.error(error);
         window.mostrarFeedbackAnimado('error', 'Credenciales Inválidas');
     });
 };
@@ -180,9 +155,7 @@ window.iniciarSesionExitosa = function() {
 };
 
 window.cerrarSesion = function() {
-    if(window.rolActual === "Administrador 👑") {
-        signOut(auth).catch(() => {});
-    }
+    if(window.rolActual === "Administrador 👑") signOut(auth).catch(() => {});
     document.getElementById('app-content').style.display = 'none';
     document.getElementById('section-login').style.display = 'block';
 };
@@ -202,10 +175,9 @@ window.guardarNuevoCajero = function() {
     }
 };
 
-// HERRAMIENTAS Y UI
 window.obtenerTasaBCV = function(silencioso) {
     if (!navigator.onLine) {
-        if (!silencioso) window.mostrarToast("Usando tasa guardada (Sin Red)");
+        if (!silencioso) window.mostrarToast("Usando tasa guardada");
         return;
     }
     if(!silencioso) window.mostrarToast("📡 Consultando BCV...");
@@ -215,15 +187,15 @@ window.obtenerTasaBCV = function(silencioso) {
             let valorBcv = parseFloat(data.promedio);
             if (!isNaN(valorBcv) && valorBcv > 0) return window.aplicarNuevaTasaBCV(valorBcv, silencioso);
         }
-        throw new Error("Formato respuesta no esperado");
+        throw new Error("Formato inválido");
     }).catch(() => {
         fetch('https://rates.dolarvzla.com/bcv/current.json').then(res => res.json()).then(data => {
             if (data && data.price) {
                 let valorBcv = parseFloat(data.price);
                 if (!isNaN(valorBcv) && valorBcv > 0) return window.aplicarNuevaTasaBCV(valorBcv, silencioso);
             }
-            if (!silencioso) window.mostrarFeedbackAnimado('error', 'Ingresa Tasa Manualmente');
-        }).catch(() => { if (!silencioso) window.mostrarFeedbackAnimado('error', 'Fallo conexión BCV'); });
+            if (!silencioso) window.mostrarFeedbackAnimado('error', 'Manual');
+        }).catch(() => { if (!silencioso) window.mostrarFeedbackAnimado('error', 'Fallo conexión'); });
     });
 };
 
@@ -235,7 +207,7 @@ window.aplicarNuevaTasaBCV = function(valor, silencioso) {
     window.recalcularTotalesCarrito();
     window.renderizarCarritoCaja();
     window.sincronizarConNube();
-    if (!silencioso) window.mostrarFeedbackAnimado('exito', 'Tasa: ' + window.tasaDia.toFixed(2) + ' Bs');
+    if (!silencioso) window.mostrarFeedbackAnimado('exito', window.tasaDia.toFixed(2) + ' Bs');
 };
 
 window.mostrarToast = function(mensaje) {
@@ -281,7 +253,7 @@ window.escapeHTML = function(str) {
 
 window.cambiarModulo = function(idModulo) {
     if((idModulo === 'modulo-admin' || idModulo === 'modulo-cierre') && window.rolActual !== "Administrador 👑") {
-        window.mostrarFeedbackAnimado('error', 'Bloqueado: Requiere Administrador'); return;
+        window.mostrarFeedbackAnimado('error', 'Solo Administrador'); return;
     }
     document.getElementById('menu-principal').style.display = 'none';
     document.querySelectorAll('.modulo-app').forEach(m => m.style.display = 'none');
@@ -330,7 +302,7 @@ window.guardarFondoCaja = function() {
     window.fondoCaja.usd = parseFloat(document.getElementById('input-fondo-usd').value) || 0;
     window.fondoCaja.ves = parseFloat(document.getElementById('input-fondo-ves').value) || 0;
     window.sincronizarConNube();
-    window.mostrarToast("Fondo de caja guardado");
+    window.mostrarToast("Fondo guardado");
 };
 
 window.guardarPerfil = function() {
@@ -361,7 +333,7 @@ window.exportarProductosJSON = function() {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
-    window.mostrarToast("Exportación completada");
+    window.mostrarToast("Exportado");
 };
 
 window.importarProductosJSON = function(event) {
@@ -373,9 +345,9 @@ window.importarProductosJSON = function(event) {
                 window.productos = parsed;
                 window.renderizarInventario("");
                 window.sincronizarConNube();
-                window.mostrarToast("✓ Inventario cargado");
-            } else window.mostrarFeedbackAnimado('error', 'Formato JSON Inválido');
-        } catch(err) { window.mostrarFeedbackAnimado('error', 'Error leyendo archivo'); }
+                window.mostrarToast("Inventario cargado");
+            } else window.mostrarFeedbackAnimado('error', 'Formato Inválido');
+        } catch(err) { window.mostrarFeedbackAnimado('error', 'Error archivo'); }
     };
     if(event.target.files && event.target.files[0]) fileReader.readAsText(event.target.files[0]);
 };
@@ -394,7 +366,7 @@ window.conmutarCampoCantidad = function(tipo) {
 window.previsualizarImagenRegistro = function(event) {
     let file = event.target.files[0];
     if (file) {
-        document.getElementById('lbl-img-upload').innerText = '✓ Imagen Lista (' + file.name.substring(0,10) + '...)';
+        document.getElementById('lbl-img-upload').innerText = '✓ Imagen Lista';
         let reader = new FileReader();
         reader.onload = function(e) {
             let preview = document.getElementById('preview-img-upload');
@@ -421,11 +393,11 @@ window.editarProducto = function(id) {
     
     let preview = document.getElementById('preview-img-upload');
     if (p.imagenUrl) {
-        document.getElementById('lbl-img-upload').innerText = "📸 Cambiar Foto Guardada";
+        document.getElementById('lbl-img-upload').innerText = "📸 Cambiar Foto";
         preview.src = p.imagenUrl;
         preview.style.display = 'block';
     } else {
-        document.getElementById('lbl-img-upload').innerText = "📸 Subir Foto de Producto (Opcional)";
+        document.getElementById('lbl-img-upload').innerText = "📸 Subir Foto";
         preview.src = "";
         preview.style.display = 'none';
     }
@@ -439,11 +411,10 @@ window.editarProducto = function(id) {
 };
 
 window.eliminarProductoCat = function(id) {
-    window.mostrarConfirmacion("🗑️ Eliminar Producto", "¿Estás seguro de eliminar este producto del inventario?", function() {
+    window.mostrarConfirmacion("🗑️ Eliminar", "¿Borrar este producto?", function() {
         window.productos = window.productos.filter(p => p.id !== id);
         window.renderizarInventario(document.getElementById('buscador-inventario').value);
         window.sincronizarConNube();
-        window.mostrarToast("Producto eliminado");
     });
 };
 
@@ -460,7 +431,7 @@ window.cancelarEdicion = function() {
     document.getElementById('prod-type').value = "unidad";
     
     document.getElementById('prod-imagen-file').value = "";
-    document.getElementById('lbl-img-upload').innerText = "📸 Subir Foto de Producto (Opcional)";
+    document.getElementById('lbl-img-upload').innerText = "📸 Subir Foto";
     document.getElementById('preview-img-upload').style.display = 'none';
     document.getElementById('preview-img-upload').src = "";
 
@@ -482,25 +453,24 @@ window.renderizarInventario = function(filtro) {
         if(textoFiltro && p.nombre.toLowerCase().indexOf(textoFiltro) === -1) return;
 
         let indicadorStock = p.tipo === 'peso' ? '<span class="badge-peso">⚖️ Al Peso</span>' : '<span class="stock-indicator">Stock: ' + p.qty + ' unds</span>';
-        let iconoRender = p.imagenUrl ? `<img src="${p.imagenUrl}" class="product-img" alt="${window.escapeHTML(p.nombre)}">` : `<div class="product-emoji-placeholder">${p.tipo === 'peso' ? '🍎' : '📦'}</div>`;
+        let iconoRender = p.imagenUrl ? `<img src="${p.imagenUrl}" class="product-img" alt="IMG">` : `<div class="product-emoji-placeholder">${p.tipo === 'peso' ? '🍎' : '📦'}</div>`;
         let stringIva = p.iva ? ' <span style="font-size:10px; color:#ff5252;">(+IVA)</span>' : '';
         let precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
-        let precioBs = precioFinalUSD * window.tasaDia; 
         
         html += `<div class="product-card">
             <div class="tag-cat">${window.escapeHTML(p.categoria || "General")}</div>
             ${iconoRender}
             <h4>${window.escapeHTML(p.nombre)}${stringIva}</h4>
             <p style="color:#00ff66; margin:2px 0;">${window.formatUSD(precioFinalUSD)}</p>
-            <p style="font-size:11px; color:#8fa0b7; margin-bottom:4px;">${window.formatVE(precioBs)}</p>
+            <p style="font-size:11px; color:#8fa0b7; margin-bottom:4px;">${window.formatVE(precioFinalUSD * window.tasaDia)}</p>
             ${indicadorStock}
             <div style="display:flex; gap:6px; margin-top:6px;">`;
             
         if(window.rolActual === "Administrador 👑") {
-            html += `<button style="flex:1; background:#313c52; color:#fff; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.editarProducto(${p.id})">✏️</button>
-                     <button style="flex:1; background:#ff5252; color:#fff; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.eliminarProductoCat(${p.id})">🗑️</button>`;
+            html += `<button style="flex:1; background:#313c52; color:#fff; border:none; padding:6px; border-radius:6px;" onclick="window.editarProducto(${p.id})">✏️</button>
+                     <button style="flex:1; background:#ff5252; color:#fff; border:none; padding:6px; border-radius:6px;" onclick="window.eliminarProductoCat(${p.id})">🗑️</button>`;
         }
-        html += `<button style="flex:3; background:#00ff66; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.agregarAlCarritoDesdeCaja(${p.id})">➕ Facturar</button></div></div>`;
+        html += `<button style="flex:3; background:#00ff66; border:none; padding:6px; border-radius:6px; font-weight:bold;" onclick="window.agregarAlCarritoDesdeCaja(${p.id})">➕ Facturar</button></div></div>`;
     });
     contenedor.innerHTML = html;
 };
@@ -516,20 +486,20 @@ window.agregarProductoNuevo = async function() {
     let qty = parseInt(document.getElementById('prod-qty').value) || 0;
     let aplicaIva = document.getElementById('prod-iva').checked;
 
-    if(!name || price <= 0) { window.mostrarFeedbackAnimado('error', 'Ingresa datos válidos'); return; }
+    if(!name || price <= 0) { window.mostrarFeedbackAnimado('error', 'Datos inválidos'); return; }
 
     let fileInput = document.getElementById('prod-imagen-file');
     let imagenUrl = null;
 
     if (fileInput.files.length > 0) {
-        window.mostrarToast("Subiendo imagen a la nube...");
+        window.mostrarToast("Subiendo foto...");
         try {
             let file = fileInput.files[0];
             let storageRef = ref(storage, 'productos/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, ''));
             await uploadBytesResumable(storageRef, file);
             imagenUrl = await getDownloadURL(storageRef);
         } catch (error) {
-            window.mostrarFeedbackAnimado('error', 'Error subiendo foto');
+            window.mostrarFeedbackAnimado('error', 'Error al subir');
             return;
         }
     }
@@ -540,10 +510,10 @@ window.agregarProductoNuevo = async function() {
             Object.assign(p, { nombre: name, costo, margen, precio: price, tipo: type, categoria: cat, qty, serial, iva: aplicaIva });
             if(imagenUrl) p.imagenUrl = imagenUrl;
         }
-        window.mostrarToast("✓ Producto actualizado");
+        window.mostrarToast("Actualizado");
     } else {
         window.productos.push({ id: Date.now(), nombre: name, costo, margen, precio: price, tipo: type, categoria: cat, qty, serial, iva: aplicaIva, imagenUrl: imagenUrl });
-        window.mostrarToast("✓ Producto guardado");
+        window.mostrarToast("Guardado");
     }
     
     await window.sincronizarConNube();
@@ -600,7 +570,7 @@ window.agregarAlCarritoDesdeCaja = function(idProd) {
     let costoUnitarioCalculado = p.costo || 0;
 
     if(p.tipo === 'peso') {
-        let kilos = parseFloat(prompt("⚖️ Balanza Virtual\nCantidad en Kilos para " + p.nombre + ":", "1.0"));
+        let kilos = parseFloat(prompt("⚖️ Cantidad en Kilos para " + p.nombre + ":", "1.0"));
         if(isNaN(kilos) || kilos <= 0) return;
         
         window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado * kilos, costoTotalUSD: costoUnitarioCalculado * kilos, detalle: kilos + ' kg', tipo: p.tipo, qtyVenta: kilos, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado, imagenUrl: p.imagenUrl });
@@ -633,7 +603,7 @@ window.sumarItem = function(index) {
     let p = window.productos.find(x => x.id === item.id);
     
     if(item.tipo !== 'combo') {
-        if(!p || p.qty < 1) { window.mostrarFeedbackAnimado('error', 'Sin más stock'); return; }
+        if(!p || p.qty < 1) { window.mostrarFeedbackAnimado('error', 'Sin stock'); return; }
         p.qty -= 1; 
         window.sincronizarConNube();
     }
@@ -880,7 +850,7 @@ window.recuperarFactura = function() {
     if(window.facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('error', 'No hay facturas pausadas'); return; }
     if(window.carrito.length > 0) { window.mostrarFeedbackAnimado('error', 'Limpia o procesa la venta actual'); return; }
     
-    let text = "Facturas Guardadas (Escribe el número):\n\n" + window.facturasEnEspera.map((f, i) => `${i+1}. 👤 ${f.cliente}\n   💵 ${window.formatVE(f.totalVES)}\n   🏷️ Por: ${f.cajero}\n`).join('\n');
+    let text = "Facturas Guardadas:\n\n" + window.facturasEnEspera.map((f, i) => `${i+1}. 👤 ${f.cliente}\n   💵 ${window.formatVE(f.totalVES)}\n   🏷️ Por: ${f.cajero}\n`).join('\n');
     let idx = parseInt(prompt(text)) - 1;
     
     if(!isNaN(idx) && window.facturasEnEspera[idx]) {
