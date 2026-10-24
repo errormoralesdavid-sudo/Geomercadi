@@ -11,7 +11,8 @@
     <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script defer src="https://unpkg.com/html5-qrcode"></script>
 
-    <script type="module" src="./app.js" defer></script>
+    <!-- Eliminado el 'defer' extra porque type="module" ya es diferido por naturaleza -->
+    <script type="module" src="./app.js"></script>
 </head>
 <body>
 
@@ -182,7 +183,7 @@
 
                         <div style="display:flex; gap:6px; margin-top:6px;">
                             <button class="scanner-trigger" style="flex:2;" onclick="window.abrirCamaraEnVivo('caja')">
-                                <span style="font-size:18px;">📸</span> LEER CÓDIGO BARRAS
+                                <span style="font-size:18px;">📸</span> LEER CÓDIGO
                             </button>
                             <button class="btn-clear" style="flex:1; border-color:#00ff66; color:#00ff66;" onclick="document.getElementById('file-barcode-caja').click()">
                                 📂 GALERÍA
@@ -408,6 +409,7 @@
 
                 <div class="admin-form-box" style="border-color:#ffc107;">
                     <label style="color:#ffc107; font-weight:bold;">👥 Crear Nuevo Cajero</label>
+                    <p style="font-size:10px; color:#8fa0b7; margin:0 0 6px 0; text-align:center;">Para que los empleados operen la caja sin permisos de administrador.</p>
                     <input type="text" id="nuevo-cajero-nombre" placeholder="Nombre del Cajero">
                     <input type="password" id="nuevo-cajero-clave" placeholder="PIN Numérico">
                     <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.guardarNuevoCajero()">Guardar Cajero</button>
@@ -423,14 +425,14 @@
                     <label>📈 Tasa Dólar (Bs):</label>
                     <div style="display:flex; gap:6px;">
                         <input type="number" step="0.01" id="input-tasa-global" value="623.02" oninput="window.cambiarTasaManual(this.value)">
-                        <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; flex:none; padding:0 10px;" onclick="window.obtenerTasaBCV()">📡 BCV</button>
+                        <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; flex:none; padding:0 10px;" onclick="window.obtenerTasaBCV()">📡 Consultar BCV</button>
                     </div>
                 </div>
 
                 <div class="admin-form-box">
                     <label style="color:#8fa0b7; font-weight:bold;">💾 Copia de Seguridad JSON</label>
                     <button class="btn-charge" style="background:#242c3d; color:#fff;" onclick="window.exportarProductosJSON()">📤 Exportar Inventario</button>
-                    <button class="btn-charge" style="background:#161a23; border: 1px solid #ff5252; color:#ff5252;" onclick="document.getElementById('input-import-json').click()">📥 Importar</button>
+                    <button class="btn-charge" style="background:#161a23; border: 1px solid #ff5252; color:#ff5252;" onclick="document.getElementById('input-import-json').click()">📥 Importar (Sobrescribe todo)</button>
                     <input type="file" id="input-import-json" class="hidden-file-input" accept=".json" onchange="window.importarProductosJSON(event)">
                 </div>
             </div>
