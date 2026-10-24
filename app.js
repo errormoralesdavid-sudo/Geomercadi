@@ -1,8 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, setDoc, onSnapshot, initializeFirestore, persistentLocalCache } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
-
-const HASH_ADMIN = "NjEyMDAz"; // 612003
+import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
@@ -22,20 +21,21 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = initializeFirestore(app, { localCache: persistentLocalCache() });
 const storage = getStorage(app);
+const auth = getAuth(app);
 
 window.tasaDia = parseFloat(localStorage.getItem('geomercado_tasa_v19')) || 623.02;
 window.totalVentaUSD = 0.00;
 window.totalVentaVES = 0.00; 
-window.rolActual = "Administrador 👑";
-window.usuarioActivoNombre = "Administrador";
+window.rolActual = "Cajero 👤"; 
+window.usuarioActivoNombre = "Sin Seleccionar";
 window.carrito = [];
 window.productos = [];
 window.ventasHistorico = [];
 window.facturasEnEspera = [];
 window.fiados = [];
-window.usuariosCajeros = [{ id: 1, nombre: "Cajero Principal", clave: "1234" }];
+window.usuariosCajeros = [{ id: 1, nombre: "Cajero 1", clave: "1234" }];
 window.fondoCaja = { usd: 0, ves: 0 };
-window.perfilNegocio = { nombre: "Geo Mercado 🛍️", rif: "", dir: "", tlf: "", pin: atob(HASH_ADMIN), pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567" };
+window.perfilNegocio = { nombre: "Geo Mercado 🛍️", rif: "", dir: "", tlf: "", pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567" };
 window.productoEnEdicion = null;
 window.html5QrScannerInstancia = null;
 
@@ -66,6 +66,7 @@ onSnapshot(doc(db, "geomercado_tienda", "datos_globales"), (snapshot) => {
         if (data.usuariosCajeros) window.usuariosCajeros = data.usuariosCajeros;
         if (data.tasaDia) window.tasaDia = data.tasaDia;
 
+        window.actualizarOpcionesLogin();
         if (document.getElementById('modulo-inventario').style.display === 'flex') window.renderizarInventario(document.getElementById('buscador-inventario').value);
         if (document.getElementById('modulo-cierre').style.display === 'flex') window.renderizarCierreDeCaja();
         if (document.getElementById('modulo-fiados').style.display === 'flex') window.renderizarFiados();
@@ -97,7 +98,6 @@ window.onload = function() {
     document.getElementById('cfg-rif').value = window.perfilNegocio.rif || "";
     document.getElementById('cfg-tlf').value = window.perfilNegocio.tlf || "";
     document.getElementById('cfg-dir').value = window.perfilNegocio.dir || "";
-    document.getElementById('cfg-pin').value = window.perfilNegocio.pin || atob(HASH_ADMIN);
     document.getElementById('cfg-pm-banco').value = window.perfilNegocio.pmBanco || "0102";
     document.getElementById('cfg-pm-cedula').value = window.perfilNegocio.pmCedula || "V12345678";
     document.getElementById('cfg-pm-tlf').value = window.perfilNegocio.pmTlf || "04121234567";
@@ -110,47 +110,58 @@ window.onload = function() {
 
 window.sincronizarConNube = async function() { await window.guardarEstructuraFirebase(); };
 
-window.actualizarOpcionesLogin = function() {
-    let rol = document.getElementById('login-rol').value;
-    let box = document.getElementById('box-select-cajero');
-    let selectC = document.getElementById('login-cajero-usuario');
-    selectC.innerHTML = "";
-
-    if(rol === "cajero") {
-        box.style.display = "block";
-        window.usuariosCajeros.forEach(c => {
-            let opt = document.createElement('option');
-            opt.value = c.nombre; opt.innerText = c.nombre; selectC.appendChild(opt);
-        });
+// ---- NUEVO SISTEMA DE AUTENTICACIÓN ----
+window.toggleLoginMode = function(modo) {
+    if (modo === 'admin') {
+        document.getElementById('form-login-cajero').style.display = 'none';
+        document.getElementById('form-login-admin').style.display = 'block';
     } else {
-        box.style.display = "none";
+        document.getElementById('form-login-admin').style.display = 'none';
+        document.getElementById('form-login-cajero').style.display = 'block';
     }
 };
 
-window.ejecutarLogin = function() {
-    let rol = document.getElementById('login-rol').value;
-    let pin = document.getElementById('login-pin').value.trim();
+window.actualizarOpcionesLogin = function() {
+    let selectC = document.getElementById('login-cajero-usuario');
+    if(!selectC) return;
+    selectC.innerHTML = "";
+    window.usuariosCajeros.forEach(c => {
+        let opt = document.createElement('option');
+        opt.value = c.nombre; opt.innerText = c.nombre; selectC.appendChild(opt);
+    });
+};
 
-    if(rol === "admin") {
-        if(pin === (window.perfilNegocio.pin || atob(HASH_ADMIN))) {
-            window.rolActual = "Administrador 👑";
-            window.usuarioActivoNombre = "Administrador";
-            window.iniciarSesionExitosa();
-        } else {
-            window.mostrarFeedbackAnimado('error', 'Clave Admin Incorrecta');
-        }
+window.ejecutarLoginCajero = function() {
+    let cNom = document.getElementById('login-cajero-usuario').value;
+    let pin = document.getElementById('login-pin').value.trim();
+    let cajeroObj = window.usuariosCajeros.find(u => u.nombre === cNom);
+    
+    if(cajeroObj && cajeroObj.clave === pin) {
+        window.rolActual = "Cajero 👤";
+        window.usuarioActivoNombre = cNom;
+        window.iniciarSesionExitosa();
     } else {
-        let cNom = document.getElementById('login-cajero-usuario').value;
-        let cajeroObj = window.usuariosCajeros.find(u => u.nombre === cNom);
-        
-        if(pin === "1234" || (cajeroObj && cajeroObj.clave === pin)) {
-            window.rolActual = "Cajero 👤";
-            window.usuarioActivoNombre = cNom;
-            window.iniciarSesionExitosa();
-        } else {
-            window.mostrarFeedbackAnimado('error', 'Clave Cajero Incorrecta');
-        }
+        window.mostrarFeedbackAnimado('error', 'PIN Incorrecto');
     }
+};
+
+window.ejecutarLoginAdmin = function() {
+    let email = document.getElementById('login-email').value.trim();
+    let pass = document.getElementById('login-pass-admin').value.trim();
+    
+    if(!email || !pass) { window.mostrarFeedbackAnimado('error', 'Faltan datos'); return; }
+
+    window.mostrarToast("Verificando credenciales...");
+    signInWithEmailAndPassword(auth, email, pass)
+    .then((userCredential) => {
+        window.rolActual = "Administrador 👑";
+        window.usuarioActivoNombre = "Administrador";
+        window.iniciarSesionExitosa();
+    })
+    .catch((error) => {
+        console.error(error);
+        window.mostrarFeedbackAnimado('error', 'Credenciales Inválidas');
+    });
 };
 
 window.iniciarSesionExitosa = function() {
@@ -158,10 +169,14 @@ window.iniciarSesionExitosa = function() {
     document.getElementById('app-content').style.display = 'block';
     document.getElementById('txt-rol').innerText = window.usuarioActivoNombre + " (" + window.rolActual + ")";
     document.getElementById('login-pin').value = "";
+    document.getElementById('login-pass-admin').value = "";
     window.volverAlMenu();
 };
 
 window.cerrarSesion = function() {
+    if(window.rolActual === "Administrador 👑") {
+        signOut(auth).then(() => {}).catch((error) => {});
+    }
     document.getElementById('app-content').style.display = 'none';
     document.getElementById('section-login').style.display = 'block';
 };
@@ -323,7 +338,6 @@ window.guardarPerfil = function() {
     window.perfilNegocio.rif = document.getElementById('cfg-rif').value || "";
     window.perfilNegocio.tlf = document.getElementById('cfg-tlf').value || "";
     window.perfilNegocio.dir = document.getElementById('cfg-dir').value || "";
-    window.perfilNegocio.pin = document.getElementById('cfg-pin').value || atob(HASH_ADMIN);
     window.perfilNegocio.pmBanco = (document.getElementById('cfg-pm-banco').value || "0102").replace(/\D/g, '');
     window.perfilNegocio.pmCedula = (document.getElementById('cfg-pm-cedula').value || "V12345678").toUpperCase().replace(/\s/g, '');
     window.perfilNegocio.pmTlf = (document.getElementById('cfg-pm-tlf').value || "04121234567").replace(/\D/g, '');
@@ -377,6 +391,21 @@ window.conmutarCampoCantidad = function(tipo) {
     if(eQty) eQty.style.display = (tipo === 'peso') ? 'none' : 'block';
 };
 
+// --- IMÁGENES PREVIEW ---
+window.previsualizarImagenRegistro = function(event) {
+    let file = event.target.files[0];
+    if (file) {
+        document.getElementById('lbl-img-upload').innerText = '✓ Imagen Lista (' + file.name.substring(0,10) + '...)';
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            let preview = document.getElementById('preview-img-upload');
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        }
+        reader.readAsDataURL(file);
+    }
+};
+
 window.editarProducto = function(id) {
     let p = window.productos.find(x => x.id === id);
     if(!p) return;
@@ -391,7 +420,16 @@ window.editarProducto = function(id) {
     document.getElementById('prod-serial').value = p.serial || "";
     document.getElementById('prod-iva').checked = p.iva || false;
     
-    document.getElementById('lbl-img-upload').innerText = p.imagenUrl ? "✓ Imagen Guardada" : "📸 Cambiar Foto";
+    let preview = document.getElementById('preview-img-upload');
+    if (p.imagenUrl) {
+        document.getElementById('lbl-img-upload').innerText = "📸 Cambiar Foto Guardada";
+        preview.src = p.imagenUrl;
+        preview.style.display = 'block';
+    } else {
+        document.getElementById('lbl-img-upload').innerText = "📸 Subir Foto de Producto (Opcional)";
+        preview.src = "";
+        preview.style.display = 'none';
+    }
 
     window.conmutarCampoCantidad(p.tipo);
     window.calcularGanancia();
@@ -424,12 +462,15 @@ window.cancelarEdicion = function() {
     
     document.getElementById('prod-imagen-file').value = "";
     document.getElementById('lbl-img-upload').innerText = "📸 Subir Foto de Producto (Opcional)";
+    document.getElementById('preview-img-upload').style.display = 'none';
+    document.getElementById('preview-img-upload').src = "";
 
     window.conmutarCampoCantidad("unidad");
     document.getElementById('btn-guardar-prod').innerText = "Guardar Producto";
     document.getElementById('btn-cancelar-edicion').style.display = "none";
 };
 
+// --- RENDERIZADO CON IMÁGENES ---
 window.renderizarInventario = function(filtro) {
     let contenedor = document.getElementById('lista-productos');
     let formBox = document.getElementById('form-registro-prod');
@@ -443,7 +484,12 @@ window.renderizarInventario = function(filtro) {
         if(textoFiltro && p.nombre.toLowerCase().indexOf(textoFiltro) === -1) return;
 
         let indicadorStock = p.tipo === 'peso' ? '<span class="badge-peso">⚖️ Al Peso</span>' : '<span class="stock-indicator">Stock: ' + p.qty + ' unds</span>';
-        let iconoRender = p.imagenUrl ? `<img src="${p.imagenUrl}" class="product-img" alt="${window.escapeHTML(p.nombre)}">` : `<div style="background:#1b202e; padding:10px; border-radius:8px; font-size:22px; margin-top:12px;">📦</div>`;
+        
+        // RENDERIZADOR DE PORTADA (Imagen real o Emoji por defecto)
+        let iconoRender = p.imagenUrl 
+            ? `<img src="${p.imagenUrl}" class="product-img" alt="${window.escapeHTML(p.nombre)}">` 
+            : `<div class="product-emoji-placeholder">${p.tipo === 'peso' ? '🍎' : '📦'}</div>`;
+            
         let stringIva = p.iva ? ' <span style="font-size:10px; color:#ff5252;">(+IVA)</span>' : '';
         let precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
         let precioBs = precioFinalUSD * window.tasaDia; 
@@ -466,7 +512,6 @@ window.renderizarInventario = function(filtro) {
     contenedor.innerHTML = html;
 };
 
-// Modificada para ser asíncrona y soportar Firebase Storage
 window.agregarProductoNuevo = async function() {
     let name = document.getElementById('prod-name').value;
     let costo = parseFloat(document.getElementById('prod-costo').value) || 0;
@@ -485,10 +530,10 @@ window.agregarProductoNuevo = async function() {
     let imagenUrl = null;
 
     if (fileInput.files.length > 0) {
-        window.mostrarToast("Subiendo imagen...");
+        window.mostrarToast("Subiendo imagen a la nube...");
         try {
             let file = fileInput.files[0];
-            let storageRef = ref(storage, 'productos/' + Date.now() + '_' + file.name);
+            let storageRef = ref(storage, 'productos/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.]/g, ''));
             await uploadBytesResumable(storageRef, file);
             imagenUrl = await getDownloadURL(storageRef);
         } catch (error) {
@@ -505,7 +550,7 @@ window.agregarProductoNuevo = async function() {
         }
         window.mostrarToast("✓ Producto actualizado");
     } else {
-        window.productos.push({ id: Date.now(), nombre: name, costo, margen, precio: price, tipo: type, categoria: cat, qty, serial, iva: aplicaIva, imagenUrl: imagenUrl, emoji: type === 'peso' ? '🍎' : '📦' });
+        window.productos.push({ id: Date.now(), nombre: name, costo, margen, precio: price, tipo: type, categoria: cat, qty, serial, iva: aplicaIva, imagenUrl: imagenUrl });
         window.mostrarToast("✓ Producto guardado");
     }
     
@@ -522,8 +567,10 @@ window.filtrarBuscadorCaja = function(texto) {
     window.productos.forEach(p => {
         if((p.tipo === 'peso' || p.qty > 0 || p.tipo === 'combo') && p.nombre.toLowerCase().includes(texto.toLowerCase())) {
             let precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
+            // Miniatura en resultados de búsqueda
+            let miniatura = p.imagenUrl ? `<img src="${p.imagenUrl}" style="width:20px; height:20px; border-radius:4px; object-fit:cover; display:inline-block; vertical-align:middle; margin-right:4px;">` : `📦`;
             html += `<button class="btn-search-result" onclick="window.agregarAlCarritoDesdeCaja(${p.id})">
-                <span>📦 ${window.escapeHTML(p.nombre)}</span>
+                <span>${miniatura} ${window.escapeHTML(p.nombre)}</span>
                 <span style="color:#00ff66; font-weight:bold;">${window.formatUSD(precioFinalUSD)}</span>
             </button>`;
             encontrados++;
@@ -540,8 +587,9 @@ window.abrirModalCombos = function() {
         if(p.tipo === 'combo') {
             hayCombos = true;
             let precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
+            let miniatura = p.imagenUrl ? `<img src="${p.imagenUrl}" style="width:20px; height:20px; border-radius:4px; object-fit:cover; display:inline-block; vertical-align:middle; margin-right:4px;">` : `🎁`;
             html += `<button class="btn-search-result" style="border-color:#00ff66;" onclick="window.agregarCombo(${p.id})">
-                <span>🎁 ${window.escapeHTML(p.nombre)}</span>
+                <span>${miniatura} ${window.escapeHTML(p.nombre)}</span>
                 <span style="color:#00ff66; font-weight:bold;">${window.formatUSD(precioFinalUSD)}</span>
             </button>`;
         }
@@ -563,7 +611,7 @@ window.agregarAlCarritoDesdeCaja = function(idProd) {
         let kilos = parseFloat(prompt("⚖️ Balanza Virtual\nCantidad en Kilos para " + p.nombre + ":", "1.0"));
         if(isNaN(kilos) || kilos <= 0) return;
         
-        window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado * kilos, costoTotalUSD: costoUnitarioCalculado * kilos, detalle: kilos + ' kg', tipo: p.tipo, qtyVenta: kilos, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado });
+        window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado * kilos, costoTotalUSD: costoUnitarioCalculado * kilos, detalle: kilos + ' kg', tipo: p.tipo, qtyVenta: kilos, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado, imagenUrl: p.imagenUrl });
     } else {
         if(p.tipo !== 'combo' && p.qty < 1) { window.mostrarFeedbackAnimado('error', 'Sin Stock'); return; }
         
@@ -576,7 +624,7 @@ window.agregarAlCarritoDesdeCaja = function(idProd) {
             item.costoTotalUSD += costoUnitarioCalculado;
             item.detalle = item.qtyVenta + ' unds';
         } else {
-            window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado, costoTotalUSD: costoUnitarioCalculado, detalle: '1 unds', tipo: p.tipo, qtyVenta: 1, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado });
+            window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado, costoTotalUSD: costoUnitarioCalculado, detalle: '1 unds', tipo: p.tipo, qtyVenta: 1, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado, imagenUrl: p.imagenUrl });
         }
     }
     
@@ -653,8 +701,19 @@ window.renderizarCarritoCaja = function() {
     } else {
         let html = "";
         window.carrito.forEach((item, i) => {
+            // Render de miniatura en el carrito
+            let miniatura = item.imagenUrl 
+                ? `<img src="${item.imagenUrl}" class="cart-item-img" alt="IMG">` 
+                : `<div class="cart-item-emoji">${item.tipo === 'peso' ? '🍎' : '📦'}</div>`;
+
             html += `<div class="cart-item">
-                <div style="flex:1;">📦 ${window.escapeHTML(item.nombre)}<br><small style="color:#8fa0b7;">${window.formatVE(item.totalUSD * window.tasaDia)}</small></div>`;
+                <div style="display:flex; align-items:center; gap:8px; flex:1;">
+                    ${miniatura}
+                    <div>
+                        <div style="line-height:1.2;">${window.escapeHTML(item.nombre)}</div>
+                        <small style="color:#8fa0b7;">${window.formatVE(item.totalUSD * window.tasaDia)}</small>
+                    </div>
+                </div>`;
             
             if (item.tipo === 'unidad' || item.tipo === 'combo') {
                 html += `<div style="display:flex; align-items:center; gap:6px; margin-right:10px;">
@@ -821,7 +880,7 @@ window.aparcarFactura = function() {
         items: window.carrito.slice(),
         totalUSD: window.totalVentaUSD,
         totalVES: window.totalVentaVES,
-        cajero: window.usuarioActivoNombre
+        cajero: window.usuarioActivoNombre // AQUI SE GUARDA EL NOMBRE DEL CAJERO
     });
     window.sincronizarConNube();
     window.limpiarCaja(true);
@@ -832,7 +891,8 @@ window.recuperarFactura = function() {
     if(window.facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('error', 'No hay facturas pausadas'); return; }
     if(window.carrito.length > 0) { window.mostrarFeedbackAnimado('error', 'Limpia o procesa la venta actual'); return; }
     
-    let text = "Facturas Guardadas:\n" + window.facturasEnEspera.map((f, i) => `${i+1}. ${f.cliente} (${window.formatVE(f.totalVES)})`).join('\n');
+    // LISTA DE FACTURAS CON EL NOMBRE DEL CAJERO
+    let text = "Facturas Guardadas (Escribe el número):\n\n" + window.facturasEnEspera.map((f, i) => `${i+1}. 👤 ${f.cliente}\n   💵 ${window.formatVE(f.totalVES)}\n   🏷️ Guardada por: ${f.cajero}\n`).join('\n');
     let idx = parseInt(prompt(text)) - 1;
     
     if(!isNaN(idx) && window.facturasEnEspera[idx]) {
@@ -889,7 +949,6 @@ window.cobrarFiado = function(idx) {
     });
 };
 
-// CÁMARA Y ESCÁNER BLINDADOS
 window.abrirCamaraEnVivo = function(modo) {
     if (typeof Html5Qrcode === 'undefined') { window.mostrarFeedbackAnimado('error', 'Cargando escáner...'); return; }
     document.getElementById('modal-camara').style.display = 'flex';
@@ -980,7 +1039,7 @@ window.renderizarCierreDeCaja = function() {
         tPM += v.pm; tUSD += v.usd; tVES += v.ves; tPTV += v.ptv; 
         tVUSD += v.totalUSD; tCUSD += (v.costoUSD || 0);
         return `<div class="cierre-card">
-            <div style="display:flex; justify-content:space-between;"><h4>🛒 ${v.fecha}</h4></div>
+            <div style="display:flex; justify-content:space-between;"><h4>🛒 ${v.fecha} (${v.cajero || 'Caja'})</h4></div>
             ${v.cliente ? `<div style="color:#fff; font-size:11px; margin-bottom:4px;">Cliente: ${window.escapeHTML(v.cliente)}</div>` : ''}
             <div class="cierre-item">Total Factura: <span style="font-size:14px; color:#00ff66;">${window.formatVE(v.totalVES)}</span></div>
             <div style="display:flex; gap:6px; margin-top:8px;">
@@ -1041,7 +1100,7 @@ window.imprimirTicket = function(idx) {
     if(!pw) return;
     let itemsStr = v.items.map(it => `<div>${window.escapeHTML(it.nombre)}</div><div class="row"><span>${it.qtyVenta || it.detalle} x ${window.formatUSD(it.precioUnitario)}</span><span>${window.formatVE(it.totalUSD * window.tasaDia)}</span></div>`).join('');
     let html = `<html><head><style>body{font-family:monospace; width:280px; padding:10px; font-size:12px; color:#000;} .center{text-align:center;} .line{border-bottom:1px dashed #000; margin:5px 0;} .row{display:flex; justify-content:space-between;}</style></head>
-    <body><div class="center"><strong>${window.escapeHTML(window.perfilNegocio.nombre)}</strong><br>Fecha: ${v.fecha}</div><div class="line"></div>
+    <body><div class="center"><strong>${window.escapeHTML(window.perfilNegocio.nombre)}</strong><br>Fecha: ${v.fecha}<br>Atendido por: ${v.cajero || 'Caja'}</div><div class="line"></div>
     ${itemsStr}<div class="line"></div>
     <div class="row"><strong>TOTAL:</strong><strong>${window.formatVE(v.totalVES)}</strong></div>
     <div class="center">¡Gracias por su compra!</div><script>window.onload=function(){window.print();window.close();}<\/script></body></html>`;
