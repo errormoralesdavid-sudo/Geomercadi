@@ -84,6 +84,40 @@
             </div>
         </div>
 
+        <!-- MODAL + STOCK RÁPIDO EN 1 CLIC -->
+        <div id="modal-stock-rapido" class="modal-overlay">
+            <div class="modal-content" style="max-width: 320px; text-align: center;">
+                <h3 style="color:#00ff66;">📦 Sumar Mercancía</h3>
+                <p id="stock-rapido-nombre" style="font-size:13px; color:#fff; margin:0; font-weight:bold;"></p>
+                <p id="stock-rapido-actual" style="font-size:11px; color:#8fa0b7; margin:0;"></p>
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:4px;">
+                    <button type="button" class="btn-tool" onclick="document.getElementById('stock-rapido-input').value=6">+6</button>
+                    <button type="button" class="btn-tool" onclick="document.getElementById('stock-rapido-input').value=12">+12</button>
+                    <button type="button" class="btn-tool" onclick="document.getElementById('stock-rapido-input').value=24">+24</button>
+                    <button type="button" class="btn-tool" onclick="document.getElementById('stock-rapido-input').value=50">+50</button>
+                </div>
+                <input type="number" id="stock-rapido-input" placeholder="Cantidad que llegó (Ej. 12)" style="background:#0b0e14; border:1px solid #00ff66; padding:12px; border-radius:8px; color:#fff; text-align:center; font-size:16px; font-weight:bold;">
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-stock-rapido').style.display='none'">Cancelar</button>
+                    <button class="btn-charge" onclick="window.confirmarStockRapido()">✓ Sumar al Stock</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL CAMBIO RÁPIDO DE TASA BCV DESDE BARRA SUPERIOR -->
+        <div id="modal-tasa-rapida" class="modal-overlay">
+            <div class="modal-content" style="max-width: 310px; text-align: center;">
+                <h3 style="color:#00ff66;">📈 Tasa del Dólar</h3>
+                <p style="font-size:11px; color:#8fa0b7; margin:0;">Actualiza el valor en Bolívares para toda la tienda:</p>
+                <input type="number" step="0.01" id="input-tasa-modal" placeholder="Ej. 623.02" style="background:#0b0e14; border:1px solid #00ff66; padding:12px; border-radius:8px; color:#fff; text-align:center; font-size:18px; font-weight:bold;">
+                <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; width:100%;" onclick="window.obtenerTasaBCV(false); document.getElementById('modal-tasa-rapida').style.display='none';">📡 Sincronizar Automático con BCV</button>
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-tasa-rapida').style.display='none'">Cerrar</button>
+                    <button class="btn-charge" onclick="window.guardarTasaDesdeModal()">Guardar Tasa</button>
+                </div>
+            </div>
+        </div>
+
         <!-- MODAL BALANZA DIGITAL PROPIA (SIN PROMPT) -->
         <div id="modal-balanza" class="modal-overlay">
             <div class="modal-content" style="max-width: 330px; text-align: center;">
@@ -143,7 +177,7 @@
                 <h3 style="color:#ffc107;">🤝 Registrar Cuenta por Cobrar</h3>
                 <div id="fiado-lbl-total" style="font-size:13px; color:#00ff66; font-weight:bold;"></div>
                 <input type="text" id="fiado-input-nombre" placeholder="Nombre y Apellido del Cliente" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center;">
-                <input type="tel" id="fiado-input-tlf" placeholder="Teléfono / WhatsApp (Opcional)" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                <input type="tel" id="fiado-input-tlf" placeholder="Teléfono / WhatsApp (Ej. 04121234567)" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff; text-align:center;">
                 <div style="display:flex; gap:8px; margin-top:4px;">
                     <button class="btn-clear" onclick="document.getElementById('modal-nuevo-fiado').style.display='none'">Cancelar</button>
                     <button class="btn-fiar" onclick="window.confirmarNuevoFiado()">Guardar Deuda</button>
@@ -219,8 +253,29 @@
             </div>
         </div>
 
+        <div id="modal-combos" class="modal-overlay">
+            <div class="modal-content">
+                <h3>🎁 Combos y Ofertas</h3>
+                <div id="lista-combos-activos" style="display:flex; flex-direction:column; gap:8px;"></div>
+                <button class="btn-clear" onclick="document.getElementById('modal-combos').style.display='none'">Cerrar</button>
+            </div>
+        </div>
+
         <!-- PANEL DE APLICACIÓN -->
         <div id="app-content" style="display:none; width:100%;">
+
+            <!-- MEJORA 1: BARRA SUPERIOR FIJA DE ESTADO EN VIVO -->
+            <div id="top-status-bar" class="top-status-bar">
+                <div class="status-left">
+                    <span id="status-dot-net" class="status-dot online"></span>
+                    <strong id="top-bar-negocio">GeoMercado</strong>
+                </div>
+                <div class="status-right">
+                    <button type="button" class="badge-tasa-live" onclick="window.abrirModalTasaRapida()" title="Toca para ajustar tasa">
+                        📈 BCV: <strong id="top-bar-tasa">623,02 Bs</strong> ✏️
+                    </button>
+                </div>
+            </div>
 
             <div id="menu-principal">
                 <div class="logo-grande">
@@ -260,6 +315,7 @@
                     <button class="btn-tool" onclick="window.aparcarFactura()">⏸️ Pausar</button>
                     <button class="btn-tool" id="btn-top-recuperar" onclick="window.recuperarFactura()">📂 Recuperar</button>
                     <button class="btn-tool" onclick="document.getElementById('modal-cliente').style.display='flex'">📝 Cliente</button>
+                    <button class="btn-tool" onclick="window.abrirModalCombos()" style="color:#00ff66; border-color:#00ff66;">🎁 Combos</button>
                     <button class="btn-tool" onclick="window.abrirModalGasto()" style="color:#ff5252; border-color:#ff5252;">💸 Gasto / Salida</button>
                     <button class="btn-tool" onclick="window.generarQRPagoMovil()" style="color:#00ff66; border-color:#00ff66;">📲 QR Pago Móvil</button>
                 </div>
@@ -389,7 +445,7 @@
                 </div>
             </div>
 
-            <!-- MÓDULO FIADOS CON ABONOS -->
+            <!-- MEJORA 4: MÓDULO FIADOS CON BUSCADOR Y COBRO POR WHATSAPP -->
             <div id="modulo-fiados" class="modulo-app">
                 <div class="header-modulo">
                     <h3>📋 Cuentas por Cobrar</h3>
@@ -397,13 +453,14 @@
                 </div>
                 <div class="admin-form-box">
                     <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">
-                        💡 Las deudas se guardan en Dólares ($) y se actualizan solas a la tasa BCV del día. Puedes registrar pagos completos o abonos parciales.
+                        💡 Las deudas se guardan en Dólares ($) y se actualizan solas a la tasa BCV del día. Puedes enviar recordatorios de cobro directo a WhatsApp.
                     </p>
+                    <input type="text" id="buscador-fiados" class="search-input" placeholder="🔍 Buscar deudor por nombre..." oninput="window.renderizarFiados(this.value)" style="margin-top:4px; margin-bottom:0;">
                 </div>
                 <div id="lista-fiados-container" style="display:flex; flex-direction:column; gap:8px;"></div>
             </div>
 
-            <!-- INVENTARIO -->
+            <!-- INVENTARIO (CON CONVERSIÓN AUTOMÁTICA A KILO Y + STOCK RÁPIDO) -->
             <div id="modulo-inventario" class="modulo-app">
                 <div class="header-modulo">
                     <h3>📦 Catálogo</h3>
@@ -419,7 +476,7 @@
                         <button class="btn-clear" id="lbl-img-upload" style="border-color:#25D366; color:#25D366; width:100%;" onclick="document.getElementById('prod-imagen-file').click()">📸 Subir Foto (Opcional)</button>
                     </div>
 
-                    <input type="text" id="prod-name" placeholder="Nombre (Ej. Harina P.A.N.)">
+                    <input type="text" id="prod-name" placeholder="Nombre (Ej. Queso Blanco Duro / Harina)">
                     
                     <div style="display:flex; gap:8px;">
                         <input type="number" step="0.01" id="prod-costo" placeholder="Costo ($)" oninput="window.calcularGanancia()">
@@ -432,11 +489,12 @@
                         <label style="color:#8fa0b7; font-size:12px; margin:0;">Sumar IVA (16%)</label>
                     </div>
 
-                    <select id="prod-cat">
+                    <!-- CONECTADO A cambiarCategoriaInventario PARA PASAR CHARCUTERÍA/FRUTERÍA A KILO AUTOMÁTICAMENTE -->
+                    <select id="prod-cat" onchange="window.cambiarCategoriaInventario(this.value)">
                         <option value="Víveres">🛒 Víveres</option>
+                        <option value="Charcutería">🧀 Charcutería (Pasa a Kilo ⚖️)</option>
+                        <option value="Frutería">🍎 Frutería (Pasa a Kilo ⚖️)</option>
                         <option value="Limpieza">🧼 Limpieza</option>
-                        <option value="Charcutería">🧀 Charcutería</option>
-                        <option value="Frutería">🍎 Frutería</option>
                         <option value="Otros">📦 Otros</option>
                     </select>
 
@@ -445,6 +503,10 @@
                         <option value="peso">Venta al Peso / Kilo ⚖️</option>
                         <option value="combo" style="color:#00ff66; font-weight:bold;">Combo Compuesto 🎁</option>
                     </select>
+
+                    <div id="aviso-modo-peso" style="display:none; background:rgba(0,255,102,0.12); border:1px solid #00ff66; color:#00ff66; padding:6px; border-radius:8px; font-size:11px; text-align:center; font-weight:bold;">
+                        ⚖️ Modo Balanza Activado: El precio ingresado arriba será por cada 1 Kilo.
+                    </div>
 
                     <input type="number" id="prod-qty" placeholder="Cantidad en Tienda">
 
@@ -478,11 +540,23 @@
                 <div class="inventory-grid" id="lista-productos"></div>
             </div>
 
-            <!-- CIERRE Y ESTADÍSTICAS -->
+            <!-- MEJORA 3: CIERRE Y ESTADÍSTICAS CON FILTROS Y EXPORTACIÓN EXCEL (CSV) -->
             <div id="modulo-cierre" class="modulo-app">
                 <div class="header-modulo">
                     <h3>📊 Cierre y Estadísticas</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
+                </div>
+
+                <!-- BARRA DE FILTROS Y BOTÓN EXCEL -->
+                <div class="admin-form-box" style="padding:10px; border-color:#313c52;">
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <select id="filtro-cierre-cajero" onchange="window.renderizarCierreDeCaja()" style="flex:1; margin:0; padding:8px; font-size:12px;">
+                            <option value="Todos">👤 Todos los Cajeros</option>
+                        </select>
+                        <input type="date" id="filtro-cierre-fecha" onchange="window.renderizarCierreDeCaja()" style="flex:1; margin:0; padding:7px; font-size:12px;">
+                        <button type="button" class="btn-clear" style="flex:none; width:auto; padding:8px 10px;" onclick="document.getElementById('filtro-cierre-fecha').value=''; document.getElementById('filtro-cierre-cajero').value='Todos'; window.renderizarCierreDeCaja();" title="Limpiar Filtros">🔄</button>
+                    </div>
+                    <button type="button" class="btn-charge" style="background:#25D366; color:#000; width:100%; margin-top:4px;" onclick="window.exportarVentasCSV()">📗 Descargar Reporte en Excel (CSV)</button>
                 </div>
                 
                 <div class="cierre-card">
@@ -507,7 +581,7 @@
 
                 <!-- GRÁFICO TOP 5 PRODUCTOS MÁS VENDIDOS -->
                 <div class="cierre-card">
-                    <h4>🏆 Top 5 Productos Más Vendidos Hoy</h4>
+                    <h4>🏆 Top 5 Productos Más Vendidos</h4>
                     <div id="grafico-top-productos" style="display:flex; flex-direction:column; gap:6px;"></div>
                 </div>
 
