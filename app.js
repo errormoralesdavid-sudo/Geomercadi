@@ -1678,3 +1678,268 @@ window.escanearCapturePagoCompleto = function(e) {
         window.mostrarFeedbackAnimado('error', 'Fallo lectura');
     });
 };
+// =========================================================================
+// EXTENSIÓN PRO: BARRA EN VIVO, +STOCK RÁPIDO, WHATSAPP FIADOS Y EXCEL CSV
+// =========================================================================
+
+window.prodStockRapidoId = null;
+
+// Respaldo doble en localStorage para que jamás desaparezca un producto
+const _origGuardarFirebase = window.guardarEstructuraFirebase;
+window.guardarEstructuraFirebase = async function() {
+    try {
+        localStorage.setItem('geomercado_backup_' + window.tiendaActivaID, JSON.stringify({
+            productos: window.productos,
+            ventasHistorico: window.ventasHistorico,
+            gastosCaja: window.gastosCaja,
+            facturasEnEspera: window.facturasEnEspera,
+            fiados: window.fiados,
+            perfilNegocio: window.perfilNegocio,
+            usuariosCajeros: window.usuariosCajeros,
+            fondoCaja: window.fondoCaja,
+            tasaDia: window.tasaDia
+        }));
+    } catch(e) {}
+    window.actualizarBarraSuperiorUI();
+    return await _origGuardarFirebase();
+};
+
+// Cargar respaldo local inmediato mientras responde la nube
+(function recuperarRespaldoLocalInmediato() {
+    try {
+        let raw = localStorage.getItem('geomercado_backup_' + window.tiendaActivaID);
+        if (raw && (!window.productos || window.productos.length === 0)) {
+            let b = JSON.parse(raw);
+            if (b.productos && b.productos.length > 0) window.productos = b.productos;
+        }
+    } catch(e) {}
+})();
+
+// 1. Barra Superior de Estado en Vivo
+window.actualizarBarraSuperiorUI = function() {
+    let elNeg = document.getElementById('top-bar-negocio');
+    let elTasa = document.getElementById('top-bar-tasa');
+    let elDot = document.getElementById('status-dot-net');
+    if (elNeg) elNeg.innerText = window.perfilNegocio.nombre || "GeoMercado";
+    if (elTasa) elTasa.innerText = window.formatVE(window.tasaDia);
+    if (elDot) elDot.className = navigator.onLine ? "status-dot online" : "status-dot offline";
+};
+
+window.addEventListener('online', window.actualizarBarraSuperiorUI);
+window.addEventListener('offline', window.actualizarBarraSuperiorUI);
+setInterval(window.actualizarBarraSuperiorUI, 1500);
+
+window.abrirModalTasaRapida = function() {
+    if (window.rolActual !== "Administrador 👑") {
+        window.mostrarToast("Solo el Administrador puede cambiar la tasa");
+        return;
+    }
+    document.getElementById('input-tasa-modal').value = window.tasaDia.toFixed(2);
+    document.getElementById('modal-tasa-rapida').style.display = 'flex';
+};
+
+window.guardarTasaDesdeModal = function() {
+    let val = parseFloat(document.getElementById('input-tasa-modal').value);
+    if (!isNaN(val) && val > 0) {
+        window.aplicarNuevaTasaBCV(val, false);
+        document.getElementById('modal-tasa-rapida').style.display = 'none';
+    }
+};
+
+// Mostrar aviso visual cuando se activa modo peso en Charcutería / Frutería
+const _origConmutar = window.conmutarCampoCantidad;
+window.conmutarCampoCantidad = function(tipo) {
+    _origConmutar(tipo);
+    let aviso = document.getElementById('aviso-modo-peso');
+    if (aviso) aviso.style.display = (tipo === 'peso') ? 'block' : 'none';
+};
+
+// 2. Botón de + Stock Rápido en Tarjetas de Inventario
+window.abrirModalStockRapido = function(idProd) {
+    let p = window.productos.find(x => x.id === idProd);
+    if (!p) return;
+    window.prodStockRapidoId = idProd;
+    document.getElementById('stock-rapido-nombre').innerText = p.nombre;
+    document.getElementById('stock-rapido-actual').innerText = `Stock Actual: ${p.qty} unidades`;
+    document.getElementById('stock-rapido-input').value = "";
+    document.getElementById('modal-stock-rapido').style.display = 'flex';
+    setTimeout(() => document.getElementById('stock-rapido-input').focus(), 150);
+};
+
+window.confirmarStockRapido = function() {
+    let p = window.productos.find(x => x.id === window.prodStockRapidoId);
+    let cant = parseInt(document.getElementById('stock-rapido-input').value) || 0;
+    if (!p || cant === 0) { window.mostrarFeedbackAnimado('error', 'Cantidad inválida'); return; }
+    p.qty = Math.max(0, (p.qty || 0) + cant);
+    document.getElementById('modal-stock-rapido').style.display = 'none';
+    window.renderizarInventario(document.getElementById('buscador-inventario').value);
+    window.verificarAlertasStock();
+    window.sincronizarConNube();
+    window.reproducirBeep(true);
+    window.mostrarToast(`✓ Stock actualizado a ${p.qty} unds`);
+};
+
+// Sobrescribir renderizarInventario para incluir el botón "+ Stock" en productos por unidad
+window.renderizarInventario = function(filtro) {
+    let contenedor = document.getElementById('lista-productos');
+    let formBox = document.getElementById('form-registro-prod');
+    if(formBox) formBox.style.display = (window.rolActual === "Administrador 👑") ? "flex" : "none";
+    if(!contenedor) return;
+
+    let html = "";
+    let textoFiltro = filtro ? filtro.toLowerCase() : "";
+
+    window.productos.forEach(p => {
+        if(textoFiltro && !p.nombre.toLowerCase().includes(textoFiltro) && !(p.serial && p.serial.includes(textoFiltro))) return;
+
+        let esStockBajo = (p.tipo === 'unidad' && p.qty <= 5);
+        let indicadorStock = p.tipo === 'peso' ? '<span class="badge-peso">⚖️ Venta por Kilo</span>' : (p.tipo === 'combo' ? '<span style="color:#00ff66; font-size:11px;">🎁 Combo</span>' : `<span style="font-size:11px; color:${esStockBajo ? '#ff5252' : '#8fa0b7'}; font-weight:bold;">Stock: ${p.qty} unds ${esStockBajo ? '⚠️' : ''}</span>`);
+        
+        let iconoRender = p.imagenUrl 
+            ? `<img src="${p.imagenUrl}" class="product-img" onclick="window.verImagenProducto(${p.id})" alt="IMG">` 
+            : `<div class="product-emoji-placeholder" onclick="window.verImagenProducto(${p.id})">${p.tipo === 'peso' ? '⚖️' : (p.tipo === 'combo' ? '🎁' : '📦')}</div>`;
+            
+        let stringIva = p.iva ? ' <span style="font-size:10px; color:#ff5252;">(+IVA)</span>' : '';
+        let precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
+        
+        html += `<div class="product-card ${esStockBajo ? 'low-stock' : ''}">
+            <div class="tag-cat">${window.escapeHTML(p.categoria || "General")}</div>
+            ${iconoRender}
+            <h4 onclick="window.verImagenProducto(${p.id})" style="cursor:pointer;">${window.escapeHTML(p.nombre)}${stringIva}</h4>
+            <p style="color:#00ff66; margin:2px 0; font-weight:bold;">${window.formatUSD(precioFinalUSD)} ${p.tipo==='peso'?'<small>/Kg</small>':''}</p>
+            <p style="font-size:11px; color:#8fa0b7; margin-bottom:4px;">${window.formatVE(precioFinalUSD * window.tasaDia)}</p>
+            ${indicadorStock}
+            <div style="display:flex; gap:4px; margin-top:6px;">`;
+            
+        if(window.rolActual === "Administrador 👑") {
+            if (p.tipo === 'unidad') {
+                html += `<button style="flex:1.2; background:#1c2536; color:#00ff66; border:1px solid #00ff66; padding:6px 4px; border-radius:6px; font-size:10px; font-weight:bold; cursor:pointer;" onclick="window.abrirModalStockRapido(${p.id})" title="Sumar Stock Rápido">➕ Stock</button>`;
+            }
+            html += `<button style="flex:1; background:#313c52; color:#fff; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.editarProducto(${p.id})">✏️</button>
+                     <button style="flex:1; background:#ff5252; color:#fff; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.eliminarProductoCat(${p.id})">🗑️</button>`;
+        }
+        html += `<button style="flex:2; background:#00ff66; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.agregarAlCarritoDesdeCaja(${p.id})">🛒</button></div></div>`;
+    });
+    contenedor.innerHTML = html || '<div style="grid-column:1/-1; text-align:center; color:#8fa0b7; padding:20px;">No hay productos registrados en esta tienda.</div>';
+};
+
+// 3. Fiados con Buscador y Recordatorio de Cobro por WhatsApp
+window.cobrarFiadoWhatsApp = function(idx) {
+    let f = window.fiados[idx];
+    if (!f) return;
+    let montoBs = window.formatVE(f.montoUSD * window.tasaDia);
+    let msj = `👋 Hola *${f.cliente}*, te saludamos de *${window.perfilNegocio.nombre || 'GeoMercado'}*.\n\n` +
+              `Te escribimos para recordarte tu saldo pendiente con nosotros:\n` +
+              `💵 *Saldo:* $${f.montoUSD.toFixed(2)}\n` +
+              `🇻🇪 *Al cambio BCV hoy (${window.tasaDia.toFixed(2)} Bs):* ${montoBs}\n\n` +
+              `📲 *Datos de Pago Móvil:*\n` +
+              `• Banco: ${window.perfilNegocio.pmBanco || '0102'}\n` +
+              `• CI/RIF: ${window.perfilNegocio.pmCedula || ''}\n` +
+              `• Teléfono: ${window.perfilNegocio.pmTlf || ''}\n\n` +
+              `¡Muchas gracias por tu atención!`;
+    let tlfLimpio = (f.tlf || "").replace(/\D/g, '');
+    if (tlfLimpio.startsWith('0')) tlfLimpio = '58' + tlfLimpio.substring(1);
+    let url = tlfLimpio ? `https://api.whatsapp.com/send?phone=${tlfLimpio}&text=${encodeURIComponent(msj)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(msj)}`;
+    window.open(url, '_blank');
+};
+
+window.renderizarFiados = function(filtroTexto = "") {
+    let cont = document.getElementById('lista-fiados-container');
+    if(!cont) return;
+    let q = (filtroTexto || document.getElementById('buscador-fiados')?.value || "").toLowerCase().trim();
+
+    if(window.fiados.length === 0) {
+        cont.innerHTML = "<div style='text-align:center; color:#8fa0b7; font-size:12px; padding:10px;'>No hay deudas pendientes.</div>";
+        return;
+    }
+
+    let html = "";
+    window.fiados.forEach((f, idx) => {
+        if (q && !f.cliente.toLowerCase().includes(q)) return;
+        let histAbonos = (f.abonos && f.abonos.length) 
+            ? `<div style="font-size:10px; color:#8fa0b7; background:#0b0e14; padding:6px; border-radius:6px; margin-top:4px;">Abonos: ${f.abonos.map(a=>`$${a.usd.toFixed(2)} (${a.fecha})`).join(' | ')}</div>` 
+            : '';
+        html += `
+        <div class="cierre-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed #313c52; padding-bottom:4px; margin-bottom:6px;">
+                <h4 style="color:#ffc107; margin:0; border:none; padding:0;">👤 ${window.escapeHTML(f.cliente)}</h4>
+                <button class="btn-tool" style="border-color:#25D366; color:#25D366; padding:4px 8px;" onclick="window.cobrarFiadoWhatsApp(${idx})">📲 Cobrar por WS</button>
+            </div>
+            <div class="cierre-item">Fecha: <span>${f.fecha}</span></div>
+            <div class="cierre-item">Deuda Restante ($): <span>$${f.montoUSD.toFixed(2)}</span></div>
+            <div class="cierre-item" style="color:#00ff66; font-size:13px;">Al Dólar Hoy: <span style="color:#00ff66;">${window.formatVE(f.montoUSD * window.tasaDia)}</span></div>
+            ${histAbonos}
+            <div style="display:flex; gap:6px; margin-top:8px;">
+                <button class="btn-fiar" onclick="window.abrirModalAbono(${idx})">💵 ABONAR</button>
+                <button class="btn-charge" onclick="window.cobrarFiado(${idx})">✓ SALDAR TODO</button>
+            </div>
+        </div>`;
+    });
+    cont.innerHTML = html || "<div style='text-align:center; color:#8fa0b7; font-size:12px; padding:10px;'>Sin coincidencias.</div>";
+};
+
+// 4. Filtro de Cierre por Fecha/Cajero y Exportación a Excel (CSV)
+const _origRenderCierre = window.renderizarCierreDeCaja;
+window.renderizarCierreDeCaja = function() {
+    let selCajero = document.getElementById('filtro-cierre-cajero');
+    if (selCajero) {
+        let actual = selCajero.value || "Todos";
+        let nombres = ["Todos", ...new Set(window.usuariosCajeros.map(u => u.nombre).concat(window.ventasHistorico.map(v => v.cajero || "Caja")))];
+        selCajero.innerHTML = nombres.map(n => `<option value="${window.escapeHTML(n)}">${n === 'Todos' ? '👤 Todos los Cajeros' : '👤 ' + window.escapeHTML(n)}</option>`).join('');
+        selCajero.value = nombres.includes(actual) ? actual : "Todos";
+    }
+
+    let cajeroFiltro = selCajero ? selCajero.value : "Todos";
+    let fechaInput = document.getElementById('filtro-cierre-fecha')?.value || ""; // YYYY-MM-DD
+
+    let backupVentas = window.ventasHistorico;
+    if (cajeroFiltro !== "Todos" || fechaInput) {
+        window.ventasHistorico = backupVentas.filter(v => {
+            let cumpleCajero = (cajeroFiltro === "Todos") || ((v.cajero || "Caja") === cajeroFiltro);
+            let cumpleFecha = true;
+            if (fechaInput) {
+                let partes = fechaInput.split('-'); // [YYYY, MM, DD]
+                let f1 = `${ parseInt(partes[2]) }/${ parseInt(partes[1]) }/${ partes[0] }`;
+                let f2 = `${ partes[2] }/${ partes[1] }/${ partes[0] }`;
+                cumpleFecha = v.fecha && (v.fecha.includes(f1) || v.fecha.includes(f2) || v.fecha.includes(fechaInput));
+            }
+            return cumpleCajero && cumpleFecha;
+        });
+    }
+    _origRenderCierre();
+    window.ventasHistorico = backupVentas;
+};
+
+window.exportarVentasCSV = function() {
+    if (window.ventasHistorico.length === 0) {
+        window.mostrarFeedbackAnimado('error', 'No hay ventas para exportar');
+        return;
+    }
+    let filas = [["ID", "Fecha y Hora", "Cajero", "Cliente", "Articulos", "Total USD ($)", "Total Bs", "Punto Venta (Bs)", "Pago Movil (Bs)", "Efectivo Bs", "Efectivo USD ($)"]];
+    window.ventasHistorico.forEach(v => {
+        let arts = (v.items || []).map(i => `${i.qtyVenta || 1}x ${i.nombre}`).join(" | ");
+        filas.push([
+            v.id,
+            `"${v.fecha}"`,
+            `"${v.cajero || 'Caja'}"`,
+            `"${(v.cliente || 'Mostrador').replace(/"/g, '""')}"`,
+            `"${arts.replace(/"/g, '""')}"`,
+            (v.totalUSD || 0).toFixed(2),
+            (v.totalVES || 0).toFixed(2),
+            (v.ptv || 0).toFixed(2),
+            (v.pm || 0).toFixed(2),
+            (v.ves || 0).toFixed(2),
+            (v.usd || 0).toFixed(2)
+        ]);
+    });
+    let csvContent = "\uFEFF" + filas.map(e => e.join(";")).join("\n");
+    let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement("a");
+    a.href = url;
+    a.download = `Reporte_Ventas_${window.perfilNegocio.nombre || 'GeoMercado'}_${new Date().toLocaleDateString().replace(/\//g,'-')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.mostrarToast("📗 Reporte Excel descargado");
+};
