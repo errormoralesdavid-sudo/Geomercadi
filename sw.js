@@ -1,4 +1,4 @@
-const CACHE_NAME = 'geomercado-pro-v5';
+const CACHE_NAME = 'geomercado-ai-v6';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -34,7 +34,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  // No interceptar llamadas en vivo a Firebase o APIs de tasa BCV
+  // No interceptar llamadas externas (Firebase, Gemini Vision API, Tasa BCV)
   if (!event.request.url.startsWith(self.location.origin)) return;
 
   event.respondWith(
