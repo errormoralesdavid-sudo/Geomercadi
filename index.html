@@ -8,7 +8,7 @@
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./style.css">
 
-    <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- Lector de Códigos de Barras (Eliminado Tesseract OCR antiguo por Gemini Vision) -->
     <script defer src="https://unpkg.com/html5-qrcode"></script>
 
     <script type="module" src="./app.js"></script>
@@ -80,6 +80,50 @@
                 <div style="display:flex; gap:8px;">
                     <button class="btn-clear" onclick="document.getElementById('modal-zoom-img').style.display='none'">Cerrar</button>
                     <button class="btn-charge" id="zoom-btn-add">➕ Agregar a Venta</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL ESCÁNER DE FACTURAS DE PROVEEDORES CON GEMINI VISION -->
+        <div id="modal-factura-proveedor" class="modal-overlay">
+            <div class="modal-content" style="max-width: 440px;">
+                <h3 style="color:#00ff66;">📄 Escáner IA de Factura de Proveedor</h3>
+                <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">
+                    Toma foto o sube la factura impresa. <strong>Gemini Vision</strong> extraerá los productos, cantidades y costos en JSON para actualizar tu stock automáticamente.
+                </p>
+
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <label style="font-size:11px; color:#8fa0b7; flex:1;">Margen de Ganancia Sugerido (%):</label>
+                    <input type="number" id="factura-ia-margen" value="30" style="width:80px; background:#0b0e14; border:1px solid #00ff66; padding:8px; border-radius:8px; color:#fff; text-align:center; font-weight:bold;">
+                </div>
+
+                <input type="file" id="file-factura-ia" accept="image/*" style="display:none;" onchange="window.procesarFacturaProveedorIA(event)">
+                <button type="button" class="scanner-trigger" onclick="document.getElementById('file-factura-ia').click()">
+                    <span>📸</span> SUBIR / TOMAR FOTO DE FACTURA
+                </button>
+
+                <div id="factura-ia-estado" style="display:none; font-size:11px; text-align:center; padding:8px; border-radius:8px; background:#161a23; color:#00ff66; font-weight:bold;"></div>
+
+                <div id="factura-ia-lista-items" class="ai-invoice-list" style="display:none;"></div>
+
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-factura-proveedor').style.display='none'">Cerrar</button>
+                    <button class="btn-charge" id="btn-aplicar-factura-ia" style="display:none;" onclick="window.aplicarFacturaProveedorAlStock()">✓ Cargar Todo al Inventario</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL COLA DE NOTIFICACIONES Y RECORDATORIOS AUTOMÁTICOS DE CRÉDITO -->
+        <div id="modal-cola-recordatorios" class="modal-overlay">
+            <div class="modal-content" style="max-width: 400px;">
+                <h3 style="color:#ffc107;">🔔 Recordatorios Automáticos de Pago</h3>
+                <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">
+                    El motor de Firebase evaluó las fechas de vencimiento de tus ventas a crédito y preparó esta cola de cobro:
+                </p>
+                <div id="lista-cola-recordatorios" style="display:flex; flex-direction:column; gap:8px; max-height:310px; overflow-y:auto;"></div>
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-cola-recordatorios').style.display='none'">Cerrar</button>
+                    <button class="btn-charge" style="background:#25D366; color:#000;" onclick="window.dispararSiguienteRecordatorioCola()">📲 Disparar Siguiente en Cola</button>
                 </div>
             </div>
         </div>
@@ -171,16 +215,25 @@
             </div>
         </div>
 
-        <!-- MODAL NUEVO FIADO (SIN PROMPT) -->
+        <!-- MODAL NUEVO FIADO CON FECHA DE VENCIMIENTO PARA NOTIFICACIONES AUTOMÁTICAS -->
         <div id="modal-nuevo-fiado" class="modal-overlay">
-            <div class="modal-content" style="max-width: 330px; text-align: center;">
-                <h3 style="color:#ffc107;">🤝 Registrar Cuenta por Cobrar</h3>
+            <div class="modal-content" style="max-width: 340px; text-align: center;">
+                <h3 style="color:#ffc107;">🤝 Registrar Venta a Crédito</h3>
                 <div id="fiado-lbl-total" style="font-size:13px; color:#00ff66; font-weight:bold;"></div>
                 <input type="text" id="fiado-input-nombre" placeholder="Nombre y Apellido del Cliente" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center;">
-                <input type="tel" id="fiado-input-tlf" placeholder="Teléfono / WhatsApp (Ej. 04121234567)" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                <input type="tel" id="fiado-input-tlf" placeholder="WhatsApp (Ej. 04121234567)" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                
+                <label style="font-size:10px; color:#8fa0b7; text-transform:uppercase; margin-bottom:-4px;">Plazo de Pago (Recordatorio Automático):</label>
+                <select id="fiado-select-plazo" style="background:#0b0e14; border:1px solid #00ff66; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                    <option value="3">📅 Vence en 3 días</option>
+                    <option value="7" selected>📅 Vence en 7 días (1 Semana)</option>
+                    <option value="15">📅 Vence en 15 días (Quincena)</option>
+                    <option value="30">📅 Vence en 30 días (1 Mes)</option>
+                </select>
+
                 <div style="display:flex; gap:8px; margin-top:4px;">
                     <button class="btn-clear" onclick="document.getElementById('modal-nuevo-fiado').style.display='none'">Cancelar</button>
-                    <button class="btn-fiar" onclick="window.confirmarNuevoFiado()">Guardar Deuda</button>
+                    <button class="btn-fiar" onclick="window.confirmarNuevoFiado()">Guardar Crédito</button>
                 </div>
             </div>
         </div>
@@ -264,13 +317,16 @@
         <!-- PANEL DE APLICACIÓN -->
         <div id="app-content" style="display:none; width:100%;">
 
-            <!-- MEJORA 1: BARRA SUPERIOR FIJA DE ESTADO EN VIVO -->
+            <!-- BARRA SUPERIOR FIJA CON NOTIFICACIONES AUTOMÁTICAS DE CRÉDITO -->
             <div id="top-status-bar" class="top-status-bar">
                 <div class="status-left">
                     <span id="status-dot-net" class="status-dot online"></span>
                     <strong id="top-bar-negocio">GeoMercado</strong>
                 </div>
-                <div class="status-right">
+                <div class="status-right" style="display:flex; align-items:center; gap:6px;">
+                    <button type="button" id="btn-bell-creditos" class="badge-bell-alert" style="display:none;" onclick="window.abrirModalColaRecordatorios()" title="Recordatorios de Pago Pendientes">
+                        🔔 <span id="badge-bell-count">0</span>
+                    </button>
                     <button type="button" class="badge-tasa-live" onclick="window.abrirModalTasaRapida()" title="Toca para ajustar tasa">
                         📈 BCV: <strong id="top-bar-tasa">623,02 Bs</strong> ✏️
                     </button>
@@ -303,7 +359,7 @@
                 </div>
             </div>
 
-            <!-- CAJA (CON MODO MOSTRADOR TABLET/PC Y ATAJOS) -->
+            <!-- CAJA (CON MODO MOSTRADOR TABLET/PC Y VALIDADOR GEMINI VISION) -->
             <div id="modulo-caja" class="modulo-app">
                 <div class="header-modulo">
                     <h3>🛒 Terminal de Caja</h3>
@@ -388,10 +444,16 @@
                                         <button class="btn-max" onclick="window.llenarMaximo('pm')">MAX</button>
                                     </div>
                                     <div class="pm-details" style="margin-top:8px;">
-                                        <input type="tel" id="pm-phone" placeholder="Teléfono del Cliente">
-                                        <input type="tel" id="pm-ref" placeholder="Número de Referencia">
+                                        <input type="tel" id="pm-phone" placeholder="Teléfono Emisor Extraído / Manual">
+                                        <input type="text" id="pm-ref" placeholder="Referencia Extraída / Manual">
+                                        <input type="text" id="pm-banco-detectado" placeholder="Banco Receptor (Ej. 0102)" readonly style="color:#00ff66; font-weight:bold;">
+                                        
+                                        <!-- TARJETA DE RESULTADO GEMINI VISION -->
                                         <div id="pm-status-banner" class="pm-status-banner"></div>
-                                        <button class="btn-clear" style="border:1px solid #00ff66; color:#00ff66; width:100%;" onclick="document.getElementById('file-ocr').click()">📸 LEER CAPTURE (OCR)</button>
+
+                                        <button type="button" class="scanner-trigger" style="padding:9px; font-size:11px;" onclick="document.getElementById('file-ocr').click()">
+                                            🤖 VALIDAR COMPROBANTE CON GEMINI VISION
+                                        </button>
                                         <input type="file" id="file-ocr" class="hidden-file-input" accept="image/*" onchange="window.escanearCapturePagoCompleto(event)">
                                     </div>
                                 </div>
@@ -445,22 +507,27 @@
                 </div>
             </div>
 
-            <!-- MEJORA 4: MÓDULO FIADOS CON BUSCADOR Y COBRO POR WHATSAPP -->
+            <!-- MÓDULO FIADOS CON EVALUADOR DE VENCIMIENTO Y RECORDATORIOS AUTOMÁTICOS -->
             <div id="modulo-fiados" class="modulo-app">
                 <div class="header-modulo">
                     <h3>📋 Cuentas por Cobrar</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
                 <div class="admin-form-box">
-                    <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">
-                        💡 Las deudas se guardan en Dólares ($) y se actualizan solas a la tasa BCV del día. Puedes enviar recordatorios de cobro directo a WhatsApp.
-                    </p>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                        <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:left; flex:1;">
+                            💡 El sistema evalúa las fechas de vencimiento y prepara recordatorios automáticos para clientes vencidos.
+                        </p>
+                        <button type="button" class="btn-charge" style="flex:none; width:auto; padding:8px 12px; background:#25D366; color:#000;" onclick="window.abrirModalColaRecordatorios()">
+                            🔔 Cola Automática
+                        </button>
+                    </div>
                     <input type="text" id="buscador-fiados" class="search-input" placeholder="🔍 Buscar deudor por nombre..." oninput="window.renderizarFiados(this.value)" style="margin-top:4px; margin-bottom:0;">
                 </div>
                 <div id="lista-fiados-container" style="display:flex; flex-direction:column; gap:8px;"></div>
             </div>
 
-            <!-- INVENTARIO (CON CONVERSIÓN AUTOMÁTICA A KILO Y + STOCK RÁPIDO) -->
+            <!-- INVENTARIO (CON ESCÁNER IA DE FACTURAS DE PROVEEDORES) -->
             <div id="modulo-inventario" class="modulo-app">
                 <div class="header-modulo">
                     <h3>📦 Catálogo</h3>
@@ -468,7 +535,12 @@
                 </div>
 
                 <div class="admin-form-box" id="form-registro-prod">
-                    <h4 style="margin:0; color:#00ff66; text-align:center;">Registrar / Editar Artículo</h4>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h4 style="margin:0; color:#00ff66;">Registrar / Editar Artículo</h4>
+                        <button type="button" class="btn-tool" style="border-color:#00ff66; color:#00ff66;" onclick="window.abrirModalFacturaProveedor()">
+                            📄 Escanear Factura Proveedor (IA)
+                        </button>
+                    </div>
                     
                     <div style="display:flex; flex-direction:column; gap:8px; align-items:center; border: 1px dashed #242c3d; padding:10px; border-radius:8px;">
                         <img id="preview-img-upload" src="" style="display:none; width:120px; height:120px; object-fit:cover; border-radius:8px;">
@@ -489,7 +561,6 @@
                         <label style="color:#8fa0b7; font-size:12px; margin:0;">Sumar IVA (16%)</label>
                     </div>
 
-                    <!-- CONECTADO A cambiarCategoriaInventario PARA PASAR CHARCUTERÍA/FRUTERÍA A KILO AUTOMÁTICAMENTE -->
                     <select id="prod-cat" onchange="window.cambiarCategoriaInventario(this.value)">
                         <option value="Víveres">🛒 Víveres</option>
                         <option value="Charcutería">🧀 Charcutería (Pasa a Kilo ⚖️)</option>
@@ -540,14 +611,13 @@
                 <div class="inventory-grid" id="lista-productos"></div>
             </div>
 
-            <!-- MEJORA 3: CIERRE Y ESTADÍSTICAS CON FILTROS Y EXPORTACIÓN EXCEL (CSV) -->
+            <!-- CIERRE Y ESTADÍSTICAS CON FILTROS Y EXPORTACIÓN EXCEL (CSV) -->
             <div id="modulo-cierre" class="modulo-app">
                 <div class="header-modulo">
                     <h3>📊 Cierre y Estadísticas</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
 
-                <!-- BARRA DE FILTROS Y BOTÓN EXCEL -->
                 <div class="admin-form-box" style="padding:10px; border-color:#313c52;">
                     <div style="display:flex; gap:6px; align-items:center;">
                         <select id="filtro-cierre-cajero" onchange="window.renderizarCierreDeCaja()" style="flex:1; margin:0; padding:8px; font-size:12px;">
@@ -579,7 +649,6 @@
                     <div class="cierre-item" style="color:#8fa0b7; font-size:11px;">Efectivo Divisas ($) Recibido: <span id="resumen-efectivo-usd" style="color:#fff;">$0.00</span></div>
                 </div>
 
-                <!-- GRÁFICO TOP 5 PRODUCTOS MÁS VENDIDOS -->
                 <div class="cierre-card">
                     <h4>🏆 Top 5 Productos Más Vendidos</h4>
                     <div id="grafico-top-productos" style="display:flex; flex-direction:column; gap:6px;"></div>
@@ -606,7 +675,7 @@
                 <button class="btn-clear" style="margin-top:10px; width:100%; background:#ff5252; color:#fff;" onclick="window.borrarHistorial()">BORRAR TODO Y REINICIAR DÍA</button>
             </div>
 
-            <!-- ADMIN -->
+            <!-- ADMIN CON BÓVEDA DE SEGURIDAD PARA GEMINI API KEY -->
             <div id="modulo-admin" class="modulo-app">
                 <div class="header-modulo">
                     <h3>⚙️ Ajustes del Negocio</h3>
@@ -617,6 +686,15 @@
                     <label style="color:#00ff66; font-weight:bold;">🔑 Código Único de tu Tienda</label>
                     <div id="admin-box-codigo" style="font-size:22px; font-weight:900; color:#fff; letter-spacing:3px; background:#0b0e14; padding:8px; border-radius:8px; border:1px dashed #00ff66;">---</div>
                     <p style="font-size:10px; color:#8fa0b7; margin:0;">Comparte este código con tus cajeros para que sus dispositivos carguen tu inventario y ventas en vivo.</p>
+                </div>
+
+                <!-- BÓVEDA PRIVADA DE API KEY GEMINI VISION -->
+                <div class="admin-form-box" style="border-color:#10b981;">
+                    <label style="color:#00ff66; font-weight:bold;">🤖 Motor IA Gemini Vision (Bóveda Privada)</label>
+                    <p style="font-size:10px; color:#8fa0b7; margin:0; text-align:center;">
+                        Tu clave se almacena cifrada en tu cuenta privada de Firebase y nunca queda expuesta en GitHub.
+                    </p>
+                    <input type="password" id="cfg-gemini-key" placeholder="Pega tu API Key de Gemini aquí" onchange="window.guardarPerfil()">
                 </div>
 
                 <div class="admin-form-box" style="border-color:#00ff66;">
@@ -632,8 +710,8 @@
                 </div>
 
                 <div class="admin-form-box" style="border-color:#00ff66;">
-                    <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor</label>
-                    <input type="text" id="cfg-pm-banco" placeholder="Código Banco 4 Dígitos (Ej. 0102 BDV)" onchange="window.guardarPerfil()">
+                    <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor (Para Validador IA y QR)</label>
+                    <input type="text" id="cfg-pm-banco" placeholder="Código Banco 4 Dígitos (Ej. 0102 BDV, 0134 Banesco)" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-pm-cedula" placeholder="Cédula/RIF con Letra (Ej. V12345678)" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-pm-tlf" placeholder="Teléfono 11 Dígitos" onchange="window.guardarPerfil()">
                 </div>
