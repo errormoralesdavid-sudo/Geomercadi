@@ -8,9 +8,7 @@
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./style.css">
 
-    <!-- Lector de Códigos de Barras (Eliminado Tesseract OCR antiguo por Gemini Vision) -->
     <script defer src="https://unpkg.com/html5-qrcode"></script>
-
     <script type="module" src="./app.js"></script>
 </head>
 <body>
@@ -153,7 +151,7 @@
             <div class="modal-content" style="max-width: 310px; text-align: center;">
                 <h3 style="color:#00ff66;">📈 Tasa del Dólar</h3>
                 <p style="font-size:11px; color:#8fa0b7; margin:0;">Actualiza el valor en Bolívares para toda la tienda:</p>
-                <input type="number" step="0.01" id="input-tasa-modal" placeholder="Ej. 623.02" style="background:#0b0e14; border:1px solid #00ff66; padding:12px; border-radius:8px; color:#fff; text-align:center; font-size:18px; font-weight:bold;">
+                <input type="number" step="0.01" id="input-tasa-modal" placeholder="Ej. 887.30" style="background:#0b0e14; border:1px solid #00ff66; padding:12px; border-radius:8px; color:#fff; text-align:center; font-size:18px; font-weight:bold;">
                 <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; width:100%;" onclick="window.obtenerTasaBCV(false); document.getElementById('modal-tasa-rapida').style.display='none';">📡 Sincronizar Automático con BCV</button>
                 <div style="display:flex; gap:8px; margin-top:4px;">
                     <button class="btn-clear" onclick="document.getElementById('modal-tasa-rapida').style.display='none'">Cerrar</button>
@@ -215,7 +213,7 @@
             </div>
         </div>
 
-        <!-- MODAL NUEVO FIADO CON FECHA DE VENCIMIENTO PARA NOTIFICACIONES AUTOMÁTICAS -->
+        <!-- MODAL NUEVO FIADO CON FECHA DE VENCIMIENTO PARA NOTIFICACIONES AUTOMÁTICOS -->
         <div id="modal-nuevo-fiado" class="modal-overlay">
             <div class="modal-content" style="max-width: 340px; text-align: center;">
                 <h3 style="color:#ffc107;">🤝 Registrar Venta a Crédito</h3>
@@ -328,7 +326,7 @@
                         🔔 <span id="badge-bell-count">0</span>
                     </button>
                     <button type="button" class="badge-tasa-live" onclick="window.abrirModalTasaRapida()" title="Toca para ajustar tasa">
-                        📈 BCV: <strong id="top-bar-tasa">623,02 Bs</strong> ✏️
+                        📈 BCV: <strong id="top-bar-tasa">887,30 Bs</strong> ✏️
                     </button>
                 </div>
             </div>
@@ -675,7 +673,7 @@
                 <button class="btn-clear" style="margin-top:10px; width:100%; background:#ff5252; color:#fff;" onclick="window.borrarHistorial()">BORRAR TODO Y REINICIAR DÍA</button>
             </div>
 
-            <!-- ADMIN CON BÓVEDA DE SEGURIDAD PARA GEMINI API KEY -->
+            <!-- ADMIN CON BÓVEDA DUAL (GRATIS + PAGA) PARA GEMINI VISION -->
             <div id="modulo-admin" class="modulo-app">
                 <div class="header-modulo">
                     <h3>⚙️ Ajustes del Negocio</h3>
@@ -688,13 +686,28 @@
                     <p style="font-size:10px; color:#8fa0b7; margin:0;">Comparte este código con tus cajeros para que sus dispositivos carguen tu inventario y ventas en vivo.</p>
                 </div>
 
-                <!-- BÓVEDA PRIVADA DE API KEY GEMINI VISION -->
+                <!-- BÓVEDA DUAL DE MOTORES GEMINI VISION (CUENTA GRATIS + CUENTA PAGA) -->
                 <div class="admin-form-box" style="border-color:#10b981;">
-                    <label style="color:#00ff66; font-weight:bold;">🤖 Motor IA Gemini Vision (Bóveda Privada)</label>
+                    <label style="color:#00ff66; font-weight:bold;">🤖 Bóveda Dual Gemini Vision (Gratis + Paga)</label>
                     <p style="font-size:10px; color:#8fa0b7; margin:0; text-align:center;">
-                        Tu clave se almacena cifrada en tu cuenta privada de Firebase y nunca queda expuesta en GitHub.
+                        Si se agotan los tokens de tu cuenta gratuita (<code>gemini-3-flash-preview</code>), el sistema salta automáticamente a tu cuenta paga (<code>gemini-3.5-flash-lite</code>).
                     </p>
-                    <input type="password" id="cfg-gemini-key" placeholder="Pega tu API Key de Gemini aquí" onchange="window.guardarPerfil()">
+                    
+                    <label style="font-size:10px; color:#8fa0b7; text-align:left; margin-bottom:-4px;">Modo de Selección de Motor:</label>
+                    <select id="cfg-gemini-modelo" onchange="window.guardarPerfil()">
+                        <option value="auto">🔄 Automático: Gratis (3-flash-preview) ➔ Respaldo Paga (3.5-flash-lite)</option>
+                        <option value="preview">🆓 Priorizar Cuenta Normal (gemini-3-flash-preview)</option>
+                        <option value="lite">⚡ Directo Cuenta Paga Económica (gemini-3.5-flash-lite)</option>
+                    </select>
+
+                    <label style="font-size:10px; color:#00ff66; text-align:left; margin-bottom:-4px;">Clave 1: Cuenta Normal / Gratis (gemini-3-flash-preview):</label>
+                    <input type="password" id="cfg-gemini-key" placeholder="Pega tu API Key Principal aquí" onchange="window.guardarPerfil()">
+
+                    <label style="font-size:10px; color:#ffc107; text-align:left; margin-bottom:-4px;">Clave 2 (Opcional): Cuenta Paga Respaldo (gemini-3.5-flash-lite):</label>
+                    <input type="password" id="cfg-gemini-key-pago" placeholder="Pega tu API Key Paga de respaldo (o déjalo vacío si es la misma)" onchange="window.guardarPerfil()">
+
+                    <button type="button" class="btn-clear" style="border-color:#00ff66; color:#00ff66;" onclick="window.probarConexionGemini()">⚡ Probar Conexión IA Ahora</button>
+                    <div id="gemini-test-status" style="display:none; font-size:11px; font-weight:bold; text-align:center; padding:6px; border-radius:6px; background:#0b0e14;"></div>
                 </div>
 
                 <div class="admin-form-box" style="border-color:#00ff66;">
@@ -733,7 +746,7 @@
                 <div class="admin-form-box">
                     <label>📈 Tasa Dólar (Bs):</label>
                     <div style="display:flex; gap:6px;">
-                        <input type="number" step="0.01" id="input-tasa-global" value="623.02" oninput="window.cambiarTasaManual(this.value)">
+                        <input type="number" step="0.01" id="input-tasa-global" value="887.30" oninput="window.cambiarTasaManual(this.value)">
                         <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; flex:none; padding:0 10px;" onclick="window.obtenerTasaBCV()">📡 BCV</button>
                     </div>
                 </div>
