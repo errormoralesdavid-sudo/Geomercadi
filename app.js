@@ -73,7 +73,6 @@ window.obtenerGeminiKeyRespaldoPago = function() {
 // VARIABLES MULTI-TIENDA Y ESTADO GLOBAL
 window.tiendaActivaID = localStorage.getItem('geomercado_tienda_id') || "datos_globales";
 window.unsubscribeSnapshot = null;
-window.datosCargadosDeNube = false;
 
 window.tasaDia = parseFloat(localStorage.getItem('geomercado_tasa_v19')) || 887.30;
 window.subtotalVentaUSD = 0.00;
@@ -114,22 +113,15 @@ window.html5QrScannerInstancia = null;
 
 // VARIABLES DE MODO REPOSO E IMPRESORA BLUETOOTH
 window.temporizadorInactividad = null;
-window.TIEMPO_REPOSO_MS = 3 * 60 * 1000; // 3 minutos
+window.TIEMPO_REPOSO_MS = 3 * 60 * 1000;
 window.impresoraBTDevice = null;
 window.impresoraBTCharacteristic = null;
 
 // =========================================================================
-// SONIDO BEEP + FEEDBACK HÁPTICO (VIBRACIÓN INTELIGENTE)
+// SONIDO BEEP + FEEDBACK HÁPTICO
 // =========================================================================
 window.reproducirBeep = function(exito = true) {
-    // 1. Respuesta Háptica Física (Vibración corta en éxito, doble fuerte en error)
-    try {
-        if (navigator.vibrate) {
-            navigator.vibrate(exito ? 45 : [130, 70, 160]);
-        }
-    } catch(e) {}
-
-    // 2. Respuesta Sonora por Oscilador WebAudio
+    try { if (navigator.vibrate) navigator.vibrate(exito ? 45 : [130, 70, 160]); } catch(e) {}
     try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = ctx.createOscillator();
@@ -145,18 +137,13 @@ window.reproducirBeep = function(exito = true) {
 };
 
 // =========================================================================
-// MODO REPOSO INTELIGENTE (AHORRO DE BATERÍA NEGRO PURO SIN PEDIR PIN)
+// MODO REPOSO INTELIGENTE (AHORRO BATERÍA)
 // =========================================================================
 window.actualizarRelojScreensaver = function() {
     let elClock = document.getElementById('screensaver-clock');
     let elTasa = document.getElementById('screensaver-tasa');
-    if (elClock) {
-        let ahora = new Date();
-        elClock.innerText = ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-    if (elTasa) {
-        elTasa.innerText = `BCV: ${window.formatVE(window.tasaDia)}`;
-    }
+    if (elClock) elClock.innerText = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (elTasa) elTasa.innerText = `BCV: ${window.formatVE(window.tasaDia)}`;
 };
 
 window.activarModoReposo = function() {
@@ -184,74 +171,57 @@ window.reiniciarTemporizadorInactividad = function() {
 };
 
 // =========================================================================
-// IMPRESIÓN TÉRMICA SILENCIOSA (WEB BLUETOOTH ESC/POS 58mm / 80mm)
+// IMPRESIÓN TÉRMICA SILENCIOSA (WEB BLUETOOTH)
 // =========================================================================
 window.conectarImpresoraBluetooth = async function() {
     if (!navigator.bluetooth) {
-        window.mostrarFeedbackAnimado('error', 'Bluetooth Web no disponible en este navegador');
+        window.mostrarFeedbackAnimado('error', 'Bluetooth no compatible');
         return;
     }
     try {
-        window.mostrarToast("🔍 Buscando ticketera Bluetooth...");
+        window.mostrarToast("🔍 Buscando ticketera...");
         const device = await navigator.bluetooth.requestDevice({
             acceptAllDevices: true,
-            optionalServices: [
-                '000018f0-0000-1000-8000-00805f9b34fb',
-                'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
-                '49535343-fe7d-4ae5-8fa9-9fafd205e455'
-            ]
+            optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455']
         });
-
         const server = await device.gatt.connect();
         const services = await server.getPrimaryServices();
         let writeChar = null;
-
         for (let service of services) {
             const chars = await service.getCharacteristics();
             for (let c of chars) {
-                if (c.properties.write || c.properties.writeWithoutResponse) {
-                    writeChar = c;
-                    break;
-                }
+                if (c.properties.write || c.properties.writeWithoutResponse) { writeChar = c; break; }
             }
             if (writeChar) break;
         }
-
-        if (!writeChar) throw new Error("No se encontró canal de escritura ESC/POS");
+        if (!writeChar) throw new Error("Sin puerto ESC/POS");
 
         window.impresoraBTDevice = device;
         window.impresoraBTCharacteristic = writeChar;
-
         let elStatus = document.getElementById('bt-printer-status');
         if (elStatus) {
             elStatus.style.color = '#00ff66';
-            elStatus.innerText = `✔ Conectada: ${device.name || 'Ticketera Térmica'}`;
+            elStatus.innerText = `✔ Conectada: ${device.name || 'Ticketera'}`;
         }
         window.reproducirBeep(true);
         window.mostrarToast("🖨️ Ticketera Bluetooth vinculada");
     } catch (err) {
-        console.warn("Cancelado o fallo BT:", err);
         window.mostrarToast("Modo impresión estándar activo");
     }
 };
 
 window.limpiarTextoESCPOS = function(str) {
-    return String(str || "")
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^\x20-\x7E\n]/g, "");
+    return String(str || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E\n]/g, "");
 };
 
 window.enviarTextoImpresoraBT = async function(textoTicket) {
     if (!window.impresoraBTCharacteristic) return false;
     try {
         const encoder = new TextEncoder();
-        // Comandos ESC/POS: Inicializar (ESC @), Texto limpio, Avance de 4 líneas
         const initCmd = new Uint8Array([0x1B, 0x40]);
         const textBytes = encoder.encode(window.limpiarTextoESCPOS(textoTicket) + "\n\n\n\n");
         const payload = new Uint8Array(initCmd.length + textBytes.length);
-        payload.set(initCmd, 0);
-        payload.set(textBytes, initCmd.length);
-
+        payload.set(initCmd, 0); payload.set(textBytes, initCmd.length);
         const CHUNK = 100;
         for (let i = 0; i < payload.length; i += CHUNK) {
             const slice = payload.slice(i, i + CHUNK);
@@ -263,25 +233,16 @@ window.enviarTextoImpresoraBT = async function(textoTicket) {
         }
         return true;
     } catch (e) {
-        console.warn("Error enviando por Bluetooth, usando respaldo navegador:", e);
         window.impresoraBTCharacteristic = null;
         return false;
     }
 };
 
 window.probarImpresoraBluetooth = async function() {
-    let texto = `================================\n` +
-                `   ${window.perfilNegocio.nombre || 'GEOMERCADO'}\n` +
-                `   PRUEBA DE IMPRESORA TERMICA\n` +
-                `   Tasa BCV: ${window.tasaDia.toFixed(2)} Bs\n` +
-                `================================\n` +
-                `Estado: OK (Impresion Directa)\n`;
+    let texto = `================================\n   ${window.perfilNegocio.nombre || 'GEOMERCADO'}\n   PRUEBA DE IMPRESORA TERMICA\n   Tasa BCV: ${window.tasaDia.toFixed(2)} Bs\n================================\nEstado: OK\n`;
     let impresoBT = await window.enviarTextoImpresoraBT(texto);
-    if (impresoBT) {
-        window.mostrarToast("🧾 Ticket enviado por Bluetooth");
-    } else {
-        window.mostrarFeedbackAnimado('error', 'Vincula primero una Ticketera BT');
-    }
+    if (impresoBT) window.mostrarToast("🧾 Ticket enviado por Bluetooth");
+    else window.mostrarFeedbackAnimado('error', 'Vincula primero una Ticketera BT');
 };
 
 function iniciarSistema() {
@@ -292,6 +253,7 @@ function iniciarSistema() {
     let inputCod = document.getElementById('login-codigo-tienda');
     if (inputCod && codGuardado) inputCod.value = codGuardado;
 
+    // Respaldo local de seguridad
     try {
         let raw = localStorage.getItem('geomercado_backup_' + window.tiendaActivaID);
         if (raw) {
@@ -310,18 +272,15 @@ function iniciarSistema() {
     }
 
     let inputBalanza = document.getElementById('balanza-input-kg');
-    if (inputBalanza) {
-        inputBalanza.addEventListener('input', window.actualizarCalculoBalanza);
-    }
+    if (inputBalanza) inputBalanza.addEventListener('input', window.actualizarCalculoBalanza);
 
-    // Eventos de actividad para el Modo Reposo Inteligente
     ['click', 'touchstart', 'keydown', 'mousemove'].forEach(evt => {
         document.addEventListener(evt, window.reiniciarTemporizadorInactividad, { passive: true });
     });
     window.reiniciarTemporizadorInactividad();
     setInterval(window.actualizarRelojScreensaver, 15000);
 
-    // ATAJOS DE TECLADO FÍSICO PARA PC / LAPTOP
+    // ATAJOS PC
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
@@ -331,20 +290,10 @@ function iniciarSistema() {
         let enCaja = document.getElementById('modulo-caja') && document.getElementById('modulo-caja').style.display === 'flex';
         if (!enCaja) return;
 
-        if (e.key === 'F2') {
-            e.preventDefault();
-            let busc = document.getElementById('buscador-caja');
-            if (busc) { busc.focus(); busc.select(); }
-        } else if (e.key === 'F4') {
-            e.preventDefault();
-            window.aparcarFactura();
-        } else if (e.key === 'F8') {
-            e.preventDefault();
-            window.llenarMaximo('ptv');
-        } else if (e.key === 'F9' || (e.ctrlKey && e.key === 'Enter')) {
-            e.preventDefault();
-            window.procesarCobro(false);
-        }
+        if (e.key === 'F2') { e.preventDefault(); let busc = document.getElementById('buscador-caja'); if (busc) { busc.focus(); busc.select(); } }
+        else if (e.key === 'F4') { e.preventDefault(); window.aparcarFactura(); }
+        else if (e.key === 'F8') { e.preventDefault(); window.llenarMaximo('ptv'); }
+        else if (e.key === 'F9' || (e.ctrlKey && e.key === 'Enter')) { e.preventDefault(); window.procesarCobro(false); }
     });
 
     window.addEventListener('online', window.actualizarBarraSuperiorUI);
@@ -357,7 +306,7 @@ function iniciarSistema() {
 
 document.addEventListener('DOMContentLoaded', iniciarSistema);
 
-// CONEXIÓN DINÁMICA MULTI-TIENDA EN FIREBASE CON PROTECCIÓN DE INVENTARIO
+// CONEXIÓN DINÁMICA FIREBASE CON PROTECCIÓN DE INVENTARIO
 window.suscribirTiendaFirebase = function(docId) {
     if (window.unsubscribeSnapshot) window.unsubscribeSnapshot();
     window.tiendaActivaID = docId;
@@ -370,29 +319,26 @@ window.suscribirTiendaFirebase = function(docId) {
     if (elAdminCod) elAdminCod.innerText = codMostrar;
 
     window.unsubscribeSnapshot = onSnapshot(doc(db, "geomercado_tienda", docId), (snapshot) => {
-        if (snapshot.exists()) {
-            const data = snapshot.data();
-            if ((data.productos && data.productos.length > 0) || !window.datosCargadosDeNube) {
-                window.productos = data.productos || [];
+        if (!snapshot.exists()) {
+            if (window.rolActual === "Administrador 👑") {
+                window.guardarEstructuraFirebase();
             }
+        } else {
+            const data = snapshot.data();
+            if (data.productos) { window.productos = data.productos; }
             window.ventasHistorico = data.ventasHistorico || [];
             window.gastosCaja = data.gastosCaja || [];
             window.facturasEnEspera = data.facturasEnEspera || [];
             window.fiados = data.fiados || [];
             window.perfilNegocio = Object.assign({ 
-                nombre: "GeoMercado", pmBanco: "0102", pmCedula: "V12345678", 
-                pmTlf: "04121234567", cobrarIGTF: false, 
-                geminiKeyCifrada: DEFAULT_VAULT_CIPHER,
-                geminiKeyPagoCifrada: "",
-                geminiModoMotor: "auto"
+                nombre: "GeoMercado", pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567", cobrarIGTF: false, 
+                geminiKeyCifrada: DEFAULT_VAULT_CIPHER, geminiKeyPagoCifrada: "", geminiModoMotor: "auto"
             }, data.perfilNegocio || {});
-            if (!window.perfilNegocio.geminiKeyCifrada) {
-                window.perfilNegocio.geminiKeyCifrada = DEFAULT_VAULT_CIPHER;
-            }
+            
+            if (!window.perfilNegocio.geminiKeyCifrada) window.perfilNegocio.geminiKeyCifrada = DEFAULT_VAULT_CIPHER;
             window.usuariosCajeros = data.usuariosCajeros || [{ id: 1, nombre: "Caja Principal", clave: "1234" }];
             window.fondoCaja = data.fondoCaja || { usd: 0, ves: 0 };
             if (data.tasaDia) window.tasaDia = data.tasaDia;
-            window.datosCargadosDeNube = true;
 
             window.sincronizarCamposAdminUI();
             window.actualizarOpcionesLogin();
@@ -406,8 +352,6 @@ window.suscribirTiendaFirebase = function(docId) {
             if (document.getElementById('modulo-cierre').style.display === 'flex') window.renderizarCierreDeCaja();
             if (document.getElementById('modulo-fiados').style.display === 'flex') window.renderizarFiados();
             if (document.getElementById('modulo-caja').style.display === 'flex') window.filtrarBuscadorCaja(document.getElementById('buscador-caja').value);
-        } else {
-            window.guardarEstructuraFirebase();
         }
     });
 };
@@ -439,7 +383,7 @@ window.guardarEstructuraFirebase = async function() {
         window.actualizarBarraSuperiorUI();
         await setDoc(doc(db, "geomercado_tienda", window.tiendaActivaID), payload);
     } catch (e) {
-        console.warn("Guardado en caché local:", e);
+        console.warn("Guardado local:", e);
     }
 };
 
@@ -454,10 +398,10 @@ window.actualizarBarraSuperiorUI = function() {
     if (elDot) elDot.className = navigator.onLine ? "status-dot online" : "status-dot offline";
 };
 
-// AUTO-FOCO EN MODAL DE TASA RÁPIDA Y CLIENTE
+// AUTO-FOCO EN MODALES
 window.abrirModalTasaRapida = function() {
-    if (window.rolActual !== "Administrador 👑") {
-        window.mostrarToast("Solo el Administrador puede cambiar la tasa");
+    if (window.rolActual !== "Administrador") {
+        window.mostrarToast("Solo el Dueño puede cambiar la tasa");
         return;
     }
     let input = document.getElementById('input-tasa-modal');
@@ -468,10 +412,7 @@ window.abrirModalTasaRapida = function() {
 
 window.abrirModalClienteConFoco = function() {
     document.getElementById('modal-cliente').style.display = 'flex';
-    setTimeout(() => {
-        let el = document.getElementById('cliente-nombre');
-        if (el) { el.focus(); el.select(); }
-    }, 150);
+    setTimeout(() => { let el = document.getElementById('cliente-nombre'); if (el) { el.focus(); el.select(); } }, 150);
 };
 
 window.guardarTasaDesdeModal = function() {
@@ -506,22 +447,20 @@ window.sincronizarCamposAdminUI = function() {
     document.getElementById('input-tasa-global').value = window.tasaDia.toFixed(2);
 };
 
-// ALERTAS DE STOCK BAJO
 window.verificarAlertasStock = function() {
     let bajos = window.productos.filter(p => p.tipo === 'unidad' && p.qty <= 5);
     let banner = document.getElementById('alerta-stock-menu');
     if (!banner) return;
     if (bajos.length > 0) {
         banner.style.display = 'block';
-        banner.innerText = `⚠️ ALERTA DE STOCK: Tienes ${bajos.length} producto(s) agotándose (${bajos.slice(0,2).map(x=>x.nombre).join(', ')}...)`;
+        banner.innerText = `⚠️ ALERTA STOCK: Quedan pocos de ${bajos.slice(0,2).map(x=>x.nombre).join(', ')}...`;
     } else {
         banner.style.display = 'none';
     }
 };
 
 // =========================================================================
-// MOTOR DE IA GEMINI VISION CON FAILOVER AUTOMÁTICO:
-// 1° gemini-3-flash-preview (Gratis) ➔ 2° gemini-3.5-flash-lite (Paga/Lite)
+// MOTOR DE IA GEMINI VISION CON FAILOVER
 // =========================================================================
 window.comprimirImagenParaIA = function(file, maxDim = 680) {
     return new Promise((resolve, reject) => {
@@ -549,30 +488,11 @@ window.comprimirImagenParaIA = function(file, maxDim = 680) {
 
 window.ejecutarPeticionModeloGemini = async function(modelo, apiKey, base64Jpeg, promptSistema) {
     let endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    let headers = { 
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey
-    };
-
     let body = {
-        contents: [{
-            parts: [
-                { text: promptSistema },
-                { inline_data: { mime_type: "image/jpeg", data: base64Jpeg } }
-            ]
-        }],
-        generationConfig: {
-            temperature: 0.1,
-            responseMimeType: "application/json"
-        }
+        contents: [{ parts: [{ text: promptSistema }, { inline_data: { mime_type: "image/jpeg", data: base64Jpeg } }] }],
+        generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
     };
-
-    let response = await fetch(endpoint, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(body)
-    });
-
+    let response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey }, body: JSON.stringify(body) });
     if (!response.ok) {
         let errData = await response.json().catch(() => ({}));
         let msg = errData?.error?.message || ("HTTP " + response.status);
@@ -580,14 +500,10 @@ window.ejecutarPeticionModeloGemini = async function(modelo, apiKey, base64Jpeg,
         errorObj.status = response.status;
         throw errorObj;
     }
-
     let result = await response.json();
     let rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     let cleanJson = rawText.replace(/```json|```/gi, "").trim();
-    return {
-        data: JSON.parse(cleanJson),
-        modeloUsado: modelo
-    };
+    return { data: JSON.parse(cleanJson), modeloUsado: modelo };
 };
 
 window.llamarGeminiVisionJSON = async function(base64Jpeg, promptSistema) {
@@ -595,23 +511,19 @@ window.llamarGeminiVisionJSON = async function(base64Jpeg, promptSistema) {
     let keyPago = window.obtenerGeminiKeyRespaldoPago() || keyGratis;
     let modo = window.perfilNegocio.geminiModoMotor || "auto";
 
-    if (!keyGratis && !keyPago) {
-        throw new Error("Configura tu API Key en Ajustes");
-    }
+    if (!keyGratis && !keyPago) throw new Error("Configura tu API Key en Ajustes");
 
     let planIntentos = [];
     if (modo === "lite") {
-        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite (Paga)" });
-        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview (Respaldo)" });
+        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite" });
+        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview" });
     } else if (modo === "preview") {
-        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview (Gratis)" });
-        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite (Respaldo)" });
+        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview" });
+        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite" });
     } else {
-        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview (Gratis)" });
-        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite (Cuenta Paga)" });
-        if (keyPago !== keyGratis) {
-            planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyPago, etiqueta: "Preview (Cuenta Paga)" });
-        }
+        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview" });
+        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite" });
+        if (keyPago !== keyGratis) planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyPago, etiqueta: "Preview Paga" });
     }
 
     let ultimoError = null;
@@ -621,13 +533,9 @@ window.llamarGeminiVisionJSON = async function(base64Jpeg, promptSistema) {
             let res = await window.ejecutarPeticionModeloGemini(intento.modelo, intento.key, base64Jpeg, promptSistema);
             window.ultimoMotorIAExitoso = `${intento.modelo}`;
             return res.data;
-        } catch (err) {
-            console.warn(`Fallo en ${intento.modelo} (${intento.etiqueta}):`, err.message);
-            ultimoError = err;
-        }
+        } catch (err) { ultimoError = err; }
     }
-
-    throw ultimoError || new Error("No se pudo conectar con los motores Gemini");
+    throw ultimoError || new Error("No hay conexión con Gemini");
 };
 
 window.probarConexionGemini = async function() {
@@ -636,14 +544,14 @@ window.probarConexionGemini = async function() {
     if (statusEl) {
         statusEl.style.display = 'block';
         statusEl.style.color = '#ffc107';
-        statusEl.innerText = '⏳ Probando conexión con tus motores Gemini...';
+        statusEl.innerText = '⏳ Probando conexión...';
     }
     try {
         let miniPixel = "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
         await window.llamarGeminiVisionJSON(miniPixel, 'Devuelve exactamente este JSON: {"ok": true}');
         if (statusEl) {
             statusEl.style.color = '#00ff66';
-            statusEl.innerText = `✔ Conexión Exitosa. Motor activo: ${window.ultimoMotorIAExitoso}`;
+            statusEl.innerText = `✔ Conectado: ${window.ultimoMotorIAExitoso}`;
         }
         window.reproducirBeep(true);
     } catch (err) {
@@ -655,7 +563,7 @@ window.probarConexionGemini = async function() {
     }
 };
 
-// 1. VALIDADOR DE PAGO MÓVIL CON GEMINI VISION Y LÓGICA CONDICIONAL BANCARIA
+// 1. VALIDADOR DE PAGO MÓVIL
 window.escanearCapturePagoCompleto = async function(e) {
     let input = e.target;
     if (!input.files || !input.files[0]) return;
@@ -665,9 +573,10 @@ window.escanearCapturePagoCompleto = async function(e) {
     if (banner) { banner.style.display = 'none'; banner.className = 'pm-status-banner'; }
 
     let overlay = document.getElementById('scan-feedback');
-    document.getElementById('scan-feedback-box').className = 'scan-feedback-box';
-    document.getElementById('scan-feedback-box').innerHTML = '🤖';
-    document.getElementById('scan-feedback-msg').innerText = 'Analizando comprobante con IA...';
+    let box = document.getElementById('scan-feedback-box');
+    box.className = 'scan-feedback-box scan-feedback-processing';
+    box.innerHTML = '';
+    document.getElementById('scan-feedback-msg').innerText = 'Verificando transacción bancaria...';
     overlay.style.display = 'flex';
 
     try {
@@ -707,7 +616,7 @@ window.escanearCapturePagoCompleto = async function(e) {
         if (refDuplicada) {
             window.reproducirBeep(false);
             banner.className = 'pm-status-banner pm-status-error';
-            banner.innerHTML = `❌ ALERTA DE SEGURIDAD: La referencia <strong>#${refExtraida}</strong> ya fue registrada en una venta anterior.`;
+            banner.innerHTML = `❌ ALERTA DE SEGURIDAD: La referencia <strong>#${refExtraida}</strong> ya fue registrada hoy.`;
             banner.style.display = 'block';
             return;
         }
@@ -715,7 +624,7 @@ window.escanearCapturePagoCompleto = async function(e) {
         if (!bancoCoincide) {
             window.reproducirBeep(false);
             banner.className = 'pm-status-banner pm-status-error';
-            banner.innerHTML = `❌ BANCO RECEPTOR NO COINCIDE:<br>• Detectado en comprobante: <strong>${bancoExtraido || 'N/A'} (${dataIA.banco_receptor_nombre || 'Otro'})</strong><br>• Banco de tu Tienda: <strong>${bancoTienda}</strong><br>• Monto leído: <strong>${window.formatVE(montoExtraido)}</strong> | Ref: <strong>#${refExtraida}</strong>`;
+            banner.innerHTML = `❌ BANCO RECEPTOR INCORRECTO:<br>• Se pagó a: <strong>${bancoExtraido || 'N/A'} (${dataIA.banco_receptor_nombre || 'Otro'})</strong><br>• Tu Tienda es: <strong>${bancoTienda}</strong><br>• Monto: <strong>${window.formatVE(montoExtraido)}</strong> | Ref: <strong>#${refExtraida}</strong>`;
             banner.style.display = 'block';
             return;
         }
@@ -723,7 +632,7 @@ window.escanearCapturePagoCompleto = async function(e) {
         if (montoExtraido <= 0) {
             window.reproducirBeep(false);
             banner.className = 'pm-status-banner pm-status-warning';
-            banner.innerHTML = `⚠️ Banco ${bancoTienda} verificado, pero no se pudo leer el monto exacto. Ingrésalo manualmente.`;
+            banner.innerHTML = `⚠️ Banco verificado, pero no se leyó el monto. Ingresa manual.`;
             banner.style.display = 'block';
             return;
         }
@@ -736,26 +645,25 @@ window.escanearCapturePagoCompleto = async function(e) {
 
         window.reproducirBeep(true);
         banner.className = 'pm-status-banner pm-status-success';
-        banner.innerHTML = `✔ PAGO MÓVIL APROBADO (${window.ultimoMotorIAExitoso || 'IA'}):<br>• Banco Receptor: <strong>${bancoExtraido} (Coincide con Tienda)</strong><br>• Monto Exacto: <strong>${window.formatVE(montoExtraido)}</strong><br>• Referencia: <strong>#${refExtraida}</strong>`;
+        banner.innerHTML = `✔ TRANSACCIÓN VERIFICADA:<br>• Banco Receptor: <strong>${bancoExtraido} (Correcto)</strong><br>• Monto Exacto: <strong>${window.formatVE(montoExtraido)}</strong><br>• Ref: <strong>#${refExtraida}</strong>`;
         banner.style.display = 'block';
-        window.mostrarToast("✓ Comprobante validado y cargado en caja");
+        window.mostrarToast("✓ Validado");
 
     } catch (err) {
         overlay.style.display = 'none';
         window.reproducirBeep(false);
-        console.error(err);
         if (banner) {
             banner.className = 'pm-status-banner pm-status-error';
-            banner.innerHTML = `❌ Detalle técnico IA: ${window.escapeHTML(err.message || 'Fallo de red')}`;
+            banner.innerHTML = `❌ Detalle técnico: ${window.escapeHTML(err.message || 'Fallo de red')}`;
             banner.style.display = 'block';
         }
-        window.mostrarFeedbackAnimado('error', 'Revisa el aviso en Pago Móvil');
+        window.mostrarFeedbackAnimado('warning', 'Lectura fallida');
     } finally {
         input.value = "";
     }
 };
 
-// 2. ESCÁNER DE FACTURAS DE PROVEEDORES CON GEMINI VISION
+// 2. ESCÁNER DE FACTURAS DE PROVEEDORES CON DESGLOSE DE BULTOS
 window.abrirModalFacturaProveedor = function() {
     document.getElementById('factura-ia-estado').style.display = 'none';
     document.getElementById('factura-ia-lista-items').style.display = 'none';
@@ -774,20 +682,20 @@ window.procesarFacturaProveedorIA = async function(e) {
     let btnAplicar = document.getElementById('btn-aplicar-factura-ia');
 
     boxEstado.style.display = 'block';
-    boxEstado.innerText = "🤖 Analizando factura con motor Gemini...";
+    boxEstado.innerText = "🤖 Procesando factura...";
     boxLista.style.display = 'none';
     btnAplicar.style.display = 'none';
 
     try {
-        let base64Img = await window.comprimirImagenParaIA(file, 780);
-        let promptFactura = `Analiza esta factura o nota de entrega comercial. Extrae todos los renglones de productos y devuelve SOLO un objeto JSON con este formato exacto:
+        let base64Img = await window.comprimirImagenParaIA(file, 800);
+        let promptFactura = `Analiza esta factura de proveedor. Devuelve SOLO un JSON:
         {
           "proveedor": string,
           "moneda_detectada": "USD" | "VES",
           "productos": [
             {
               "nombre": string,
-              "cantidad": number,
+              "cantidad": number (bultos o unidades compradas),
               "costo_unitario": number
             }
           ]
@@ -797,7 +705,7 @@ window.procesarFacturaProveedorIA = async function(e) {
         let lista = Array.isArray(dataIA.productos) ? dataIA.productos : [];
 
         if (lista.length === 0) {
-            boxEstado.innerText = "⚠️ No se detectaron renglones de productos en esa imagen. Sube la foto de una factura comercial.";
+            boxEstado.innerText = "⚠️ No se detectaron renglones.";
             return;
         }
 
@@ -810,30 +718,41 @@ window.procesarFacturaProveedorIA = async function(e) {
                 nombre: String(item.nombre || "Artículo").trim(),
                 cantidad: parseFloat(item.cantidad) || 1,
                 costoUSD: parseFloat(costoUSD.toFixed(2)) || 0.50,
-                existeId: prodExistente ? prodExistente.id : null
+                existeId: prodExistente ? prodExistente.id : null,
+                multiplicador: 1 // Default para desglose
             };
         });
 
-        boxEstado.innerText = `✓ ${window.itemsFacturaProveedorTemp.length} productos extraídos (${window.ultimoMotorIAExitoso || 'IA'}):`;
+        boxEstado.innerText = `✓ ${window.itemsFacturaProveedorTemp.length} productos extraídos:`;
         boxLista.style.display = 'flex';
-        boxLista.innerHTML = window.itemsFacturaProveedorTemp.map((it) => `
-            <div class="ai-invoice-row">
-                <div style="flex:1;">
-                    <span class="ai-invoice-badge ${it.existeId ? 'ai-badge-update' : 'ai-badge-new'}">${it.existeId ? 'Suma Stock' : 'Nuevo'}</span>
-                    <strong style="margin-left:4px;">${window.escapeHTML(it.nombre)}</strong>
+        boxLista.innerHTML = window.itemsFacturaProveedorTemp.map((it, idx) => {
+            let esBulto = it.nombre.toLowerCase().includes('bulto') || it.nombre.toLowerCase().includes('caja');
+            let divBulto = esBulto ? `
+                <div class="bulto-config-row">
+                    <span style="color:#ffc107; font-size:10px;">📦 Detectado Bulto/Caja. ¿Unidades internas?</span>
+                    <input type="number" value="1" onchange="window.itemsFacturaProveedorTemp[${idx}].multiplicador = parseFloat(this.value) || 1">
                 </div>
-                <div style="text-align:right; color:#00ff66; font-weight:bold;">
-                    +${it.cantidad} unds | Costo: $${it.costoUSD.toFixed(2)}
+            ` : '';
+
+            return `<div class="ai-invoice-row">
+                <div class="ai-invoice-header">
+                    <div>
+                        <span class="ai-invoice-badge ${it.existeId ? 'ai-badge-update' : 'ai-badge-new'}">${it.existeId ? 'Suma Stock' : 'Nuevo'}</span>
+                        <strong style="margin-left:4px;">${window.escapeHTML(it.nombre)}</strong>
+                    </div>
+                    <div style="text-align:right; color:#00ff66; font-weight:bold;">
+                        +${it.cantidad} | Costo: $${it.costoUSD.toFixed(2)}
+                    </div>
                 </div>
-            </div>
-        `).join('');
+                ${divBulto}
+            </div>`;
+        }).join('');
 
         btnAplicar.style.display = 'block';
         window.reproducirBeep(true);
 
     } catch (err) {
-        console.error(err);
-        boxEstado.innerText = `❌ Detalle técnico IA: ${err.message || 'Verifica tu conexión'}`;
+        boxEstado.innerText = `❌ Error: ${err.message}`;
         window.reproducirBeep(false);
     } finally {
         input.value = "";
@@ -845,13 +764,16 @@ window.aplicarFacturaProveedorAlStock = async function() {
     let margenDefault = parseFloat(document.getElementById('factura-ia-margen').value) || 30;
 
     window.itemsFacturaProveedorTemp.forEach((it, idx) => {
-        let precioCalc = it.costoUSD + (it.costoUSD * (margenDefault / 100));
+        let cantTotal = it.cantidad * (it.multiplicador || 1);
+        let costoUnitarioDesc = it.costoUSD / (it.multiplicador || 1);
+        let precioCalc = costoUnitarioDesc + (costoUnitarioDesc * (margenDefault / 100));
+
         if (it.existeId) {
             let p = window.productos.find(x => x.id === it.existeId);
             if (p) {
-                p.qty = (parseFloat(p.qty) || 0) + it.cantidad;
-                if (it.costoUSD > 0) {
-                    p.costo = it.costoUSD;
+                p.qty = (parseFloat(p.qty) || 0) + cantTotal;
+                if (costoUnitarioDesc > 0) {
+                    p.costo = costoUnitarioDesc;
                     p.precio = p.costo + (p.costo * ((p.margen || margenDefault) / 100));
                 }
             }
@@ -859,12 +781,12 @@ window.aplicarFacturaProveedorAlStock = async function() {
             window.productos.push({
                 id: Date.now() + idx,
                 nombre: it.nombre,
-                costo: it.costoUSD,
+                costo: costoUnitarioDesc,
                 margen: margenDefault,
                 precio: precioCalc,
                 tipo: "unidad",
                 categoria: "Víveres",
-                qty: it.cantidad,
+                qty: cantTotal,
                 serial: "",
                 iva: false,
                 imagenUrl: null,
@@ -879,7 +801,7 @@ window.aplicarFacturaProveedorAlStock = async function() {
     window.verificarAlertasStock();
     await window.sincronizarConNube();
     window.reproducirBeep(true);
-    window.mostrarFeedbackAnimado('exito', 'Inventario actualizado desde Factura');
+    window.mostrarFeedbackAnimado('exito', 'Inventario Actualizado');
 };
 
 // =========================================================================
@@ -896,26 +818,10 @@ window.evaluarVencimientosCreditos = function() {
 
         if (diffDias <= 0) {
             f.estadoCredito = "VENCIDO";
-            window.colaRecordatorios.push({
-                fiadoIdx: idx,
-                cliente: f.cliente,
-                tlf: f.tlf || "",
-                montoUSD: f.montoUSD,
-                montoVES: f.montoUSD * window.tasaDia,
-                estado: diffDias < 0 ? `Vencido hace ${Math.abs(diffDias)} día(s)` : "Vence Hoy",
-                fechaVencimiento: new Date(vencMs).toLocaleDateString()
-            });
+            window.colaRecordatorios.push({ fiadoIdx: idx, cliente: f.cliente, tlf: f.tlf || "", montoUSD: f.montoUSD, montoVES: f.montoUSD * window.tasaDia, estado: diffDias < 0 ? `Vencido hace ${Math.abs(diffDias)} día(s)` : "Vence Hoy", fechaVencimiento: new Date(vencMs).toLocaleDateString() });
         } else if (diffDias === 1) {
             f.estadoCredito = "MAÑANA";
-            window.colaRecordatorios.push({
-                fiadoIdx: idx,
-                cliente: f.cliente,
-                tlf: f.tlf || "",
-                montoUSD: f.montoUSD,
-                montoVES: f.montoUSD * window.tasaDia,
-                estado: "Vence Mañana",
-                fechaVencimiento: new Date(vencMs).toLocaleDateString()
-            });
+            window.colaRecordatorios.push({ fiadoIdx: idx, cliente: f.cliente, tlf: f.tlf || "", montoUSD: f.montoUSD, montoVES: f.montoUSD * window.tasaDia, estado: "Vence Mañana", fechaVencimiento: new Date(vencMs).toLocaleDateString() });
         } else {
             f.estadoCredito = "AL_DIA";
         }
@@ -959,15 +865,11 @@ window.abrirModalColaRecordatorios = function() {
 };
 
 window.dispararSiguienteRecordatorioCola = function() {
-    if (!window.colaRecordatorios || window.colaRecordatorios.length === 0) {
-        window.mostrarToast("No hay recordatorios pendientes");
-        return;
-    }
-    let primero = window.colaRecordatorios[0];
-    window.cobrarFiadoWhatsApp(primero.fiadoIdx);
+    if (!window.colaRecordatorios || window.colaRecordatorios.length === 0) { window.mostrarToast("No hay recordatorios pendientes"); return; }
+    window.cobrarFiadoWhatsApp(window.colaRecordatorios[0].fiadoIdx);
 };
 
-// LOGIN Y GESTIÓN DE CAJEROS
+// LOGIN
 window.toggleLoginMode = function(modo) {
     document.getElementById('form-login-cajero').style.display = (modo === 'admin') ? 'none' : 'block';
     document.getElementById('form-login-admin').style.display = (modo === 'admin') ? 'block' : 'none';
@@ -989,19 +891,19 @@ window.ejecutarLoginCajero = function() {
     let cajeroObj = window.usuariosCajeros.find(u => u.nombre === cNom);
     
     if(cajeroObj && cajeroObj.clave === pin) {
-        window.rolActual = "Cajero 👤";
+        window.rolActual = "Cajero";
         window.usuarioActivoNombre = cNom;
         window.iniciarSesionExitosa();
     } else {
         window.reproducirBeep(false);
-        window.mostrarFeedbackAnimado('error', 'PIN Incorrecto');
+        window.mostrarFeedbackAnimado('warning', 'PIN Incorrecto');
     }
 };
 
 window.ejecutarLoginAdmin = function() {
     let email = document.getElementById('login-email').value.trim();
     let pass = document.getElementById('login-pass-admin').value.trim();
-    if(!email || !pass) { window.mostrarFeedbackAnimado('error', 'Faltan datos'); return; }
+    if(!email || !pass) { window.mostrarFeedbackAnimado('warning', 'Faltan datos'); return; }
 
     window.mostrarToast("Autenticando negocio...");
     signInWithEmailAndPassword(auth, email, pass)
@@ -1012,13 +914,13 @@ window.ejecutarLoginAdmin = function() {
         if (inputCod) inputCod.value = uidCorto;
 
         window.suscribirTiendaFirebase("tienda_" + uidCorto);
-        window.rolActual = "Administrador 👑";
-        window.usuarioActivoNombre = "Administrador";
+        window.rolActual = "Administrador";
+        window.usuarioActivoNombre = "Dueño";
         window.iniciarSesionExitosa();
     })
     .catch(() => {
         window.reproducirBeep(false);
-        window.mostrarFeedbackAnimado('error', 'Credenciales Inválidas');
+        window.mostrarFeedbackAnimado('warning', 'Credenciales Inválidas');
     });
 };
 
@@ -1026,7 +928,7 @@ window.iniciarSesionExitosa = function() {
     window.reproducirBeep(true);
     document.getElementById('section-login').style.display = 'none';
     document.getElementById('app-content').style.display = 'block';
-    document.getElementById('txt-rol').innerText = window.usuarioActivoNombre + " (" + window.rolActual + ")";
+    document.getElementById('txt-rol').innerText = window.rolActual;
     document.getElementById('login-pin').value = "";
     document.getElementById('login-pass-admin').value = "";
     window.reiniciarTemporizadorInactividad();
@@ -1034,7 +936,7 @@ window.iniciarSesionExitosa = function() {
 };
 
 window.cerrarSesion = function() {
-    if(window.rolActual === "Administrador 👑") signOut(auth).catch(() => {});
+    if(window.rolActual === "Administrador") signOut(auth).catch(() => {});
     document.getElementById('app-content').style.display = 'none';
     document.getElementById('section-login').style.display = 'block';
 };
@@ -1051,7 +953,7 @@ window.guardarNuevoCajero = function() {
         window.sincronizarConNube();
         window.mostrarToast("✓ Cajero Agregado");
     } else {
-        window.mostrarFeedbackAnimado('error', 'Ingresa Nombre y PIN');
+        window.mostrarFeedbackAnimado('warning', 'Faltan datos');
     }
 };
 
@@ -1074,10 +976,10 @@ window.renderizarListaCajerosAdmin = function() {
     `).join('');
 };
 
-// MOTOR MULTI-FUENTE BCV SIN CACHÉ
+// MULTI-FUENTE BCV
 window.obtenerTasaBCV = async function(silencioso) {
     if (!navigator.onLine) return;
-    if(!silencioso) window.mostrarToast("📡 Sincronizando tasa oficial BCV...");
+    if(!silencioso) window.mostrarToast("📡 Sincronizando BCV...");
 
     let ts = Date.now();
     let promesas = [
@@ -1093,10 +995,10 @@ window.obtenerTasaBCV = async function(silencioso) {
             let mejorTasa = Math.max(...validas);
             window.aplicarNuevaTasaBCV(mejorTasa, silencioso);
         } else if (!silencioso) {
-            window.mostrarFeedbackAnimado('error', 'Ingresa tasa manual');
+            window.mostrarFeedbackAnimado('warning', 'Tasa manual');
         }
     } catch (e) {
-        if (!silencioso) window.mostrarFeedbackAnimado('error', 'Error de red');
+        if (!silencioso) window.mostrarFeedbackAnimado('warning', 'Red');
     }
 };
 
@@ -1112,7 +1014,7 @@ window.aplicarNuevaTasaBCV = function(valor, silencioso) {
     if (!silencioso) window.mostrarFeedbackAnimado('exito', window.tasaDia.toFixed(2) + ' Bs');
 };
 
-// UTILIDADES UI
+// UI UTILS
 window.mostrarToast = function(mensaje) {
     let toast = document.getElementById('toast');
     if(!toast) return;
@@ -1126,12 +1028,19 @@ window.mostrarFeedbackAnimado = function(tipo, msj) {
     let box = document.getElementById('scan-feedback-box');
     let msgEl = document.getElementById('scan-feedback-msg');
     if(!overlay || !box || !msgEl) return;
-    if(tipo === 'exito') { box.className = 'scan-feedback-box scan-feedback-success'; box.innerText = '✔'; } 
-    else {
-        box.className = 'scan-feedback-box scan-feedback-error'; box.innerText = '✖';
+    
+    if (tipo === 'exito') { box.className = 'scan-feedback-box scan-feedback-success'; box.innerHTML = '✔'; } 
+    else if (tipo === 'warning') {
+        box.className = 'scan-feedback-box scan-feedback-warning'; box.innerHTML = '!';
         document.body.classList.add('shake-effect');
         setTimeout(() => document.body.classList.remove('shake-effect'), 400);
     }
+    else {
+        box.className = 'scan-feedback-box scan-feedback-warning'; box.innerHTML = '✖';
+        document.body.classList.add('shake-effect');
+        setTimeout(() => document.body.classList.remove('shake-effect'), 400);
+    }
+    
     msgEl.innerText = msj;
     overlay.style.display = 'flex';
     setTimeout(() => overlay.style.display = 'none', 1300);
@@ -1149,14 +1058,11 @@ window.mostrarConfirmacion = function(titulo, mensaje, accionAceptar) {
     document.getElementById('confirm-btn-cancel').onclick = () => modal.style.display = 'none';
 };
 
-window.escapeHTML = function(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-};
+window.escapeHTML = function(str) { return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };
 
 window.cambiarModulo = function(idModulo) {
-    if((idModulo === 'modulo-admin' || idModulo === 'modulo-cierre') && window.rolActual !== "Administrador 👑") {
-        window.mostrarFeedbackAnimado('error', 'Solo Administrador'); return;
+    if((idModulo === 'modulo-admin' || idModulo === 'modulo-cierre') && window.rolActual !== "Administrador") {
+        window.mostrarFeedbackAnimado('warning', 'Solo Dueño'); return;
     }
     document.getElementById('menu-principal').style.display = 'none';
     document.querySelectorAll('.modulo-app').forEach(m => m.style.display = 'none');
@@ -1249,7 +1155,7 @@ window.guardarPerfil = function() {
     window.recalcularTotalesCarrito();
     window.renderizarCarritoCaja();
     window.sincronizarConNube();
-    window.mostrarToast("Ajustes y Motores IA guardados");
+    window.mostrarToast("Ajustes Guardados");
 };
 
 window.cambiarTasaManual = function(nuevaTasa) {
@@ -1281,7 +1187,7 @@ window.importarProductosJSON = function(event) {
                 window.sincronizarConNube();
                 window.mostrarToast("✓ Inventario cargado");
             }
-        } catch(err) { window.mostrarFeedbackAnimado('error', 'Error archivo'); }
+        } catch(err) { window.mostrarFeedbackAnimado('warning', 'Error'); }
     };
     if(event.target.files && event.target.files[0]) fileReader.readAsText(event.target.files[0]);
 };
@@ -1292,15 +1198,11 @@ window.calcularGanancia = function() {
     document.getElementById('lbl-precio-calc').innerText = "$" + (costo + (costo * (margen / 100))).toFixed(2);
 };
 
-// AUTOMATIZACIÓN INTELIGENTE DE CATEGORÍA -> TIPO DE VENTA (Charcutería/Frutería = Kilo)
 window.cambiarCategoriaInventario = function(cat) {
     let selType = document.getElementById('prod-type');
     if (!selType) return;
-    if (cat === "Charcutería" || cat === "Frutería") {
-        selType.value = "peso";
-    } else {
-        selType.value = "unidad";
-    }
+    if (cat === "Charcutería" || cat === "Frutería") { selType.value = "peso"; } 
+    else { selType.value = "unidad"; }
     window.conmutarCampoCantidad(selType.value);
 };
 
@@ -1311,12 +1213,8 @@ window.conmutarCampoCantidad = function(tipo) {
     if(eQty) eQty.style.display = (tipo === 'unidad') ? 'block' : 'none';
     if(aviso) aviso.style.display = (tipo === 'peso') ? 'block' : 'none';
     if(boxCombo) {
-        if (tipo === 'combo') {
-            boxCombo.style.display = 'block';
-            window.llenarSelectIngredientesCombo();
-        } else {
-            boxCombo.style.display = 'none';
-        }
+        if (tipo === 'combo') { boxCombo.style.display = 'block'; window.llenarSelectIngredientesCombo(); } 
+        else { boxCombo.style.display = 'none'; }
     }
 };
 
@@ -1354,7 +1252,6 @@ window.renderizarIngredientesComboTemp = function() {
     `).join('');
 };
 
-// COMPRESOR DE IMÁGENES EN CANVAS PARA CATÁLOGO
 window.previsualizarImagenRegistro = function(event) {
     let file = event.target.files[0];
     if (!file) return;
@@ -1363,23 +1260,14 @@ window.previsualizarImagenRegistro = function(event) {
         let img = new Image();
         img.onload = function() {
             let canvas = document.createElement('canvas');
-            let MAX_SIZE = 320;
-            let width = img.width;
-            let height = img.height;
-            if (width > height) {
-                if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
-            } else {
-                if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-            }
-            canvas.width = width;
-            canvas.height = height;
-            let ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
+            let MAX_SIZE = 320; let width = img.width; let height = img.height;
+            if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
+            else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
             window.imagenComprimidaTemp = canvas.toDataURL('image/jpeg', 0.72);
-            
             let preview = document.getElementById('preview-img-upload');
-            preview.src = window.imagenComprimidaTemp;
-            preview.style.display = 'block';
+            preview.src = window.imagenComprimidaTemp; preview.style.display = 'block';
             document.getElementById('lbl-img-upload').innerText = '✓ Foto Optimizada Lista';
         };
         img.src = e.target.result;
@@ -1387,7 +1275,6 @@ window.previsualizarImagenRegistro = function(event) {
     reader.readAsDataURL(file);
 };
 
-// VISOR DE IMAGEN EN GRANDE AL TOCAR
 window.verImagenProducto = function(idProd) {
     let p = window.productos.find(x => x.id === idProd);
     if (!p) return;
@@ -1395,22 +1282,16 @@ window.verImagenProducto = function(idProd) {
     document.getElementById('zoom-title').innerText = p.nombre;
     let imgEl = document.getElementById('zoom-img-src');
     imgEl.src = p.imagenUrl || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230b0e14'/><path d='M50 15 L85 35 V65 L50 85 L15 65 V35 Z' fill='none' stroke='%2300ff66' stroke-width='4'/></svg>";
-    
     let infoExtra = p.tipo === 'combo' && p.componentes ? `<br><small style="color:#00ff66;">Incluye: ${p.componentes.map(c=>c.qty+'x '+c.nombre).join(', ')}</small>` : '';
     document.getElementById('zoom-details').innerHTML = `
         <div style="font-size:18px; color:#00ff66; font-weight:bold;">${window.formatUSD(precioFinalUSD)} (${window.formatVE(precioFinalUSD * window.tasaDia)})</div>
         <div style="color:#8fa0b7; margin-top:4px;">Código/Serial: ${window.escapeHTML(p.serial || 'N/A')} | Stock: ${p.tipo === 'peso' ? 'Al Peso' : (p.tipo === 'combo' ? 'Combo' : p.qty + ' unds')}</div>
         ${infoExtra}
     `;
-    let btnAdd = document.getElementById('zoom-btn-add');
-    btnAdd.onclick = function() {
-        window.agregarAlCarritoDesdeCaja(p.id);
-        document.getElementById('modal-zoom-img').style.display = 'none';
-    };
+    document.getElementById('zoom-btn-add').onclick = function() { window.agregarAlCarritoDesdeCaja(p.id); document.getElementById('modal-zoom-img').style.display = 'none'; };
     document.getElementById('modal-zoom-img').style.display = 'flex';
 };
 
-// + STOCK RÁPIDO EN 1 CLIC
 window.abrirModalStockRapido = function(idProd) {
     let p = window.productos.find(x => x.id === idProd);
     if (!p) return;
@@ -1426,14 +1307,14 @@ window.abrirModalStockRapido = function(idProd) {
 window.confirmarStockRapido = function() {
     let p = window.productos.find(x => x.id === window.prodStockRapidoId);
     let cant = parseInt(document.getElementById('stock-rapido-input').value) || 0;
-    if (!p || cant === 0) { window.mostrarFeedbackAnimado('error', 'Cantidad inválida'); return; }
+    if (!p || cant === 0) { window.mostrarFeedbackAnimado('warning', 'Monto inválido'); return; }
     p.qty = Math.max(0, (p.qty || 0) + cant);
     document.getElementById('modal-stock-rapido').style.display = 'none';
     window.renderizarInventario(document.getElementById('buscador-inventario').value);
     window.verificarAlertasStock();
     window.sincronizarConNube();
     window.reproducirBeep(true);
-    window.mostrarToast(`✓ Stock actualizado a ${p.qty} unds`);
+    window.mostrarToast(`✓ Stock actualizado`);
 };
 
 window.editarProducto = function(id) {
@@ -1454,14 +1335,8 @@ window.editarProducto = function(id) {
     document.getElementById('prod-iva').checked = p.iva || false;
     
     let preview = document.getElementById('preview-img-upload');
-    if (p.imagenUrl) {
-        document.getElementById('lbl-img-upload').innerText = "📸 Cambiar Foto";
-        preview.src = p.imagenUrl;
-        preview.style.display = 'block';
-    } else {
-        document.getElementById('lbl-img-upload').innerText = "📸 Subir Foto";
-        preview.style.display = 'none';
-    }
+    if (p.imagenUrl) { document.getElementById('lbl-img-upload').innerText = "📸 Cambiar Foto"; preview.src = p.imagenUrl; preview.style.display = 'block'; } 
+    else { document.getElementById('lbl-img-upload').innerText = "📸 Subir Foto"; preview.style.display = 'none'; }
 
     window.conmutarCampoCantidad(p.tipo);
     window.renderizarIngredientesComboTemp();
@@ -1473,7 +1348,7 @@ window.editarProducto = function(id) {
 };
 
 window.eliminarProductoCat = function(id) {
-    window.mostrarConfirmacion("🗑️ Eliminar", "¿Borrar este producto del catálogo?", function() {
+    window.mostrarConfirmacion("🗑️ Eliminar", "¿Borrar del catálogo?", function() {
         window.productos = window.productos.filter(p => p.id !== id);
         window.renderizarInventario(document.getElementById('buscador-inventario').value);
         window.sincronizarConNube();
@@ -1481,19 +1356,12 @@ window.eliminarProductoCat = function(id) {
 };
 
 window.cancelarEdicion = function() {
-    window.productoEnEdicion = null;
-    window.imagenComprimidaTemp = null;
-    window.ingredientesComboTemp = [];
-    document.getElementById('prod-name').value = "";
-    document.getElementById('prod-costo').value = "";
-    document.getElementById('prod-margen').value = "";
-    document.getElementById('lbl-precio-calc').innerText = "$0.00";
-    document.getElementById('prod-serial').value = "";
-    document.getElementById('prod-qty').value = "";
-    document.getElementById('prod-iva').checked = false;
-    document.getElementById('prod-cat').value = "Víveres";
-    document.getElementById('prod-type').value = "unidad";
-    document.getElementById('prod-imagen-file').value = "";
+    window.productoEnEdicion = null; window.imagenComprimidaTemp = null; window.ingredientesComboTemp = [];
+    document.getElementById('prod-name').value = ""; document.getElementById('prod-costo').value = "";
+    document.getElementById('prod-margen').value = ""; document.getElementById('lbl-precio-calc').innerText = "$0.00";
+    document.getElementById('prod-serial').value = ""; document.getElementById('prod-qty').value = "";
+    document.getElementById('prod-iva').checked = false; document.getElementById('prod-cat').value = "Víveres";
+    document.getElementById('prod-type').value = "unidad"; document.getElementById('prod-imagen-file').value = "";
     document.getElementById('lbl-img-upload').innerText = "📸 Subir Foto (Opcional)";
     document.getElementById('preview-img-upload').style.display = 'none';
 
@@ -1506,7 +1374,7 @@ window.cancelarEdicion = function() {
 window.renderizarInventario = function(filtro) {
     let contenedor = document.getElementById('lista-productos');
     let formBox = document.getElementById('form-registro-prod');
-    if(formBox) formBox.style.display = (window.rolActual === "Administrador 👑") ? "flex" : "none";
+    if(formBox) formBox.style.display = (window.rolActual === "Administrador") ? "flex" : "none";
     if(!contenedor) return;
 
     let html = "";
@@ -1516,34 +1384,34 @@ window.renderizarInventario = function(filtro) {
         if(textoFiltro && !p.nombre.toLowerCase().includes(textoFiltro) && !(p.serial && p.serial.includes(textoFiltro))) return;
 
         let esStockBajo = (p.tipo === 'unidad' && p.qty <= 5);
-        let indicadorStock = p.tipo === 'peso' ? '<span class="badge-peso">⚖️ Venta por Kilo</span>' : (p.tipo === 'combo' ? '<span style="color:#00ff66; font-size:11px;">🎁 Combo</span>' : `<span style="font-size:11px; color:${esStockBajo ? '#ff5252' : '#8fa0b7'}; font-weight:bold;">Stock: ${p.qty} unds ${esStockBajo ? '⚠️' : ''}</span>`);
+        let indicadorStock = p.tipo === 'peso' ? '<span class="badge-peso">⚖️ Kilo</span>' : (p.tipo === 'combo' ? '<span style="color:#00ff66; font-size:11px;">🎁 Combo</span>' : `<span style="font-size:11px; color:${esStockBajo ? '#ff5252' : '#8fa0b7'}; font-weight:bold;">Stock: ${p.qty} unds ${esStockBajo ? '⚠️' : ''}</span>`);
         
         let iconoRender = p.imagenUrl 
-            ? `<img src="${p.imagenUrl}" class="product-img" onclick="window.verImagenProducto(${p.id})" alt="IMG">` 
+            ? `<img src="${p.imagenUrl}" class="product-img" onclick="window.verImagenProducto(${p.id})">` 
             : `<div class="product-emoji-placeholder" onclick="window.verImagenProducto(${p.id})">${p.tipo === 'peso' ? '⚖️' : (p.tipo === 'combo' ? '🎁' : '📦')}</div>`;
             
         let stringIva = p.iva ? ' <span style="font-size:10px; color:#ff5252;">(+IVA)</span>' : '';
         let precioFinalUSD = p.iva ? (p.precio * 1.16) : p.precio;
         
         html += `<div class="product-card ${esStockBajo ? 'low-stock' : ''}">
-            <div class="tag-cat">${window.escapeHTML(p.categoria || "General")}</div>
+            <div class="tag-cat">${window.escapeHTML(p.categoria || "Gral")}</div>
             ${iconoRender}
             <h4 onclick="window.verImagenProducto(${p.id})" style="cursor:pointer;">${window.escapeHTML(p.nombre)}${stringIva}</h4>
-            <p style="color:#00ff66; margin:2px 0; font-weight:bold;">${window.formatUSD(precioFinalUSD)} ${p.tipo==='peso'?'<small>/Kg</small>':''}</p>
+            <p style="color:#00ff66; margin:2px 0; font-weight:bold;">${window.formatUSD(precioFinalUSD)}</p>
             <p style="font-size:11px; color:#8fa0b7; margin-bottom:4px;">${window.formatVE(precioFinalUSD * window.tasaDia)}</p>
             ${indicadorStock}
             <div style="display:flex; gap:4px; margin-top:6px;">`;
             
-        if(window.rolActual === "Administrador 👑") {
+        if(window.rolActual === "Administrador") {
             if (p.tipo === 'unidad') {
-                html += `<button style="flex:1.2; background:#1c2536; color:#00ff66; border:1px solid #00ff66; padding:6px 4px; border-radius:6px; font-size:10px; font-weight:bold; cursor:pointer;" onclick="window.abrirModalStockRapido(${p.id})" title="Sumar Stock Rápido">➕ Stock</button>`;
+                html += `<button style="flex:1.2; background:#1c2536; color:#00ff66; border:1px solid #00ff66; padding:6px 4px; border-radius:6px; font-size:10px; font-weight:bold; cursor:pointer;" onclick="window.abrirModalStockRapido(${p.id})">➕</button>`;
             }
             html += `<button style="flex:1; background:#313c52; color:#fff; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.editarProducto(${p.id})">✏️</button>
                      <button style="flex:1; background:#ff5252; color:#fff; border:none; padding:6px; border-radius:6px; cursor:pointer;" onclick="window.eliminarProductoCat(${p.id})">🗑️</button>`;
         }
         html += `<button style="flex:2; background:#00ff66; border:none; padding:6px; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.agregarAlCarritoDesdeCaja(${p.id})">🛒</button></div></div>`;
     });
-    contenedor.innerHTML = html || '<div style="grid-column:1/-1; text-align:center; color:#8fa0b7; padding:20px;">No hay productos registrados en esta tienda.</div>';
+    contenedor.innerHTML = html || '<div style="grid-column:1/-1; text-align:center; color:#8fa0b7; padding:20px;">Catálogo vacío</div>';
 };
 
 window.agregarProductoNuevo = async function() {
@@ -1557,7 +1425,7 @@ window.agregarProductoNuevo = async function() {
     let qty = parseInt(document.getElementById('prod-qty').value) || 0;
     let aplicaIva = document.getElementById('prod-iva').checked;
 
-    if(!name || price <= 0) { window.mostrarFeedbackAnimado('error', 'Ingresa Nombre y Costo'); return; }
+    if(!name || price <= 0) { window.mostrarFeedbackAnimado('warning', 'Nombre y Costo'); return; }
 
     let objProd = {
         nombre: name, costo, margen, precio: price, tipo: type, categoria: cat,
@@ -1569,11 +1437,11 @@ window.agregarProductoNuevo = async function() {
     if(window.productoEnEdicion !== null) {
         let p = window.productos.find(x => x.id === window.productoEnEdicion);
         if(p) Object.assign(p, objProd);
-        window.mostrarToast("✓ Producto Actualizado");
+        window.mostrarToast("✓ Actualizado");
     } else {
         objProd.id = Date.now();
         window.productos.push(objProd);
-        window.mostrarToast("✓ Producto Guardado");
+        window.mostrarToast("✓ Guardado");
     }
     
     window.cancelarEdicion();
@@ -1581,7 +1449,6 @@ window.agregarProductoNuevo = async function() {
     await window.sincronizarConNube();
 };
 
-// DETECTOR DE PISTOLA LÁSER Y CATEGORÍAS TÁCTILES EN CAJA
 window.seleccionarCategoriaCaja = function(cat, btnEl) {
     window.categoriaCajaActiva = cat;
     document.querySelectorAll('.cat-tab-btn').forEach(b => b.classList.remove('active'));
@@ -1608,7 +1475,7 @@ window.detectarPistolaLaser = function(event) {
                 window.filtrarBuscadorCaja("");
             } else {
                 window.reproducirBeep(false);
-                window.mostrarFeedbackAnimado('error', 'Serial no encontrado');
+                window.mostrarFeedbackAnimado('warning', 'No encontrado');
                 event.target.select();
             }
         }
@@ -1643,7 +1510,7 @@ window.filtrarBuscadorCaja = function(texto) {
             encontrados++;
         }
     });
-    contenedor.innerHTML = encontrados === 0 ? '<div style="grid-column:1/-1; color:#8fa0b7; font-size:12px; text-align:center; padding:12px;">Sin productos en esta vista</div>' : html;
+    contenedor.innerHTML = encontrados === 0 ? '<div style="grid-column:1/-1; color:#8fa0b7; font-size:12px; text-align:center; padding:12px;">Sin resultados</div>' : html;
 };
 
 window.abrirModalCombos = function() {
@@ -1661,13 +1528,12 @@ window.abrirModalCombos = function() {
             </button>`;
         }
     });
-    container.innerHTML = hayCombos ? html : '<div style="color:#8fa0b7; text-align:center; padding:10px;">No hay combos creados.</div>';
+    container.innerHTML = hayCombos ? html : '<div style="color:#8fa0b7; text-align:center; padding:10px;">Sin combos.</div>';
     document.getElementById('modal-combos').style.display = 'flex';
 };
 
 window.agregarCombo = function(id) { window.agregarAlCarritoDesdeCaja(id); document.getElementById('modal-combos').style.display = 'none'; };
 
-// BALANZA DIGITAL CON AUTO-FOCO DE TECLADO
 window.abrirModalBalanza = function(prodObj) {
     window.productoBalanzaTemp = prodObj;
     let precioFinalUSD = prodObj.iva ? (prodObj.precio * 1.16) : prodObj.precio;
@@ -1696,7 +1562,7 @@ window.confirmarPesoBalanza = function() {
     let p = window.productoBalanzaTemp;
     if (!p) return;
     let kilos = parseFloat(document.getElementById('balanza-input-kg').value);
-    if (isNaN(kilos) || kilos <= 0) { window.mostrarFeedbackAnimado('error', 'Peso inválido'); return; }
+    if (isNaN(kilos) || kilos <= 0) { window.mostrarFeedbackAnimado('warning', 'Peso inválido'); return; }
 
     let precioUnitarioCalculado = p.iva ? (p.precio * 1.16) : p.precio;
     let costoUnitarioCalculado = p.costo || 0;
@@ -1732,9 +1598,7 @@ window.agregarAlCarritoDesdeCaja = function(idProd) {
             for (let comp of p.componentes) {
                 let prodReal = window.productos.find(x => x.id === comp.id);
                 if (!prodReal || prodReal.qty < comp.qty) {
-                    window.reproducirBeep(false);
-                    window.mostrarFeedbackAnimado('error', 'Falta Stock de: ' + comp.nombre);
-                    return;
+                    window.reproducirBeep(false); window.mostrarFeedbackAnimado('warning', 'Falta: ' + comp.nombre); return;
                 }
             }
             p.componentes.forEach(comp => {
@@ -1750,7 +1614,7 @@ window.agregarAlCarritoDesdeCaja = function(idProd) {
             window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado, costoTotalUSD: costoUnitarioCalculado, detalle: '1 unds', tipo: 'combo', qtyVenta: 1, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado, imagenUrl: p.imagenUrl, componentes: p.componentes });
         }
     } else {
-        if(p.qty < 1) { window.reproducirBeep(false); window.mostrarFeedbackAnimado('error', 'Sin Stock'); return; }
+        if(p.qty < 1) { window.reproducirBeep(false); window.mostrarFeedbackAnimado('warning', 'Sin Stock'); return; }
         let item = window.carrito.find(c => c.id === p.id && c.tipo === 'unidad');
         p.qty -= 1;
         window.sincronizarConNube();
@@ -1835,12 +1699,12 @@ window.renderizarCarritoCaja = function() {
     if(!container) return;
     
     if(window.carrito.length === 0) {
-        container.innerHTML = '<div style="color:#57687e; text-align:center; font-size:12px; padding:8px;">Ningún artículo en cuenta.</div>';
+        container.innerHTML = '<div style="color:#57687e; text-align:center; font-size:12px; padding:8px;">Venta en cero.</div>';
     } else {
         let html = "";
         window.carrito.forEach((item, i) => {
             let miniatura = item.imagenUrl 
-                ? `<img src="${item.imagenUrl}" class="cart-item-img" onclick="window.verImagenProducto(${item.id})" alt="IMG">` 
+                ? `<img src="${item.imagenUrl}" class="cart-item-img" onclick="window.verImagenProducto(${item.id})">` 
                 : `<div class="cart-item-emoji" onclick="window.verImagenProducto(${item.id})">${item.tipo === 'peso' ? '🍎' : (item.tipo === 'combo' ? '🎁' : '📦')}</div>`;
 
             html += `<div class="cart-item">
@@ -1868,11 +1732,9 @@ window.renderizarCarritoCaja = function() {
         });
         container.innerHTML = html;
     }
-
     window.calcularCaja();
 };
 
-// AUTO-FOCO Y SELECCIÓN DE TECLADO AL DESPLEGAR MÉTODOS DE PAGO
 window.toggleMetodoPago = function(idContenedor, btn, idInputFoco) {
     let el = document.getElementById(idContenedor);
     if(!el) return;
@@ -1881,10 +1743,7 @@ window.toggleMetodoPago = function(idContenedor, btn, idInputFoco) {
     btn.classList.toggle('active');
 
     if (abriendo && idInputFoco) {
-        setTimeout(() => {
-            let input = document.getElementById(idInputFoco);
-            if (input) { input.focus(); input.select(); }
-        }, 120);
+        setTimeout(() => { let input = document.getElementById(idInputFoco); if (input) { input.focus(); input.select(); } }, 120);
     }
 };
 
@@ -1909,9 +1768,8 @@ window.llenarMaximo = function(tipo) {
 
     let faltanteVES = Math.max(0, (window.subtotalVentaUSD * window.tasaDia) - ingresadoActual);
 
-    if(tipo === 'usd') {
-        document.getElementById('pay-usd').value = Math.ceil(faltanteVES / window.tasaDia);
-    } else {
+    if(tipo === 'usd') { document.getElementById('pay-usd').value = Math.ceil(faltanteVES / window.tasaDia); } 
+    else {
         let input = document.getElementById('pay-' + tipo);
         input.value = Math.round(faltanteVES * 100).toString();
         window.mascaraMoneda(input);
@@ -1929,18 +1787,12 @@ window.calcularCaja = function() {
 
     let rowIgtf = document.getElementById('row-igtf-info');
     if (rowIgtf) {
-        if (window.montoIGTF_USD > 0) {
-            rowIgtf.style.display = 'flex';
-            document.getElementById('val-igtf-ves').innerText = `+ ${window.formatVE(window.montoIGTF_USD * window.tasaDia)} (${window.formatUSD(window.montoIGTF_USD)})`;
-        } else {
-            rowIgtf.style.display = 'none';
-        }
+        if (window.montoIGTF_USD > 0) { rowIgtf.style.display = 'flex'; document.getElementById('val-igtf-ves').innerText = `+ ${window.formatVE(window.montoIGTF_USD * window.tasaDia)} (${window.formatUSD(window.montoIGTF_USD)})`; } 
+        else { rowIgtf.style.display = 'none'; }
     }
 
-    let ptv = window.extraerNumeroLimpio('pay-ptv');
-    let pm = window.extraerNumeroLimpio('pay-pm');
-    let usd = parseFloat(document.getElementById('pay-usd').value) || 0; 
-    let ves = window.extraerNumeroLimpio('pay-ves');
+    let ptv = window.extraerNumeroLimpio('pay-ptv'); let pm = window.extraerNumeroLimpio('pay-pm');
+    let usd = parseFloat(document.getElementById('pay-usd').value) || 0; let ves = window.extraerNumeroLimpio('pay-ves');
 
     let totalRec = ptv + pm + (usd * window.tasaDia) + ves;
     let dif = window.totalVentaVES - totalRec;
@@ -1964,7 +1816,7 @@ window.calcularCaja = function() {
 };
 
 window.procesarCobro = function(imprimirTicket) {
-    if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
+    if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('warning', 'Carrito Vacío'); return; }
     
     let venta = {
         id: Date.now(),
@@ -1975,17 +1827,12 @@ window.procesarCobro = function(imprimirTicket) {
         totalUSD: window.totalVentaUSD,
         totalVES: window.totalVentaVES,
         costoUSD: window.carrito.reduce((sum, c) => sum + (c.costoTotalUSD || 0), 0),
-        ptv: window.extraerNumeroLimpio('pay-ptv'), 
-        pm: window.extraerNumeroLimpio('pay-pm'), 
-        pmRef: document.getElementById('pm-ref')?.value || "",
-        pmBanco: document.getElementById('pm-banco-detectado')?.value || "",
-        usd: parseFloat(document.getElementById('pay-usd').value) || 0, 
-        ves: window.extraerNumeroLimpio('pay-ves'),
+        ptv: window.extraerNumeroLimpio('pay-ptv'), pm: window.extraerNumeroLimpio('pay-pm'), 
+        pmRef: document.getElementById('pm-ref')?.value || "", pmBanco: document.getElementById('pm-banco-detectado')?.value || "",
+        usd: parseFloat(document.getElementById('pay-usd').value) || 0, ves: window.extraerNumeroLimpio('pay-ves'),
         cajero: window.usuarioActivoNombre,
-        cliente: document.getElementById('cliente-nombre').value, 
-        cedula: document.getElementById('cliente-cedula').value, 
-        dir: document.getElementById('cliente-dir').value, 
-        tlf: document.getElementById('pm-phone').value
+        cliente: document.getElementById('cliente-nombre').value, cedula: document.getElementById('cliente-cedula').value, 
+        dir: document.getElementById('cliente-dir').value, tlf: document.getElementById('pm-phone').value
     };
     
     window.ventasHistorico.push(venta);
@@ -2010,13 +1857,12 @@ window.limpiarCaja = function(silencioso) {
             }
         });
         window.sincronizarConNube();
-        window.mostrarToast("Venta cancelada, stock devuelto");
+        window.mostrarToast("Cancelada");
     }
 
     window.subtotalVentaUSD = 0; window.montoIGTF_USD = 0; window.totalVentaUSD = 0; window.totalVentaVES = 0; window.carrito = [];
     ['pay-ptv','pay-pm','pay-usd','pay-ves','cliente-nombre','cliente-cedula','cliente-dir','pm-phone','pm-ref','pm-banco-detectado'].forEach(id => {
-        let el = document.getElementById(id);
-        if(el) el.value = '';
+        let el = document.getElementById(id); if(el) el.value = '';
     });
     document.getElementById('modal-cliente').style.display='none';
     let banner = document.getElementById('pm-status-banner');
@@ -2026,7 +1872,6 @@ window.limpiarCaja = function(silencioso) {
     window.renderizarCarritoCaja();
 };
 
-// FACTURAS EN ESPERA CON MODAL VISUAL PROPIO
 window.actualizarBadgeRecuperar = function() {
     let btn = document.getElementById('btn-top-recuperar');
     if (btn) {
@@ -2036,15 +1881,11 @@ window.actualizarBadgeRecuperar = function() {
 };
 
 window.aparcarFactura = function() {
-    if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
+    if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('warning', 'Carrito Vacío'); return; }
     window.facturasEnEspera.push({
-        id: Date.now(),
-        hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        id: Date.now(), hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
         cliente: document.getElementById('cliente-nombre').value || "Cliente Mostrador",
-        items: window.carrito.slice(),
-        totalUSD: window.totalVentaUSD,
-        totalVES: window.totalVentaVES,
-        cajero: window.usuarioActivoNombre
+        items: window.carrito.slice(), totalUSD: window.totalVentaUSD, totalVES: window.totalVentaVES, cajero: window.usuarioActivoNombre
     });
     window.sincronizarConNube();
     window.limpiarCaja(true);
@@ -2053,7 +1894,7 @@ window.aparcarFactura = function() {
 };
 
 window.recuperarFactura = function() {
-    if(window.facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('error', 'No hay cuentas pausadas'); return; }
+    if(window.facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('warning', 'Sin cuentas pausadas'); return; }
     let cont = document.getElementById('lista-facturas-pausadas');
     cont.innerHTML = window.facturasEnEspera.map((f, i) => `
         <div class="cierre-card" style="margin-bottom:4px; border-color:#313c52;">
@@ -2075,7 +1916,7 @@ window.recuperarFactura = function() {
 };
 
 window.cargarFacturaPausadaEnCaja = function(idx) {
-    if(window.carrito.length > 0) { window.mostrarFeedbackAnimado('error', 'Limpia o cobra la cuenta actual primero'); return; }
+    if(window.carrito.length > 0) { window.mostrarFeedbackAnimado('warning', 'Cobra la cuenta actual'); return; }
     let rec = window.facturasEnEspera.splice(idx, 1)[0];
     if (rec) {
         window.carrito = rec.items;
@@ -2085,7 +1926,7 @@ window.cargarFacturaPausadaEnCaja = function(idx) {
         window.renderizarCarritoCaja();
         window.actualizarBadgeRecuperar();
         window.sincronizarConNube();
-        window.mostrarToast("📂 Cuenta Retomada");
+        window.mostrarToast("📂 Retomada");
     }
 };
 
@@ -2103,10 +1944,9 @@ window.descartarFacturaPausada = function(idx) {
     window.sincronizarConNube();
     if (window.facturasEnEspera.length === 0) document.getElementById('modal-recuperar').style.display = 'none';
     else window.recuperarFactura();
-    window.mostrarToast("Cuenta descartada y stock devuelto");
+    window.mostrarToast("Descartada");
 };
 
-// CONTROL DE GASTOS CON AUTO-FOCO DE TECLADO
 window.abrirModalGasto = function() {
     let inputMotivo = document.getElementById('gasto-motivo');
     inputMotivo.value = "";
@@ -2120,21 +1960,16 @@ window.confirmarGastoCaja = function() {
     let moneda = document.getElementById('gasto-moneda').value;
     let monto = parseFloat(document.getElementById('gasto-monto').value) || 0;
 
-    if (!motivo || monto <= 0) { window.mostrarFeedbackAnimado('error', 'Ingresa motivo y monto'); return; }
+    if (!motivo || monto <= 0) { window.mostrarFeedbackAnimado('warning', 'Ingresa motivo y monto'); return; }
 
     window.gastosCaja.push({
-        id: Date.now(),
-        fecha: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-        motivo: motivo,
-        moneda: moneda,
-        monto: monto,
-        cajero: window.usuarioActivoNombre
+        id: Date.now(), fecha: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        motivo: motivo, moneda: moneda, monto: monto, cajero: window.usuarioActivoNombre
     });
-
     document.getElementById('modal-gasto').style.display = 'none';
     window.sincronizarConNube();
     window.reproducirBeep(true);
-    window.mostrarToast("💸 Salida de caja registrada");
+    window.mostrarToast("💸 Gasto registrado");
 };
 
 window.eliminarGastoCaja = function(idx) {
@@ -2143,13 +1978,12 @@ window.eliminarGastoCaja = function(idx) {
     window.renderizarCierreDeCaja();
 };
 
-// FIADOS CON AUTO-FOCO, FECHA DE VENCIMIENTO, BUSCADOR Y COBRO POR WHATSAPP
 window.registrarFiado = function() {
-    if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
+    if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('warning', 'Carrito Vacío'); return; }
     let inputNom = document.getElementById('fiado-input-nombre');
     inputNom.value = document.getElementById('cliente-nombre').value || "";
     document.getElementById('fiado-input-tlf').value = document.getElementById('pm-phone').value || "";
-    document.getElementById('fiado-lbl-total').innerText = `Monto a Fiar: ${window.formatUSD(window.totalVentaUSD)} (${window.formatVE(window.totalVentaVES)})`;
+    document.getElementById('fiado-lbl-total').innerText = `Fiar: ${window.formatUSD(window.totalVentaUSD)} (${window.formatVE(window.totalVentaVES)})`;
     document.getElementById('modal-nuevo-fiado').style.display = 'flex';
     setTimeout(() => { inputNom.focus(); inputNom.select(); }, 150);
 };
@@ -2158,29 +1992,22 @@ window.confirmarNuevoFiado = function() {
     let nom = document.getElementById('fiado-input-nombre').value.trim();
     let tlf = document.getElementById('fiado-input-tlf').value.trim();
     let diasPlazo = parseInt(document.getElementById('fiado-select-plazo')?.value) || 7;
-    if (!nom) { window.mostrarFeedbackAnimado('error', 'Escribe el nombre del cliente'); return; }
+    if (!nom) { window.mostrarFeedbackAnimado('warning', 'Escribe el nombre'); return; }
 
     let ahora = Date.now();
     let vencMs = ahora + (diasPlazo * 24 * 60 * 60 * 1000);
 
     window.fiados.push({
-        id: ahora,
-        cliente: nom,
-        tlf: tlf,
-        montoUSD: window.totalVentaUSD,
-        items: window.carrito.slice(),
-        fecha: new Date().toLocaleString(),
-        plazoDias: diasPlazo,
-        fechaVencimientoMs: vencMs,
-        fechaVencimientoStr: new Date(vencMs).toLocaleDateString(),
-        abonos: []
+        id: ahora, cliente: nom, tlf: tlf, montoUSD: window.totalVentaUSD, items: window.carrito.slice(),
+        fecha: new Date().toLocaleString(), plazoDias: diasPlazo, fechaVencimientoMs: vencMs,
+        fechaVencimientoStr: new Date(vencMs).toLocaleDateString(), abonos: []
     });
     document.getElementById('modal-nuevo-fiado').style.display = 'none';
     window.evaluarVencimientosCreditos();
     window.sincronizarConNube();
     window.limpiarCaja(true);
     window.reproducirBeep(true);
-    window.mostrarToast("✓ Crédito registrado con vencimiento");
+    window.mostrarToast("✓ Fiado guardado");
 };
 
 window.cobrarFiadoWhatsApp = function(idx) {
@@ -2197,7 +2024,7 @@ window.cobrarFiadoWhatsApp = function(idx) {
               `• Banco: ${window.perfilNegocio.pmBanco || '0102'}\n` +
               `• CI/RIF: ${window.perfilNegocio.pmCedula || ''}\n` +
               `• Teléfono: ${window.perfilNegocio.pmTlf || ''}\n\n` +
-              `Por favor envía tu comprobante por esta vía para validarlo con nuestro sistema. ¡Gracias!`;
+              `Por favor envía tu comprobante por esta vía. ¡Gracias!`;
     let tlfLimpio = (f.tlf || "").replace(/\D/g, '');
     if (tlfLimpio.startsWith('0')) tlfLimpio = '58' + tlfLimpio.substring(1);
     let url = tlfLimpio ? `https://api.whatsapp.com/send?phone=${tlfLimpio}&text=${encodeURIComponent(msj)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(msj)}`;
@@ -2211,7 +2038,7 @@ window.renderizarFiados = function(filtroTexto = "") {
     let q = (filtroTexto || document.getElementById('buscador-fiados')?.value || "").toLowerCase().trim();
 
     if(window.fiados.length === 0) {
-        cont.innerHTML = "<div style='text-align:center; color:#8fa0b7; font-size:12px; padding:10px;'>No hay deudas pendientes.</div>";
+        cont.innerHTML = "<div style='text-align:center; color:#8fa0b7; font-size:12px; padding:10px;'>No hay deudas.</div>";
         return;
     }
 
@@ -2220,17 +2047,10 @@ window.renderizarFiados = function(filtroTexto = "") {
         if (q && !f.cliente.toLowerCase().includes(q)) return;
 
         let badgeClass = "credit-ok";
-        let badgeText = `🟢 Vence en ${f.diasParaVencer}d (${f.fechaVencimientoStr || 'S/F'})`;
-        if (f.diasParaVencer < 0) {
-            badgeClass = "credit-expired";
-            badgeText = `🔴 Vencido hace ${Math.abs(f.diasParaVencer)}d`;
-        } else if (f.diasParaVencer === 0) {
-            badgeClass = "credit-today";
-            badgeText = `🟡 Vence Hoy`;
-        } else if (f.diasParaVencer === 1) {
-            badgeClass = "credit-today";
-            badgeText = `🟡 Vence Mañana`;
-        }
+        let badgeText = `🟢 ${f.diasParaVencer}d (${f.fechaVencimientoStr || 'S/F'})`;
+        if (f.diasParaVencer < 0) { badgeClass = "credit-expired"; badgeText = `🔴 Vencido hace ${Math.abs(f.diasParaVencer)}d`; } 
+        else if (f.diasParaVencer === 0) { badgeClass = "credit-today"; badgeText = `🟡 Vence Hoy`; } 
+        else if (f.diasParaVencer === 1) { badgeClass = "credit-today"; badgeText = `🟡 Vence Mañana`; }
 
         let histAbonos = (f.abonos && f.abonos.length) 
             ? `<div style="font-size:10px; color:#8fa0b7; background:#0b0e14; padding:6px; border-radius:6px; margin-top:4px;">Abonos: ${f.abonos.map(a=>`$${a.usd.toFixed(2)} (${a.fecha})`).join(' | ')}</div>` 
@@ -2241,7 +2061,7 @@ window.renderizarFiados = function(filtroTexto = "") {
                 <h4 style="color:#ffc107; margin:0; border:none; padding:0;">👤 ${window.escapeHTML(f.cliente)}</h4>
                 <div style="display:flex; gap:4px; align-items:center;">
                     <span class="credit-badge ${badgeClass}">${badgeText}</span>
-                    <button class="btn-tool" style="border-color:#25D366; color:#25D366; padding:4px 8px;" onclick="window.cobrarFiadoWhatsApp(${idx})">📲 WS</button>
+                    <button class="btn-tool" style="border-color:#25D366; color:#25D366; padding:4px 8px;" onclick="window.cobrarFiadoWhatsApp(${idx})">📲</button>
                 </div>
             </div>
             <div class="cierre-item">Fecha Emisión: <span>${f.fecha}</span></div>
@@ -2275,10 +2095,7 @@ window.confirmarAbonoFiado = function() {
     let abonoUSD = parseFloat(document.getElementById('abono-monto-usd').value) || 0;
     let metodo = document.getElementById('abono-metodo').value;
 
-    if (abonoUSD <= 0 || abonoUSD > f.montoUSD + 0.01) {
-        window.mostrarFeedbackAnimado('error', 'Monto inválido');
-        return;
-    }
+    if (abonoUSD <= 0 || abonoUSD > f.montoUSD + 0.01) { window.mostrarFeedbackAnimado('warning', 'Monto inválido'); return; }
 
     let abonoVES = abonoUSD * window.tasaDia;
     f.montoUSD -= abonoUSD;
@@ -2286,26 +2103,15 @@ window.confirmarAbonoFiado = function() {
     f.abonos.push({ usd: abonoUSD, fecha: new Date().toLocaleDateString() });
 
     window.ventasHistorico.push({
-        id: Date.now(),
-        fecha: new Date().toLocaleString(),
+        id: Date.now(), fecha: new Date().toLocaleString(),
         items: [{ nombre: `Abono Deuda (${f.cliente})`, qtyVenta: 1, precioUnitario: abonoUSD, totalUSD: abonoUSD }],
-        totalUSD: abonoUSD,
-        totalVES: abonoVES,
-        costoUSD: 0,
-        ptv: metodo === 'ptv' ? abonoVES : 0,
-        pm: metodo === 'pm' ? abonoVES : 0,
-        ves: metodo === 'ves' ? abonoVES : 0,
-        usd: metodo === 'usd' ? abonoUSD : 0,
-        cajero: window.usuarioActivoNombre,
-        cliente: f.cliente
+        totalUSD: abonoUSD, totalVES: abonoVES, costoUSD: 0,
+        ptv: metodo === 'ptv' ? abonoVES : 0, pm: metodo === 'pm' ? abonoVES : 0, ves: metodo === 'ves' ? abonoVES : 0, usd: metodo === 'usd' ? abonoUSD : 0,
+        cajero: window.usuarioActivoNombre, cliente: f.cliente
     });
 
-    if (f.montoUSD <= 0.01) {
-        window.fiados.splice(window.fiadoEnAbonoIdx, 1);
-        window.mostrarToast("✓ Deuda Saldada por Completo");
-    } else {
-        window.mostrarToast("✓ Abono registrado en Caja");
-    }
+    if (f.montoUSD <= 0.01) { window.fiados.splice(window.fiadoEnAbonoIdx, 1); window.mostrarToast("✓ Saldada"); } 
+    else { window.mostrarToast("✓ Abono registrado"); }
 
     document.getElementById('modal-abono').style.display = 'none';
     window.evaluarVencimientosCreditos();
@@ -2322,35 +2128,33 @@ window.cobrarFiado = function(idx) {
     window.confirmarAbonoFiado();
 };
 
-// CÁMARA Y ESCÁNER DE CÓDIGOS DE BARRAS
 window.abrirCamaraEnVivo = function(modo) {
-    if (typeof Html5Qrcode === 'undefined') { window.mostrarFeedbackAnimado('error', 'Cargando escáner...'); return; }
+    if (typeof Html5Qrcode === 'undefined') { window.mostrarFeedbackAnimado('warning', 'Cargando...'); return; }
     document.getElementById('modal-camara').style.display = 'flex';
-    
     if(window.html5QrScannerInstancia) {
         window.html5QrScannerInstancia.stop().then(() => {
             window.html5QrScannerInstancia.clear();
             window.iniciarCamaraInstancia(modo);
         }).catch(() => window.iniciarCamaraInstancia(modo));
-    } else {
-        window.iniciarCamaraInstancia(modo);
-    }
+    } else { window.iniciarCamaraInstancia(modo); }
 };
 
 window.iniciarCamaraInstancia = function(modo) {
     window.html5QrScannerInstancia = new Html5Qrcode("interactive-scanner");
+    // Forzar enfoque macro continuo para códigos pequeños
     window.html5QrScannerInstancia.start(
-        { facingMode: "environment" }, { fps: 12, qrbox: { width: 230, height: 130 } },
+        { facingMode: "environment", advanced: [{ focusMode: "continuous" }] }, 
+        { fps: 12, qrbox: { width: 230, height: 130 } },
         text => {
             window.cerrarCamaraEnVivo();
             if(modo === 'registro') {
                 window.reproducirBeep(true);
                 document.getElementById('prod-serial').value = text;
-                window.mostrarFeedbackAnimado('exito', 'Código Leído');
+                window.mostrarFeedbackAnimado('exito', 'Leído');
             } else {
                 let match = window.productos.find(p => p.serial === text);
                 if(match) { window.mostrarFeedbackAnimado('exito', match.nombre); window.agregarAlCarritoDesdeCaja(match.id); }
-                else { window.reproducirBeep(false); window.mostrarFeedbackAnimado('error', 'No Registrado'); }
+                else { window.reproducirBeep(false); window.mostrarFeedbackAnimado('warning', 'No Registrado'); }
             }
         }, err => {}
     ).catch(() => {
@@ -2363,8 +2167,7 @@ window.cerrarCamaraEnVivo = function() {
     if(window.html5QrScannerInstancia) {
         try {
             window.html5QrScannerInstancia.stop().then(() => {
-                window.html5QrScannerInstancia.clear();
-                window.html5QrScannerInstancia = null;
+                window.html5QrScannerInstancia.clear(); window.html5QrScannerInstancia = null;
             }).catch(()=>{});
         } catch(e){}
     }
@@ -2382,18 +2185,30 @@ window.escanearBarcodeFoto = function(e, modo) {
         } else {
             let match = window.productos.find(p => p.serial === text);
             if(match) window.agregarAlCarritoDesdeCaja(match.id);
-            else { window.reproducirBeep(false); window.mostrarFeedbackAnimado('error', 'No Registrado'); }
+            else { window.reproducirBeep(false); window.mostrarFeedbackAnimado('warning', 'No Registrado'); }
         }
-    }).catch(() => window.mostrarFeedbackAnimado('error', 'Fallo lectura'));
+    }).catch(() => window.mostrarFeedbackAnimado('warning', 'Fallo lectura'));
 };
 
 window.generarQRPagoMovil = function() {
-    if(window.totalVentaVES <= 0) { window.mostrarFeedbackAnimado('error', 'Agrega productos'); return; }
-    let b = window.perfilNegocio.pmBanco.padStart(4, '0'), c = window.perfilNegocio.pmCedula, t = window.perfilNegocio.pmTlf;
-    let qrStr = `pagoMovil:v1?banco=${b}&cedula=${c}&telefono=${t}&monto=${window.totalVentaVES.toFixed(2)}`;
-    document.getElementById('img-qr-code').src = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(qrStr);
+    if(window.totalVentaVES <= 0) { window.mostrarFeedbackAnimado('warning', 'Agrega productos'); return; }
     
-    document.getElementById('qr-text-info').innerText = `🏢 ${window.perfilNegocio.nombre}\n🏦 Banco: ${b}\n🪪 CI: ${c}\n📞 Tlf: ${t}\n💵 Monto: ${window.totalVentaVES.toFixed(2)} Bs`;
+    let b = window.perfilNegocio.pmBanco.padStart(4, '0');
+    let c = window.perfilNegocio.pmCedula;
+    let t = window.perfilNegocio.pmTlf;
+    let montoStr = window.totalVentaVES.toFixed(2);
+    
+    // ESTÁNDAR C2P / P2P SUDEBAN INTERBANCARIO
+    let payloadQR = JSON.stringify({
+        "banco": b,
+        "cedula": c,
+        "telefono": t,
+        "monto": montoStr
+    });
+
+    document.getElementById('img-qr-code').src = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(payloadQR);
+    
+    document.getElementById('qr-text-info').innerText = `🏢 ${window.perfilNegocio.nombre}\n🏦 Banco: ${b}\n🪪 CI: ${c}\n📞 Tlf: ${t}\n💵 Monto: ${montoStr} Bs`;
     document.getElementById('modal-qr').style.display = 'flex';
 };
 
@@ -2403,13 +2218,12 @@ window.enviarQRPorWS = function() {
     window.open(tlf ? `https://api.whatsapp.com/send?phone=${tlf}&text=${encodeURIComponent(msj)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(msj)}`, '_blank');
 };
 
-// CIERRE DE CAJA CON FILTROS, GASTOS, GRÁFICAS Y EXPORTACIÓN EXCEL (CSV)
 window.renderizarCierreDeCaja = function() {
     let selCajero = document.getElementById('filtro-cierre-cajero');
     if (selCajero) {
         let actual = selCajero.value || "Todos";
         let nombres = ["Todos", ...new Set(window.usuariosCajeros.map(u => u.nombre).concat(window.ventasHistorico.map(v => v.cajero || "Caja")))];
-        selCajero.innerHTML = nombres.map(n => `<option value="${window.escapeHTML(n)}">${n === 'Todos' ? '👤 Todos los Cajeros' : '👤 ' + window.escapeHTML(n)}</option>`).join('');
+        selCajero.innerHTML = nombres.map(n => `<option value="${window.escapeHTML(n)}">${n === 'Todos' ? '👤 Todos' : '👤 ' + window.escapeHTML(n)}</option>`).join('');
         selCajero.value = nombres.includes(actual) ? actual : "Todos";
     }
 
@@ -2443,9 +2257,7 @@ window.renderizarCierreDeCaja = function() {
         tVUSD += v.totalUSD; tCUSD += (v.costoUSD || 0);
 
         if (v.items) {
-            v.items.forEach(it => {
-                conteoProd[it.nombre] = (conteoProd[it.nombre] || 0) + (it.qtyVenta || 1);
-            });
+            v.items.forEach(it => { conteoProd[it.nombre] = (conteoProd[it.nombre] || 0) + (it.qtyVenta || 1); });
         }
 
         let badgePM = v.pmRef ? `<div style="font-size:10px; color:#00ff66;">✓ PM Ref: #${window.escapeHTML(v.pmRef)}</div>` : '';
@@ -2461,7 +2273,7 @@ window.renderizarCierreDeCaja = function() {
             </div></div>`;
     }).join('');
     
-    document.getElementById('lista-historial-ventas').innerHTML = html || '<div style="text-align:center; color:#57687e; font-size:12px;">Sin ventas registradas en este filtro.</div>';
+    document.getElementById('lista-historial-ventas').innerHTML = html || '<div style="text-align:center; color:#57687e; font-size:12px;">Sin ventas en este filtro.</div>';
     document.getElementById('resumen-ptv').innerText = window.formatVE(tPTV);
     document.getElementById('resumen-pm').innerText = window.formatVE(tPM);
     document.getElementById('resumen-ves').innerText = window.formatVE(tVES);
@@ -2479,7 +2291,7 @@ window.renderizarCierreDeCaja = function() {
     let boxGastos = document.getElementById('lista-gastos-cierre');
     if (boxGastos) {
         boxGastos.innerHTML = window.gastosCaja.length === 0 
-            ? '<div style="color:#57687e; font-size:11px; text-align:center;">Sin salidas de caja chica hoy.</div>'
+            ? '<div style="color:#57687e; font-size:11px; text-align:center;">Sin salidas hoy.</div>'
             : window.gastosCaja.map((g, idx) => `
                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; background:#0b0e14; padding:6px 8px; border-radius:6px;">
                     <span>💸 <strong>${window.escapeHTML(g.motivo)}</strong> (${g.cajero})</span>
@@ -2500,7 +2312,7 @@ window.renderizarCierreDeCaja = function() {
     let maxQty = topArr.length ? topArr[0][1] : 1;
     let boxTop = document.getElementById('grafico-top-productos');
     if (topArr.length === 0) {
-        boxTop.innerHTML = '<div style="color:#57687e; font-size:11px; text-align:center;">Aún no hay datos suficientes.</div>';
+        boxTop.innerHTML = '<div style="color:#57687e; font-size:11px; text-align:center;">Sin datos.</div>';
     } else {
         boxTop.innerHTML = topArr.map(([nom, cant]) => `
             <div>
@@ -2515,42 +2327,27 @@ window.renderizarCierreDeCaja = function() {
 };
 
 window.exportarVentasCSV = function() {
-    if (window.ventasHistorico.length === 0) {
-        window.mostrarFeedbackAnimado('error', 'No hay ventas para exportar');
-        return;
-    }
+    if (window.ventasHistorico.length === 0) { window.mostrarFeedbackAnimado('warning', 'Sin ventas'); return; }
     let filas = [["ID", "Fecha y Hora", "Cajero", "Cliente", "Articulos", "Total USD ($)", "Total Bs", "Punto Venta (Bs)", "Pago Movil (Bs)", "Ref Pago Movil", "Efectivo Bs", "Efectivo USD ($)"]];
     window.ventasHistorico.forEach(v => {
         let arts = (v.items || []).map(i => `${i.qtyVenta || 1}x ${i.nombre}`).join(" | ");
         filas.push([
-            v.id,
-            `"${v.fecha}"`,
-            `"${v.cajero || 'Caja'}"`,
-            `"${(v.cliente || 'Mostrador').replace(/"/g, '""')}"`,
-            `"${arts.replace(/"/g, '""')}"`,
-            (v.totalUSD || 0).toFixed(2),
-            (v.totalVES || 0).toFixed(2),
-            (v.ptv || 0).toFixed(2),
-            (v.pm || 0).toFixed(2),
-            `"${v.pmRef || ''}"`,
-            (v.ves || 0).toFixed(2),
-            (v.usd || 0).toFixed(2)
+            v.id, `"${v.fecha}"`, `"${v.cajero || 'Caja'}"`, `"${(v.cliente || 'Mostrador').replace(/"/g, '""')}"`,
+            `"${arts.replace(/"/g, '""')}"`, (v.totalUSD || 0).toFixed(2), (v.totalVES || 0).toFixed(2),
+            (v.ptv || 0).toFixed(2), (v.pm || 0).toFixed(2), `"${v.pmRef || ''}"`, (v.ves || 0).toFixed(2), (v.usd || 0).toFixed(2)
         ]);
     });
     let csvContent = "\uFEFF" + filas.map(e => e.join(";")).join("\n");
     let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    let url = URL.createObjectURL(blob);
     let a = document.createElement("a");
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = `Reporte_Ventas_${window.perfilNegocio.nombre || 'GeoMercado'}_${new Date().toLocaleDateString().replace(/\//g,'-')}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    document.body.appendChild(a); a.click(); a.remove();
     window.mostrarToast("📗 Reporte Excel descargado");
 };
 
 window.anularVenta = function(idx) {
-    window.mostrarConfirmacion("❌ Anular Venta", "¿Deseas anular esta venta y devolver stock?", function() {
+    window.mostrarConfirmacion("❌ Anular", "¿Anular esta venta y devolver stock?", function() {
         window.ventasHistorico[idx].items.forEach(it => {
             if(it.tipo === 'unidad') {
                 let p = window.productos.find(x => x.id === it.id);
@@ -2565,7 +2362,7 @@ window.anularVenta = function(idx) {
 };
 
 window.borrarHistorial = function() {
-    window.mostrarConfirmacion("⚠️ Reiniciar Día", "¿Borrar todas las ventas y gastos de hoy?", function() {
+    window.mostrarConfirmacion("⚠️ Reiniciar Día", "¿Borrar todas las ventas de hoy?", function() {
         window.ventasHistorico = [];
         window.gastosCaja = [];
         window.sincronizarConNube();
@@ -2573,25 +2370,9 @@ window.borrarHistorial = function() {
     });
 };
 
-// IMPRESIÓN HÍBRIDA: BLUETOOTH TÉRMICO DIRECTO O NAVEGADOR DE RESPALDO
 window.imprimirCierreZ = async function() {
-    let textoBT = `================================\n` +
-                  `   ${window.perfilNegocio.nombre || 'GEOMERCADO'}\n` +
-                  `   REPORTE CIERRE Z\n` +
-                  `   ${new Date().toLocaleString()}\n` +
-                  `================================\n` +
-                  `Transacciones: ${window.ventasHistorico.length}\n` +
-                  `Gastos Caja:   ${window.gastosCaja.length}\n` +
-                  `Efectivo $:    ${document.getElementById('esperado-usd')?.innerText || '$0.00'}\n` +
-                  `Efectivo Bs:   ${document.getElementById('esperado-ves')?.innerText || '0,00 Bs'}\n` +
-                  `================================\n` +
-                  `       Firma Responsable\n`;
-
-    let enviadoBT = await window.enviarTextoImpresoraBT(textoBT);
-    if (enviadoBT) {
-        window.mostrarToast("🖨️ Reporte Z impreso por Bluetooth");
-        return;
-    }
+    let textoBT = `================================\n   ${window.perfilNegocio.nombre || 'GEOMERCADO'}\n   REPORTE CIERRE Z\n   ${new Date().toLocaleString()}\n================================\nTransacciones: ${window.ventasHistorico.length}\nGastos Caja:   ${window.gastosCaja.length}\nEfectivo $:    ${document.getElementById('esperado-usd')?.innerText || '$0.00'}\nEfectivo Bs:   ${document.getElementById('esperado-ves')?.innerText || '0,00 Bs'}\n================================\n       Firma Responsable\n`;
+    if (await window.enviarTextoImpresoraBT(textoBT)) { window.mostrarToast("🖨️ Impreso BT"); return; }
 
     let pw = window.open('', '_blank');
     if(!pw) return;
@@ -2607,39 +2388,20 @@ window.imprimirTicket = async function(idx) {
     let v = window.ventasHistorico[idx];
     if(!v) return;
 
-    // 1. Intentar primero Impresión Térmica Silenciosa por Bluetooth si está vinculada
     if (window.impresoraBTCharacteristic) {
         let lineasProd = v.items.map(it => `${it.qtyVenta || it.detalle}x ${it.nombre}\n   ${(it.totalUSD * window.tasaDia).toFixed(2)} Bs`).join('\n');
         let igtfTxt = (v.igtfUSD && v.igtfUSD > 0) ? `IGTF (3%): ${(v.igtfUSD * window.tasaDia).toFixed(2)} Bs\n` : '';
-        let textoBT = `================================\n` +
-                      `   ${window.perfilNegocio.nombre || 'GEOMERCADO'}\n` +
-                      `Fecha: ${v.fecha}\n` +
-                      `Cajero: ${v.cajero || 'Caja'}\n` +
-                      (v.cliente ? `Cliente: ${v.cliente}\n` : '') +
-                      `--------------------------------\n` +
-                      `${lineasProd}\n` +
-                      `--------------------------------\n` +
-                      `${igtfTxt}` +
-                      `TOTAL: ${window.formatVE(v.totalVES)}\n` +
-                      `================================\n` +
-                      `   Gracias por su compra!\n`;
-        let okBT = await window.enviarTextoImpresoraBT(textoBT);
-        if (okBT) {
-            window.mostrarToast("🖨️ Ticket impreso por Bluetooth");
-            return;
-        }
+        let textoBT = `================================\n   ${window.perfilNegocio.nombre || 'GEOMERCADO'}\nFecha: ${v.fecha}\nCajero: ${v.cajero || 'Caja'}\n${v.cliente ? 'Cliente: '+v.cliente+'\n' : ''}--------------------------------\n${lineasProd}\n--------------------------------\n${igtfTxt}TOTAL: ${window.formatVE(v.totalVES)}\n================================\n   Gracias por su compra!\n`;
+        if (await window.enviarTextoImpresoraBT(textoBT)) { window.mostrarToast("🖨️ Impreso BT"); return; }
     }
 
-    // 2. Respaldo Estándar por Navegador
     let pw = window.open('', '_blank');
     if(!pw) return;
     let itemsStr = v.items.map(it => `<div>${window.escapeHTML(it.nombre)}</div><div class="row"><span>${it.qtyVenta || it.detalle} x ${window.formatUSD(it.precioUnitario)}</span><span>${window.formatVE(it.totalUSD * window.tasaDia)}</span></div>`).join('');
     let igtfStr = v.igtfUSD && v.igtfUSD > 0 ? `<div class="row"><span>IGTF (3% Divisas):</span><span>${window.formatVE(v.igtfUSD * window.tasaDia)}</span></div>` : '';
     let html = `<html><head><style>body{font-family:monospace; width:280px; padding:10px; font-size:12px; color:#000;} .center{text-align:center;} .line{border-bottom:1px dashed #000; margin:5px 0;} .row{display:flex; justify-content:space-between;}</style></head>
     <body><div class="center"><strong>${window.escapeHTML(window.perfilNegocio.nombre)}</strong><br>Fecha: ${v.fecha}<br>Cajero: ${v.cajero || 'Caja'}</div><div class="line"></div>
-    ${itemsStr}<div class="line"></div>
-    ${igtfStr}
-    <div class="row"><strong>TOTAL:</strong><strong>${window.formatVE(v.totalVES)}</strong></div>
+    ${itemsStr}<div class="line"></div>${igtfStr}<div class="row"><strong>TOTAL:</strong><strong>${window.formatVE(v.totalVES)}</strong></div>
     <div class="center">¡Gracias por su compra!</div><script>window.onload=function(){window.print();window.close();}<\/script></body></html>`;
     pw.document.write(html); pw.document.close();
 };
