@@ -13,7 +13,7 @@ body {
 
 .app-container { width: 100%; max-width: 450px; display: flex; flex-direction: column; gap: 10px; position: relative; }
 
-/* MODO REPOSO INTELIGENTE (AHORRO DE BATERÍA NEGRO PURO SIN PIN) */
+/* MODO REPOSO INTELIGENTE (AHORRO DE BATERÍA NEGRO PURO) */
 .screensaver-overlay {
     display: none;
     position: fixed;
@@ -54,12 +54,7 @@ body {
     display: inline-block;
     margin-top: 4px;
 }
-.screensaver-hint {
-    font-size: 11px;
-    color: #57687e;
-    margin-top: 22px;
-    letter-spacing: 0.5px;
-}
+.screensaver-hint { font-size: 11px; color: #57687e; margin-top: 22px; letter-spacing: 0.5px; }
 
 @keyframes floatScreensaver {
     0%   { transform: translate(0px, -28px) scale(0.98); }
@@ -86,13 +81,8 @@ body {
 .status-dot.offline { background-color: #ffc107; box-shadow: 0 0 8px #ffc107; }
 
 .badge-tasa-live {
-    background: rgba(0, 255, 102, 0.1);
-    border: 1px solid #00ff66;
-    color: #ffffff;
-    padding: 4px 10px;
-    border-radius: 16px;
-    font-size: 11px;
-    cursor: pointer;
+    background: rgba(0, 255, 102, 0.1); border: 1px solid #00ff66; color: #ffffff;
+    padding: 4px 10px; border-radius: 16px; font-size: 11px; cursor: pointer;
     transition: transform 0.1s, background 0.2s;
 }
 .badge-tasa-live strong { color: #00ff66; }
@@ -100,15 +90,9 @@ body {
 
 /* CAMPANA DE NOTIFICACIONES AUTOMÁTICAS DE CRÉDITO */
 .badge-bell-alert {
-    background: rgba(255, 193, 7, 0.15);
-    border: 1px solid #ffc107;
-    color: #ffc107;
-    padding: 4px 9px;
-    border-radius: 16px;
-    font-size: 11px;
-    font-weight: bold;
-    cursor: pointer;
-    animation: pulseAnim 1.2s infinite;
+    background: rgba(255, 193, 7, 0.15); border: 1px solid #ffc107; color: #ffc107;
+    padding: 4px 9px; border-radius: 16px; font-size: 11px; font-weight: bold;
+    cursor: pointer; animation: pulseAnim 1.2s infinite;
 }
 
 .pc-shortcuts-hint { display: none; font-size: 10px; color: #8fa0b7; background: #161a23; padding: 4px 10px; border-radius: 6px; border: 1px solid #242c3d; }
@@ -126,46 +110,20 @@ body {
 .pos-item-title { font-weight: 600; line-height: 1.2; word-break: break-word; }
 .pos-item-price { color: #00ff66; font-weight: bold; text-align: right; flex-shrink: 0; }
 
-/* ESCÁNER DE FACTURAS DE PROVEEDOR (GEMINI VISION) */
-.ai-invoice-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-height: 240px;
-    overflow-y: auto;
-    background: #0b0e14;
-    padding: 8px;
-    border-radius: 10px;
-    border: 1px solid #10b981;
-}
-.ai-invoice-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #161a23;
-    border: 1px solid #242c3d;
-    padding: 6px 10px;
-    border-radius: 8px;
-    font-size: 12px;
-    gap: 6px;
-}
-.ai-invoice-badge {
-    font-size: 9px;
-    padding: 2px 5px;
-    border-radius: 4px;
-    font-weight: bold;
-    text-transform: uppercase;
-}
+/* ESCÁNER DE FACTURAS DE PROVEEDOR (NUEVA INTERFAZ DE BULTOS) */
+.ai-invoice-list { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; background: #0b0e14; padding: 8px; border-radius: 10px; border: 1px solid #10b981; }
+.ai-invoice-row { display: flex; flex-direction: column; background: #161a23; border: 1px solid #242c3d; padding: 8px; border-radius: 8px; font-size: 12px; gap: 6px; }
+.ai-invoice-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.ai-invoice-badge { font-size: 9px; padding: 2px 5px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
 .ai-badge-new { background: rgba(0, 255, 102, 0.15); color: #00ff66; border: 1px solid #00ff66; }
 .ai-badge-update { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #38bdf8; }
 
+.bulto-config-row { display: flex; align-items: center; justify-content: space-between; background: #0b0e14; padding: 6px; border-radius: 6px; border: 1px dashed #ffc107; margin-top: 4px; }
+.bulto-config-row select, .bulto-config-row input { background: #161a23; border: 1px solid #313c52; color: #fff; padding: 4px; border-radius: 4px; font-size: 11px; outline: none; }
+.bulto-config-row input { width: 45px; text-align: center; font-weight: bold; color: #ffc107; }
+
 /* ETIQUETAS DE VENCIMIENTO DE CRÉDITO */
-.credit-badge {
-    font-size: 10px;
-    padding: 2px 7px;
-    border-radius: 6px;
-    font-weight: bold;
-}
+.credit-badge { font-size: 10px; padding: 2px 7px; border-radius: 6px; font-weight: bold; }
 .credit-expired { background: rgba(255, 82, 82, 0.2); color: #ff5252; border: 1px solid #ff5252; }
 .credit-today { background: rgba(255, 193, 7, 0.2); color: #ffc107; border: 1px solid #ffc107; }
 .credit-ok { background: rgba(0, 255, 102, 0.12); color: #00ff66; border: 1px solid #10b981; }
@@ -178,51 +136,19 @@ body {
     .inventory-grid { grid-template-columns: repeat(4, 1fr) !important; }
     .caja-layout-pc { display: grid; grid-template-columns: 1.35fr 0.85fr; gap: 16px; align-items: start; }
     
-    .search-results-box { 
-        display: grid !important; 
-        grid-template-columns: repeat(3, 1fr); 
-        gap: 8px !important; 
-        max-height: 310px !important; 
-        padding-top: 4px;
-    }
-    .btn-search-result { 
-        flex-direction: column !important; 
-        align-items: center !important; 
-        text-align: center !important; 
-        padding: 10px !important; 
-        gap: 6px; 
-        justify-content: space-between !important;
-    }
+    .search-results-box { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 8px !important; max-height: 310px !important; padding-top: 4px; }
+    .btn-search-result { flex-direction: column !important; align-items: center !important; text-align: center !important; padding: 10px !important; gap: 6px; justify-content: space-between !important; }
     .pos-card-inner { flex-direction: column; gap: 6px; }
     .pos-item-thumb { width: 56px; height: 56px; border-radius: 8px; }
     .pos-item-emoji { width: 56px; height: 56px; font-size: 26px; border-radius: 8px; }
     .pos-item-price { text-align: center; width: 100%; border-top: 1px dashed #242c3d; padding-top: 4px; }
 }
 
-.offline-banner {
-    background: #ffc107; color: #000; font-size: 11px; font-weight: bold;
-    padding: 6px; border-radius: 8px; text-align: center; display: none;
-    box-shadow: 0 0 10px rgba(255,193,7,0.3); animation: fadeIn 0.3s ease;
-}
+.offline-banner { background: #ffc107; color: #000; font-size: 11px; font-weight: bold; padding: 6px; border-radius: 8px; text-align: center; display: none; box-shadow: 0 0 10px rgba(255,193,7,0.3); animation: fadeIn 0.3s ease; }
+.stock-alert-banner { background: rgba(255, 82, 82, 0.15); border: 1px solid #ff5252; color: #ff5252; font-size: 11px; font-weight: bold; padding: 8px 12px; border-radius: 10px; width: 100%; box-sizing: border-box; margin-bottom: 10px; cursor: pointer; animation: pulseAnim 1.5s infinite; }
 
-.stock-alert-banner {
-    background: rgba(255, 82, 82, 0.15); border: 1px solid #ff5252; color: #ff5252;
-    font-size: 11px; font-weight: bold; padding: 8px 12px; border-radius: 10px;
-    width: 100%; box-sizing: border-box; margin-bottom: 10px; cursor: pointer;
-    animation: pulseAnim 1.5s infinite;
-}
-
-.login-card { 
-    background: #11151d; border: 1px solid #00ff66; border-radius: 14px; 
-    padding: 24px; width: 100%; max-width: 380px; margin: 30px auto; 
-    text-align: center; box-shadow: 0 0 20px rgba(0,255,102,0.15); 
-    animation: fadeIn 0.3s ease;
-}
-.login-card input, .login-card select { 
-    width: 100%; background: #0b0e14; border: 1px solid #242c3d; 
-    padding: 10px; border-radius: 8px; color: #fff; margin-bottom: 12px; 
-    outline: none; box-sizing: border-box; text-align: center; font-size: 13px;
-}
+.login-card { background: #11151d; border: 1px solid #00ff66; border-radius: 14px; padding: 24px; width: 100%; max-width: 380px; margin: 30px auto; text-align: center; box-shadow: 0 0 20px rgba(0,255,102,0.15); animation: fadeIn 0.3s ease; }
+.login-card input, .login-card select { width: 100%; background: #0b0e14; border: 1px solid #242c3d; padding: 10px; border-radius: 8px; color: #fff; margin-bottom: 12px; outline: none; box-sizing: border-box; text-align: center; font-size: 13px; }
 
 #menu-principal { display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: 6px; width: 100%; animation: fadeIn 0.3s ease-in-out; }
 .logo-grande { width: 90px; height: 90px; margin-bottom: 6px; filter: drop-shadow(0 0 12px #00ff66); transition: transform 0.3s ease; }
@@ -349,22 +275,31 @@ body {
 }
 .toast-notification.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
+/* RE-DISEÑO DE ALERTAS CORPORATIVAS (SIN X ROJA GIGANTE) */
 .scan-feedback-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.7); z-index: 3000; display: none;
+    background: rgba(0, 0, 0, 0.8); z-index: 3000; display: none;
     justify-content: center; align-items: center; flex-direction: column;
 }
 .scan-feedback-box {
-    width: 100px; height: 100px; border-radius: 50%;
-    display: flex; justify-content: center; align-items: center; font-size: 50px;
+    width: 90px; height: 90px; border-radius: 20px;
+    display: flex; justify-content: center; align-items: center; font-size: 40px;
     animation: bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-.scan-feedback-success { background: #00ff66; color: #000; box-shadow: 0 0 30px #00ff66; }
-.scan-feedback-error { background: #ff5252; color: #fff; box-shadow: 0 0 30px #ff5252; }
+.scan-feedback-success { background: #00ff66; color: #000; box-shadow: 0 0 20px rgba(0,255,102,0.4); }
+/* El error ahora usa un tono más corporativo (Advertencia) en lugar de rojo sangre */
+.scan-feedback-warning { background: #f97316; color: #fff; box-shadow: 0 0 20px rgba(249,115,22,0.4); }
+/* Nuevo icono de procesamiento bancario giratorio */
+.scan-feedback-processing { 
+    background: transparent; color: #00ff66; border: 4px solid #242c3d; 
+    border-top-color: #00ff66; border-radius: 50%; width: 60px; height: 60px; 
+    animation: spin 1s linear infinite; 
+}
 
+@keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes bounceIn { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes bounceIn { 0% { transform: scale(0.8); opacity: 0; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); } }
 @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
 .shake-effect { animation: shake 0.4s ease-in-out; }
 .pulse-number { animation: pulseAnim 0.2s ease-out; }
