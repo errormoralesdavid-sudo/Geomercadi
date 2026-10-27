@@ -19,7 +19,6 @@ const auth = getAuth(app);
 // BÓVEDA DE SEGURIDAD DUAL PARA GEMINI (GRATIS + PAGO CON FAILOVER)
 // =========================================================================
 const SECRET_SALT = "GM_POS_VZLA_2026";
-// Clave AQ. pre-ofuscada por defecto
 const DEFAULT_VAULT_CIPHER = "Bgx/NAcna197Z2Z4Y10BfF59eSc1bQo9dW5rVDFxIQI1Ewo6d2ZrAjc2bRo8eWUIH1ZmZw==";
 
 window.ofuscarClave = function(textoPlano) {
@@ -101,7 +100,7 @@ window.perfilNegocio = {
     cobrarIGTF: false,
     geminiKeyCifrada: DEFAULT_VAULT_CIPHER,
     geminiKeyPagoCifrada: "",
-    geminiModoMotor: "auto" // "auto" | "preview" | "lite"
+    geminiModoMotor: "auto"
 };
 
 window.productoEnEdicion = null;
@@ -113,8 +112,24 @@ window.itemsFacturaProveedorTemp = [];
 window.fiadoEnAbonoIdx = null;
 window.html5QrScannerInstancia = null;
 
-// SONIDO BEEP PARA PISTOLA LÁSER Y CAJA
+// VARIABLES DE MODO REPOSO E IMPRESORA BLUETOOTH
+window.temporizadorInactividad = null;
+window.TIEMPO_REPOSO_MS = 3 * 60 * 1000; // 3 minutos
+window.impresoraBTDevice = null;
+window.impresoraBTCharacteristic = null;
+
+// =========================================================================
+// SONIDO BEEP + FEEDBACK HÁPTICO (VIBRACIÓN INTELIGENTE)
+// =========================================================================
 window.reproducirBeep = function(exito = true) {
+    // 1. Respuesta Háptica Física (Vibración corta en éxito, doble fuerte en error)
+    try {
+        if (navigator.vibrate) {
+            navigator.vibrate(exito ? 45 : [130, 70, 160]);
+        }
+    } catch(e) {}
+
+    // 2. Respuesta Sonora por Oscilador WebAudio
     try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = ctx.createOscillator();
@@ -127,6 +142,146 @@ window.reproducirBeep = function(exito = true) {
         osc.start();
         osc.stop(ctx.currentTime + (exito ? 0.09 : 0.25));
     } catch(e) {}
+};
+
+// =========================================================================
+// MODO REPOSO INTELIGENTE (AHORRO DE BATERÍA NEGRO PURO SIN PEDIR PIN)
+// =========================================================================
+window.actualizarRelojScreensaver = function() {
+    let elClock = document.getElementById('screensaver-clock');
+    let elTasa = document.getElementById('screensaver-tasa');
+    if (elClock) {
+        let ahora = new Date();
+        elClock.innerText = ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    if (elTasa) {
+        elTasa.innerText = `BCV: ${window.formatVE(window.tasaDia)}`;
+    }
+};
+
+window.activarModoReposo = function() {
+    let appVisible = document.getElementById('app-content') && document.getElementById('app-content').style.display !== 'none';
+    if (!appVisible) return;
+    let overlay = document.getElementById('screensaver-overlay');
+    if (overlay) {
+        window.actualizarRelojScreensaver();
+        overlay.style.display = 'flex';
+    }
+};
+
+window.despertarPantalla = function() {
+    let overlay = document.getElementById('screensaver-overlay');
+    if (overlay && overlay.style.display !== 'none') {
+        overlay.style.display = 'none';
+        try { if (navigator.vibrate) navigator.vibrate(25); } catch(e) {}
+    }
+    window.reiniciarTemporizadorInactividad();
+};
+
+window.reiniciarTemporizadorInactividad = function() {
+    if (window.temporizadorInactividad) clearTimeout(window.temporizadorInactividad);
+    window.temporizadorInactividad = setTimeout(window.activarModoReposo, window.TIEMPO_REPOSO_MS);
+};
+
+// =========================================================================
+// IMPRESIÓN TÉRMICA SILENCIOSA (WEB BLUETOOTH ESC/POS 58mm / 80mm)
+// =========================================================================
+window.conectarImpresoraBluetooth = async function() {
+    if (!navigator.bluetooth) {
+        window.mostrarFeedbackAnimado('error', 'Bluetooth Web no disponible en este navegador');
+        return;
+    }
+    try {
+        window.mostrarToast("🔍 Buscando ticketera Bluetooth...");
+        const device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [
+                '000018f0-0000-1000-8000-00805f9b34fb',
+                'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+                '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+            ]
+        });
+
+        const server = await device.gatt.connect();
+        const services = await server.getPrimaryServices();
+        let writeChar = null;
+
+        for (let service of services) {
+            const chars = await service.getCharacteristics();
+            for (let c of chars) {
+                if (c.properties.write || c.properties.writeWithoutResponse) {
+                    writeChar = c;
+                    break;
+                }
+            }
+            if (writeChar) break;
+        }
+
+        if (!writeChar) throw new Error("No se encontró canal de escritura ESC/POS");
+
+        window.impresoraBTDevice = device;
+        window.impresoraBTCharacteristic = writeChar;
+
+        let elStatus = document.getElementById('bt-printer-status');
+        if (elStatus) {
+            elStatus.style.color = '#00ff66';
+            elStatus.innerText = `✔ Conectada: ${device.name || 'Ticketera Térmica'}`;
+        }
+        window.reproducirBeep(true);
+        window.mostrarToast("🖨️ Ticketera Bluetooth vinculada");
+    } catch (err) {
+        console.warn("Cancelado o fallo BT:", err);
+        window.mostrarToast("Modo impresión estándar activo");
+    }
+};
+
+window.limpiarTextoESCPOS = function(str) {
+    return String(str || "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\x20-\x7E\n]/g, "");
+};
+
+window.enviarTextoImpresoraBT = async function(textoTicket) {
+    if (!window.impresoraBTCharacteristic) return false;
+    try {
+        const encoder = new TextEncoder();
+        // Comandos ESC/POS: Inicializar (ESC @), Texto limpio, Avance de 4 líneas
+        const initCmd = new Uint8Array([0x1B, 0x40]);
+        const textBytes = encoder.encode(window.limpiarTextoESCPOS(textoTicket) + "\n\n\n\n");
+        const payload = new Uint8Array(initCmd.length + textBytes.length);
+        payload.set(initCmd, 0);
+        payload.set(textBytes, initCmd.length);
+
+        const CHUNK = 100;
+        for (let i = 0; i < payload.length; i += CHUNK) {
+            const slice = payload.slice(i, i + CHUNK);
+            if (window.impresoraBTCharacteristic.properties.writeWithoutResponse) {
+                await window.impresoraBTCharacteristic.writeValueWithoutResponse(slice);
+            } else {
+                await window.impresoraBTCharacteristic.writeValue(slice);
+            }
+        }
+        return true;
+    } catch (e) {
+        console.warn("Error enviando por Bluetooth, usando respaldo navegador:", e);
+        window.impresoraBTCharacteristic = null;
+        return false;
+    }
+};
+
+window.probarImpresoraBluetooth = async function() {
+    let texto = `================================\n` +
+                `   ${window.perfilNegocio.nombre || 'GEOMERCADO'}\n` +
+                `   PRUEBA DE IMPRESORA TERMICA\n` +
+                `   Tasa BCV: ${window.tasaDia.toFixed(2)} Bs\n` +
+                `================================\n` +
+                `Estado: OK (Impresion Directa)\n`;
+    let impresoBT = await window.enviarTextoImpresoraBT(texto);
+    if (impresoBT) {
+        window.mostrarToast("🧾 Ticket enviado por Bluetooth");
+    } else {
+        window.mostrarFeedbackAnimado('error', 'Vincula primero una Ticketera BT');
+    }
 };
 
 function iniciarSistema() {
@@ -158,6 +313,13 @@ function iniciarSistema() {
     if (inputBalanza) {
         inputBalanza.addEventListener('input', window.actualizarCalculoBalanza);
     }
+
+    // Eventos de actividad para el Modo Reposo Inteligente
+    ['click', 'touchstart', 'keydown', 'mousemove'].forEach(evt => {
+        document.addEventListener(evt, window.reiniciarTemporizadorInactividad, { passive: true });
+    });
+    window.reiniciarTemporizadorInactividad();
+    setInterval(window.actualizarRelojScreensaver, 15000);
 
     // ATAJOS DE TECLADO FÍSICO PARA PC / LAPTOP
     document.addEventListener('keydown', function(e) {
@@ -292,13 +454,24 @@ window.actualizarBarraSuperiorUI = function() {
     if (elDot) elDot.className = navigator.onLine ? "status-dot online" : "status-dot offline";
 };
 
+// AUTO-FOCO EN MODAL DE TASA RÁPIDA Y CLIENTE
 window.abrirModalTasaRapida = function() {
     if (window.rolActual !== "Administrador 👑") {
         window.mostrarToast("Solo el Administrador puede cambiar la tasa");
         return;
     }
-    document.getElementById('input-tasa-modal').value = window.tasaDia.toFixed(2);
+    let input = document.getElementById('input-tasa-modal');
+    input.value = window.tasaDia.toFixed(2);
     document.getElementById('modal-tasa-rapida').style.display = 'flex';
+    setTimeout(() => { input.focus(); input.select(); }, 150);
+};
+
+window.abrirModalClienteConFoco = function() {
+    document.getElementById('modal-cliente').style.display = 'flex';
+    setTimeout(() => {
+        let el = document.getElementById('cliente-nombre');
+        if (el) { el.focus(); el.select(); }
+    }, 150);
 };
 
 window.guardarTasaDesdeModal = function() {
@@ -350,8 +523,6 @@ window.verificarAlertasStock = function() {
 // MOTOR DE IA GEMINI VISION CON FAILOVER AUTOMÁTICO:
 // 1° gemini-3-flash-preview (Gratis) ➔ 2° gemini-3.5-flash-lite (Paga/Lite)
 // =========================================================================
-
-// Compresor de ahorro de tokens (680px al 68% gasta 75% menos tokens)
 window.comprimirImagenParaIA = function(file, maxDim = 680) {
     return new Promise((resolve, reject) => {
         let reader = new FileReader();
@@ -428,18 +599,14 @@ window.llamarGeminiVisionJSON = async function(base64Jpeg, promptSistema) {
         throw new Error("Configura tu API Key en Ajustes");
     }
 
-    // Secuencia inteligente de intentos según la preferencia del administrador
     let planIntentos = [];
     if (modo === "lite") {
-        // Modo directo a cuenta Paga / Lite
         planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite (Paga)" });
         planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview (Respaldo)" });
     } else if (modo === "preview") {
-        // Modo directo a Preview con respaldo a Lite si se agotan los tokens
         planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview (Gratis)" });
         planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite (Respaldo)" });
     } else {
-        // Modo AUTO: Intenta primero Gratis (gemini-3-flash-preview) y si se acaba la cuota salta a Paga (gemini-3.5-flash-lite)
         planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview (Gratis)" });
         planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite (Cuenta Paga)" });
         if (keyPago !== keyGratis) {
@@ -457,14 +624,12 @@ window.llamarGeminiVisionJSON = async function(base64Jpeg, promptSistema) {
         } catch (err) {
             console.warn(`Fallo en ${intento.modelo} (${intento.etiqueta}):`, err.message);
             ultimoError = err;
-            // Continúa automáticamente al siguiente motor de respaldo (gemini-3.5-flash-lite)
         }
     }
 
     throw ultimoError || new Error("No se pudo conectar con los motores Gemini");
 };
 
-// Botón en Ajustes para probar en vivo qué motor responde y verificar tokens
 window.probarConexionGemini = async function() {
     window.guardarPerfil();
     let statusEl = document.getElementById('gemini-test-status');
@@ -474,7 +639,6 @@ window.probarConexionGemini = async function() {
         statusEl.innerText = '⏳ Probando conexión con tus motores Gemini...';
     }
     try {
-        // Pixel 1x1 JPEG mínimo para probar sin gastar tokens
         let miniPixel = "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
         await window.llamarGeminiVisionJSON(miniPixel, 'Devuelve exactamente este JSON: {"ok": true}');
         if (statusEl) {
@@ -533,7 +697,6 @@ window.escanearCapturePagoCompleto = async function(e) {
         document.getElementById('pm-ref').value = refExtraida;
         document.getElementById('pm-banco-detectado').value = bancoExtraido ? `${bancoExtraido} (${dataIA.banco_receptor_nombre || 'Detectado'})` : "No identificado";
 
-        // Verificar que la referencia no haya sido utilizada antes en Firebase
         let refDuplicada = false;
         if (refExtraida.length >= 4) {
             refDuplicada = window.ventasHistorico.some(v => v.pmRef && String(v.pmRef).endsWith(refExtraida.slice(-6)));
@@ -565,7 +728,6 @@ window.escanearCapturePagoCompleto = async function(e) {
             return;
         }
 
-        // APROBACIÓN CONDICIONAL EXITOSA
         let inputPm = document.getElementById('pay-pm');
         inputPm.value = Math.round(montoExtraido * 100).toString();
         window.mascaraMoneda(inputPm);
@@ -867,6 +1029,7 @@ window.iniciarSesionExitosa = function() {
     document.getElementById('txt-rol').innerText = window.usuarioActivoNombre + " (" + window.rolActual + ")";
     document.getElementById('login-pin').value = "";
     document.getElementById('login-pass-admin').value = "";
+    window.reiniciarTemporizadorInactividad();
     window.volverAlMenu();
 };
 
@@ -911,9 +1074,7 @@ window.renderizarListaCajerosAdmin = function() {
     `).join('');
 };
 
-// =========================================================================
-// MOTOR MULTI-FUENTE BCV SIN CACHÉ (SINCRONIZADO CON TERMINAL FINANCIERO PRO)
-// =========================================================================
+// MOTOR MULTI-FUENTE BCV SIN CACHÉ
 window.obtenerTasaBCV = async function(silencioso) {
     if (!navigator.onLine) return;
     if(!silencioso) window.mostrarToast("📡 Sincronizando tasa oficial BCV...");
@@ -929,7 +1090,6 @@ window.obtenerTasaBCV = async function(silencioso) {
         let resultados = await Promise.all(promesas);
         let validas = resultados.filter(v => !isNaN(v) && v > 50);
         if (validas.length > 0) {
-            // Tomamos el corte oficial más reciente (el mayor entre las fuentes BCV activas)
             let mejorTasa = Math.max(...validas);
             window.aplicarNuevaTasaBCV(mejorTasa, silencioso);
         } else if (!silencioso) {
@@ -1257,9 +1417,10 @@ window.abrirModalStockRapido = function(idProd) {
     window.prodStockRapidoId = idProd;
     document.getElementById('stock-rapido-nombre').innerText = p.nombre;
     document.getElementById('stock-rapido-actual').innerText = `Stock Actual: ${p.qty} unidades`;
-    document.getElementById('stock-rapido-input').value = "";
+    let input = document.getElementById('stock-rapido-input');
+    input.value = "";
     document.getElementById('modal-stock-rapido').style.display = 'flex';
-    setTimeout(() => document.getElementById('stock-rapido-input').focus(), 150);
+    setTimeout(() => { input.focus(); input.select(); }, 150);
 };
 
 window.confirmarStockRapido = function() {
@@ -1506,7 +1667,7 @@ window.abrirModalCombos = function() {
 
 window.agregarCombo = function(id) { window.agregarAlCarritoDesdeCaja(id); document.getElementById('modal-combos').style.display = 'none'; };
 
-// BALANZA DIGITAL PROPIA (SIN PROMPT DEL NAVEGADOR)
+// BALANZA DIGITAL CON AUTO-FOCO DE TECLADO
 window.abrirModalBalanza = function(prodObj) {
     window.productoBalanzaTemp = prodObj;
     let precioFinalUSD = prodObj.iva ? (prodObj.precio * 1.16) : prodObj.precio;
@@ -1711,11 +1872,20 @@ window.renderizarCarritoCaja = function() {
     window.calcularCaja();
 };
 
-window.toggleMetodoPago = function(idContenedor, btn) {
+// AUTO-FOCO Y SELECCIÓN DE TECLADO AL DESPLEGAR MÉTODOS DE PAGO
+window.toggleMetodoPago = function(idContenedor, btn, idInputFoco) {
     let el = document.getElementById(idContenedor);
     if(!el) return;
+    let abriendo = !el.classList.contains('show');
     el.classList.toggle('show');
     btn.classList.toggle('active');
+
+    if (abriendo && idInputFoco) {
+        setTimeout(() => {
+            let input = document.getElementById(idInputFoco);
+            if (input) { input.focus(); input.select(); }
+        }, 120);
+    }
 };
 
 window.actualizarEtiquetasPago = function() {
@@ -1936,11 +2106,13 @@ window.descartarFacturaPausada = function(idx) {
     window.mostrarToast("Cuenta descartada y stock devuelto");
 };
 
-// CONTROL DE GASTOS MENORES / SALIDAS DE CAJA CHICA
+// CONTROL DE GASTOS CON AUTO-FOCO DE TECLADO
 window.abrirModalGasto = function() {
-    document.getElementById('gasto-motivo').value = "";
+    let inputMotivo = document.getElementById('gasto-motivo');
+    inputMotivo.value = "";
     document.getElementById('gasto-monto').value = "";
     document.getElementById('modal-gasto').style.display = 'flex';
+    setTimeout(() => { inputMotivo.focus(); }, 150);
 };
 
 window.confirmarGastoCaja = function() {
@@ -1961,6 +2133,7 @@ window.confirmarGastoCaja = function() {
 
     document.getElementById('modal-gasto').style.display = 'none';
     window.sincronizarConNube();
+    window.reproducirBeep(true);
     window.mostrarToast("💸 Salida de caja registrada");
 };
 
@@ -1970,13 +2143,15 @@ window.eliminarGastoCaja = function(idx) {
     window.renderizarCierreDeCaja();
 };
 
-// FIADOS CON FECHA DE VENCIMIENTO, BUSCADOR Y COBRO POR WHATSAPP
+// FIADOS CON AUTO-FOCO, FECHA DE VENCIMIENTO, BUSCADOR Y COBRO POR WHATSAPP
 window.registrarFiado = function() {
     if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('error', 'Carrito Vacío'); return; }
-    document.getElementById('fiado-input-nombre').value = document.getElementById('cliente-nombre').value || "";
+    let inputNom = document.getElementById('fiado-input-nombre');
+    inputNom.value = document.getElementById('cliente-nombre').value || "";
     document.getElementById('fiado-input-tlf').value = document.getElementById('pm-phone').value || "";
     document.getElementById('fiado-lbl-total').innerText = `Monto a Fiar: ${window.formatUSD(window.totalVentaUSD)} (${window.formatVE(window.totalVentaVES)})`;
     document.getElementById('modal-nuevo-fiado').style.display = 'flex';
+    setTimeout(() => { inputNom.focus(); inputNom.select(); }, 150);
 };
 
 window.confirmarNuevoFiado = function() {
@@ -2004,6 +2179,7 @@ window.confirmarNuevoFiado = function() {
     window.evaluarVencimientosCreditos();
     window.sincronizarConNube();
     window.limpiarCaja(true);
+    window.reproducirBeep(true);
     window.mostrarToast("✓ Crédito registrado con vencimiento");
 };
 
@@ -2086,9 +2262,11 @@ window.abrirModalAbono = function(idx) {
     if (!f) return;
     window.fiadoEnAbonoIdx = idx;
     document.getElementById('abono-cliente-info').innerText = `Cliente: ${f.cliente} | Deuda Actual: $${f.montoUSD.toFixed(2)}`;
-    document.getElementById('abono-monto-usd').value = "";
+    let input = document.getElementById('abono-monto-usd');
+    input.value = "";
     document.getElementById('abono-equiv-bs').innerText = "Equivalente: 0,00 Bs";
     document.getElementById('modal-abono').style.display = 'flex';
+    setTimeout(() => { input.focus(); input.select(); }, 150);
 };
 
 window.confirmarAbonoFiado = function() {
@@ -2132,6 +2310,7 @@ window.confirmarAbonoFiado = function() {
     document.getElementById('modal-abono').style.display = 'none';
     window.evaluarVencimientosCreditos();
     window.sincronizarConNube();
+    window.reproducirBeep(true);
     window.renderizarFiados();
 };
 
@@ -2394,7 +2573,26 @@ window.borrarHistorial = function() {
     });
 };
 
-window.imprimirCierreZ = function() {
+// IMPRESIÓN HÍBRIDA: BLUETOOTH TÉRMICO DIRECTO O NAVEGADOR DE RESPALDO
+window.imprimirCierreZ = async function() {
+    let textoBT = `================================\n` +
+                  `   ${window.perfilNegocio.nombre || 'GEOMERCADO'}\n` +
+                  `   REPORTE CIERRE Z\n` +
+                  `   ${new Date().toLocaleString()}\n` +
+                  `================================\n` +
+                  `Transacciones: ${window.ventasHistorico.length}\n` +
+                  `Gastos Caja:   ${window.gastosCaja.length}\n` +
+                  `Efectivo $:    ${document.getElementById('esperado-usd')?.innerText || '$0.00'}\n` +
+                  `Efectivo Bs:   ${document.getElementById('esperado-ves')?.innerText || '0,00 Bs'}\n` +
+                  `================================\n` +
+                  `       Firma Responsable\n`;
+
+    let enviadoBT = await window.enviarTextoImpresoraBT(textoBT);
+    if (enviadoBT) {
+        window.mostrarToast("🖨️ Reporte Z impreso por Bluetooth");
+        return;
+    }
+
     let pw = window.open('', '_blank');
     if(!pw) return;
     let html = `<html><head><style>body{font-family:monospace; width:280px; padding:10px; font-size:12px; color:#000;} .center{text-align:center;} .line{border-bottom:1px dashed #000; margin:5px 0;} .row{display:flex; justify-content:space-between;}</style></head>
@@ -2405,9 +2603,34 @@ window.imprimirCierreZ = function() {
     pw.document.write(html); pw.document.close();
 };
 
-window.imprimirTicket = function(idx) {
+window.imprimirTicket = async function(idx) {
     let v = window.ventasHistorico[idx];
     if(!v) return;
+
+    // 1. Intentar primero Impresión Térmica Silenciosa por Bluetooth si está vinculada
+    if (window.impresoraBTCharacteristic) {
+        let lineasProd = v.items.map(it => `${it.qtyVenta || it.detalle}x ${it.nombre}\n   ${(it.totalUSD * window.tasaDia).toFixed(2)} Bs`).join('\n');
+        let igtfTxt = (v.igtfUSD && v.igtfUSD > 0) ? `IGTF (3%): ${(v.igtfUSD * window.tasaDia).toFixed(2)} Bs\n` : '';
+        let textoBT = `================================\n` +
+                      `   ${window.perfilNegocio.nombre || 'GEOMERCADO'}\n` +
+                      `Fecha: ${v.fecha}\n` +
+                      `Cajero: ${v.cajero || 'Caja'}\n` +
+                      (v.cliente ? `Cliente: ${v.cliente}\n` : '') +
+                      `--------------------------------\n` +
+                      `${lineasProd}\n` +
+                      `--------------------------------\n` +
+                      `${igtfTxt}` +
+                      `TOTAL: ${window.formatVE(v.totalVES)}\n` +
+                      `================================\n` +
+                      `   Gracias por su compra!\n`;
+        let okBT = await window.enviarTextoImpresoraBT(textoBT);
+        if (okBT) {
+            window.mostrarToast("🖨️ Ticket impreso por Bluetooth");
+            return;
+        }
+    }
+
+    // 2. Respaldo Estándar por Navegador
     let pw = window.open('', '_blank');
     if(!pw) return;
     let itemsStr = v.items.map(it => `<div>${window.escapeHTML(it.nombre)}</div><div class="row"><span>${it.qtyVenta || it.detalle} x ${window.formatUSD(it.precioUnitario)}</span><span>${window.formatVE(it.totalUSD * window.tasaDia)}</span></div>`).join('');
