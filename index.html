@@ -36,6 +36,7 @@
 
         <div id="hidden-qr-reader"></div>
 
+        <!-- FEEDBACK SUAVIZADO (BANCARIO) -->
         <div id="scan-feedback" class="scan-feedback-overlay">
             <div id="scan-feedback-box" class="scan-feedback-box"></div>
             <p id="scan-feedback-msg" style="color:#fff; font-weight:bold; margin-top:15px; font-size:14px; text-shadow:0 0 8px #000;"></p>
@@ -62,7 +63,7 @@
                     <button class="btn-clear" style="flex:none; width:auto; padding:0 12px; border-color:#00ff66; color:#00ff66;" onclick="window.conectarCodigoTienda()">Conectar</button>
                 </div>
 
-                <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Seleccionar Cajero:</label>
+                <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Seleccionar Usuario:</label>
                 <select id="login-cajero-usuario"></select>
 
                 <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:6px;">PIN de Acceso:</label>
@@ -98,12 +99,12 @@
             </div>
         </div>
 
-        <!-- MODAL ESCÁNER DE FACTURAS DE PROVEEDORES CON GEMINI VISION -->
+        <!-- MODAL ESCÁNER DE FACTURAS DE PROVEEDORES -->
         <div id="modal-factura-proveedor" class="modal-overlay">
             <div class="modal-content" style="max-width: 440px;">
-                <h3 style="color:#00ff66;">📄 Escáner IA de Factura de Proveedor</h3>
+                <h3 style="color:#00ff66;">📄 Escáner de Factura</h3>
                 <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">
-                    Toma foto o sube la factura impresa. <strong>Gemini Vision</strong> extraerá los productos, cantidades y costos en JSON para actualizar tu stock automáticamente.
+                    Toma foto a la factura. El sistema extraerá los productos para actualizar tu stock.
                 </p>
 
                 <div style="display:flex; gap:8px; align-items:center;">
@@ -229,7 +230,7 @@
             </div>
         </div>
 
-        <!-- MODAL NUEVO FIADO CON FECHA DE VENCIMIENTO PARA NOTIFICACIONES AUTOMÁTICOS -->
+        <!-- MODAL NUEVO FIADO -->
         <div id="modal-nuevo-fiado" class="modal-overlay">
             <div class="modal-content" style="max-width: 340px; text-align: center;">
                 <h3 style="color:#ffc107;">🤝 Registrar Venta a Crédito</h3>
@@ -292,10 +293,11 @@
             </div>
         </div>
 
+        <!-- QR CON EL ESTÁNDAR BANCARIO SUDEBAN -->
         <div id="modal-qr" class="modal-overlay">
             <div class="modal-content" style="text-align: center;">
-                <h3>📲 QR Pago Móvil</h3>
-                <p style="font-size:10px; color:#8fa0b7; margin:0;">Escanéalo desde la App de tu banco.</p>
+                <h3>📲 QR Pago Móvil C2P</h3>
+                <p style="font-size:10px; color:#8fa0b7; margin:0;">Escanéalo directo desde la App de tu banco.</p>
                 <div style="background:#fff; padding:10px; border-radius:10px; display:inline-block; margin:8px auto;">
                     <img id="img-qr-code" src="" alt="QR" style="width:190px; height:190px;">
                 </div>
@@ -331,7 +333,7 @@
         <!-- PANEL DE APLICACIÓN -->
         <div id="app-content" style="display:none; width:100%;">
 
-            <!-- BARRA SUPERIOR FIJA CON NOTIFICACIONES AUTOMÁTICAS DE CRÉDITO -->
+            <!-- BARRA SUPERIOR FIJA -->
             <div id="top-status-bar" class="top-status-bar">
                 <div class="status-left">
                     <span id="status-dot-net" class="status-dot online"></span>
@@ -356,8 +358,10 @@
                     </svg>
                 </div>
                 <div class="main-title"><span style="color:#00ff66;" id="lbl-titulo-negocio">GeoMercado</span></div>
+                
+                <!-- TEXTO SIMPLIFICADO DEL USUARIO -->
                 <div class="role-badge" style="margin-top:6px;">
-                    <span id="txt-rol">Administrador 👑</span> | Tienda: <strong style="color:#00ff66;" id="txt-cod-tienda">---</strong>
+                    <span id="txt-rol">Administrador</span> | Tienda: <strong style="color:#00ff66;" id="txt-cod-tienda">---</strong>
                 </div>
 
                 <!-- ALERTA DE STOCK BAJO EN MENÚ -->
@@ -373,7 +377,7 @@
                 </div>
             </div>
 
-            <!-- CAJA (CON MODO MOSTRADOR TABLET/PC Y VALIDADOR GEMINI VISION) -->
+            <!-- CAJA -->
             <div id="modulo-caja" class="modulo-app">
                 <div class="header-modulo">
                     <h3>🛒 Terminal de Caja</h3>
@@ -400,7 +404,7 @@
                         <div class="input-group" style="padding:8px; margin-top:6px;">
                             <input type="text" id="buscador-caja" class="search-input" placeholder="🔫 Pistola Láser o buscar producto..." oninput="window.filtrarBuscadorCaja(this.value)" onkeydown="window.detectarPistolaLaser(event)">
                             
-                            <!-- PESTAÑAS DE CATEGORÍAS TÁCTILES PARA TABLET / PC -->
+                            <!-- PESTAÑAS DE CATEGORÍAS TÁCTILES -->
                             <div class="cat-tabs-bar">
                                 <button type="button" class="cat-tab-btn active" onclick="window.seleccionarCategoriaCaja('Todas', this)">Todo</button>
                                 <button type="button" class="cat-tab-btn" onclick="window.seleccionarCategoriaCaja('Víveres', this)">🛒 Víveres</button>
@@ -462,11 +466,12 @@
                                         <input type="text" id="pm-ref" placeholder="Referencia Extraída / Manual">
                                         <input type="text" id="pm-banco-detectado" placeholder="Banco Receptor (Ej. 0102)" readonly style="color:#00ff66; font-weight:bold;">
                                         
-                                        <!-- TARJETA DE RESULTADO GEMINI VISION -->
+                                        <!-- TARJETA DE RESULTADO VALIDADOR -->
                                         <div id="pm-status-banner" class="pm-status-banner"></div>
 
-                                        <button type="button" class="scanner-trigger" style="padding:9px; font-size:11px;" onclick="document.getElementById('file-ocr').click()">
-                                            🤖 VALIDAR COMPROBANTE CON GEMINI VISION
+                                        <!-- BOTÓN DISCRETO SIN "ROBOT IA" -->
+                                        <button type="button" class="scanner-trigger" style="padding:9px; font-size:11px; background: #242c3d; color: #fff; border: 1px solid #313c52;" onclick="document.getElementById('file-ocr').click()">
+                                            🔍 VERIFICAR COMPROBANTE
                                         </button>
                                         <input type="file" id="file-ocr" class="hidden-file-input" accept="image/*" onchange="window.escanearCapturePagoCompleto(event)">
                                     </div>
@@ -521,7 +526,7 @@
                 </div>
             </div>
 
-            <!-- MÓDULO FIADOS CON EVALUADOR DE VENCIMIENTO Y RECORDATORIOS AUTOMÁTICOS -->
+            <!-- MÓDULO FIADOS -->
             <div id="modulo-fiados" class="modulo-app">
                 <div class="header-modulo">
                     <h3>📋 Cuentas por Cobrar</h3>
@@ -541,7 +546,7 @@
                 <div id="lista-fiados-container" style="display:flex; flex-direction:column; gap:8px;"></div>
             </div>
 
-            <!-- INVENTARIO (CON ESCÁNER IA DE FACTURAS DE PROVEEDORES) -->
+            <!-- INVENTARIO -->
             <div id="modulo-inventario" class="modulo-app">
                 <div class="header-modulo">
                     <h3>📦 Catálogo</h3>
@@ -552,7 +557,7 @@
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <h4 style="margin:0; color:#00ff66;">Registrar / Editar Artículo</h4>
                         <button type="button" class="btn-tool" style="border-color:#00ff66; color:#00ff66;" onclick="window.abrirModalFacturaProveedor()">
-                            📄 Escanear Factura Proveedor (IA)
+                            📄 Carga Rápida de Factura
                         </button>
                     </div>
                     
@@ -625,7 +630,7 @@
                 <div class="inventory-grid" id="lista-productos"></div>
             </div>
 
-            <!-- CIERRE Y ESTADÍSTICAS CON FILTROS Y EXPORTACIÓN EXCEL (CSV) -->
+            <!-- CIERRE Y ESTADÍSTICAS -->
             <div id="modulo-cierre" class="modulo-app">
                 <div class="header-modulo">
                     <h3>📊 Cierre y Estadísticas</h3>
@@ -689,7 +694,7 @@
                 <button class="btn-clear" style="margin-top:10px; width:100%; background:#ff5252; color:#fff;" onclick="window.borrarHistorial()">BORRAR TODO Y REINICIAR DÍA</button>
             </div>
 
-            <!-- ADMIN CON BÓVEDA DUAL IA + IMPRESORA TÉRMICA BLUETOOTH -->
+            <!-- ADMIN -->
             <div id="modulo-admin" class="modulo-app">
                 <div class="header-modulo">
                     <h3>⚙️ Ajustes del Negocio</h3>
@@ -702,24 +707,24 @@
                     <p style="font-size:10px; color:#8fa0b7; margin:0;">Comparte este código con tus cajeros para que sus dispositivos carguen tu inventario y ventas en vivo.</p>
                 </div>
 
-                <!-- CONECTOR DIRECTO PARA IMPRESORA TÉRMICA BLUETOOTH ESC/POS -->
+                <!-- TÍTULO SIMPLIFICADO IMPRESORA -->
                 <div class="admin-form-box" style="border-color:#38bdf8; text-align:center;">
-                    <label style="color:#38bdf8; font-weight:bold;">🖨️ Impresora Térmica Silenciosa (Bluetooth ESC/POS)</label>
+                    <label style="color:#38bdf8; font-weight:bold;">🖨️ Impresora Bluetooth (Tickets)</label>
                     <p style="font-size:10px; color:#8fa0b7; margin:0;">
-                        Empareja tu ticketera Bluetooth de 58mm/80mm para que los recibos salgan directo al cobrar sin abrir pestañas del navegador.
+                        Empareja tu ticketera Bluetooth de 58mm/80mm para que los recibos salgan directo al cobrar.
                     </p>
                     <div id="bt-printer-status" style="font-size:11px; color:#8fa0b7; background:#0b0e14; padding:6px; border-radius:6px;">Estado: Modo Navegador Estándar</div>
                     <div style="display:flex; gap:6px;">
-                        <button type="button" class="btn-charge" style="background:#38bdf8; color:#000;" onclick="window.conectarImpresoraBluetooth()">🔗 Vincular Ticketera BT</button>
-                        <button type="button" class="btn-clear" onclick="window.probarImpresoraBluetooth()">🧾 Ticket Prueba</button>
+                        <button type="button" class="btn-charge" style="background:#38bdf8; color:#000;" onclick="window.conectarImpresoraBluetooth()">🔗 Vincular Ticketera</button>
+                        <button type="button" class="btn-clear" onclick="window.probarImpresoraBluetooth()">🧾 Probar</button>
                     </div>
                 </div>
 
-                <!-- BÓVEDA DUAL DE MOTORES GEMINI VISION (CUENTA GRATIS + CUENTA PAGA) -->
+                <!-- TÍTULO SIMPLIFICADO BÓVEDA DUAL -->
                 <div class="admin-form-box" style="border-color:#10b981;">
-                    <label style="color:#00ff66; font-weight:bold;">🤖 Bóveda Dual Gemini Vision (Gratis + Paga)</label>
+                    <label style="color:#00ff66; font-weight:bold;">🤖 Motores de Inteligencia Artificial</label>
                     <p style="font-size:10px; color:#8fa0b7; margin:0; text-align:center;">
-                        Si se agotan los tokens de tu cuenta gratuita (<code>gemini-3-flash-preview</code>), el sistema salta automáticamente a tu cuenta paga (<code>gemini-3.5-flash-lite</code>).
+                        Si se agotan los tokens de tu cuenta gratuita, el sistema salta automáticamente a tu cuenta paga (Respaldo).
                     </p>
                     
                     <label style="font-size:10px; color:#8fa0b7; text-align:left; margin-bottom:-4px;">Modo de Selección de Motor:</label>
@@ -729,11 +734,11 @@
                         <option value="lite">⚡ Directo Cuenta Paga Económica (gemini-3.5-flash-lite)</option>
                     </select>
 
-                    <label style="font-size:10px; color:#00ff66; text-align:left; margin-bottom:-4px;">Clave 1: Cuenta Normal / Gratis (gemini-3-flash-preview):</label>
+                    <label style="font-size:10px; color:#00ff66; text-align:left; margin-bottom:-4px;">Clave 1: Cuenta Normal / Gratis (Principal):</label>
                     <input type="password" id="cfg-gemini-key" placeholder="Pega tu API Key Principal aquí" onchange="window.guardarPerfil()">
 
-                    <label style="font-size:10px; color:#ffc107; text-align:left; margin-bottom:-4px;">Clave 2 (Opcional): Cuenta Paga Respaldo (gemini-3.5-flash-lite):</label>
-                    <input type="password" id="cfg-gemini-key-pago" placeholder="Pega tu API Key Paga de respaldo (o déjalo vacío si es la misma)" onchange="window.guardarPerfil()">
+                    <label style="font-size:10px; color:#ffc107; text-align:left; margin-bottom:-4px;">Clave 2: Cuenta Paga (Respaldo Opcional):</label>
+                    <input type="password" id="cfg-gemini-key-pago" placeholder="Pega tu API Key Paga de respaldo" onchange="window.guardarPerfil()">
 
                     <button type="button" class="btn-clear" style="border-color:#00ff66; color:#00ff66;" onclick="window.probarConexionGemini()">⚡ Probar Conexión IA Ahora</button>
                     <div id="gemini-test-status" style="display:none; font-size:11px; font-weight:bold; text-align:center; padding:6px; border-radius:6px; background:#0b0e14;"></div>
@@ -759,10 +764,10 @@
                 </div>
 
                 <div class="admin-form-box" style="border-color:#ffc107;">
-                    <label style="color:#ffc107; font-weight:bold;">👥 Gestión de Cajeros</label>
-                    <input type="text" id="nuevo-cajero-nombre" placeholder="Nombre del Cajero (Ej. David)">
+                    <label style="color:#ffc107; font-weight:bold;">👥 Gestión de Usuarios</label>
+                    <input type="text" id="nuevo-cajero-nombre" placeholder="Nombre (Ej. David)">
                     <input type="password" id="nuevo-cajero-clave" placeholder="Asignar PIN (Ej. 1234)">
-                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.guardarNuevoCajero()">Agregar Cajero</button>
+                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.guardarNuevoCajero()">Agregar Usuario</button>
                     <div id="lista-cajeros-admin" style="display:flex; flex-direction:column; gap:4px; margin-top:6px;"></div>
                 </div>
 
