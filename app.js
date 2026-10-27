@@ -16,10 +16,10 @@ const db = initializeFirestore(app, { localCache: persistentLocalCache() });
 const auth = getAuth(app);
 
 // =========================================================================
-// BÓVEDA DE SEGURIDAD PARA API KEY DE GEMINI (COMPATIBLE CON CLAVES AQ.)
+// BÓVEDA DE SEGURIDAD DUAL PARA GEMINI (GRATIS + PAGO CON FAILOVER)
 // =========================================================================
 const SECRET_SALT = "GM_POS_VZLA_2026";
-// Clave AQ. pre-ofuscada para que no aparezca en texto plano en GitHub
+// Clave AQ. pre-ofuscada por defecto
 const DEFAULT_VAULT_CIPHER = "Bgx/NAcna197Z2Z4Y10BfF59eSc1bQo9dW5rVDFxIQI1Ewo6d2ZrAjc2bRo8eWUIH1ZmZw==";
 
 window.ofuscarClave = function(textoPlano) {
@@ -45,7 +45,7 @@ window.desofuscarClave = function(textoCifrado) {
     } catch(e) { return ""; }
 };
 
-window.obtenerGeminiKeyActiva = function() {
+window.obtenerGeminiKeyPrincipal = function() {
     if (window.perfilNegocio && window.perfilNegocio.geminiKeyCifrada) {
         let k = window.desofuscarClave(window.perfilNegocio.geminiKeyCifrada);
         if (k && k.trim().length > 10) return k.trim();
@@ -58,12 +58,25 @@ window.obtenerGeminiKeyActiva = function() {
     return window.desofuscarClave(DEFAULT_VAULT_CIPHER).trim();
 };
 
+window.obtenerGeminiKeyRespaldoPago = function() {
+    if (window.perfilNegocio && window.perfilNegocio.geminiKeyPagoCifrada) {
+        let k = window.desofuscarClave(window.perfilNegocio.geminiKeyPagoCifrada);
+        if (k && k.trim().length > 10) return k.trim();
+    }
+    let localKPago = localStorage.getItem('geomercado_gemini_vault_pago_' + window.tiendaActivaID);
+    if (localKPago) {
+        let kLocal = window.desofuscarClave(localKPago);
+        if (kLocal && kLocal.trim().length > 10) return kLocal.trim();
+    }
+    return "";
+};
+
 // VARIABLES MULTI-TIENDA Y ESTADO GLOBAL
 window.tiendaActivaID = localStorage.getItem('geomercado_tienda_id') || "datos_globales";
 window.unsubscribeSnapshot = null;
 window.datosCargadosDeNube = false;
 
-window.tasaDia = parseFloat(localStorage.getItem('geomercado_tasa_v19')) || 623.02;
+window.tasaDia = parseFloat(localStorage.getItem('geomercado_tasa_v19')) || 887.30;
 window.subtotalVentaUSD = 0.00;
 window.montoIGTF_USD = 0.00;
 window.totalVentaUSD = 0.00;
@@ -86,7 +99,9 @@ window.perfilNegocio = {
     nombre: "GeoMercado", rif: "", dir: "", tlf: "", 
     pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567",
     cobrarIGTF: false,
-    geminiKeyCifrada: DEFAULT_VAULT_CIPHER
+    geminiKeyCifrada: DEFAULT_VAULT_CIPHER,
+    geminiKeyPagoCifrada: "",
+    geminiModoMotor: "auto" // "auto" | "preview" | "lite"
 };
 
 window.productoEnEdicion = null;
@@ -122,7 +137,6 @@ function iniciarSistema() {
     let inputCod = document.getElementById('login-codigo-tienda');
     if (inputCod && codGuardado) inputCod.value = codGuardado;
 
-    // Cargar respaldo local inmediato antes de que responda la nube
     try {
         let raw = localStorage.getItem('geomercado_backup_' + window.tiendaActivaID);
         if (raw) {
@@ -205,7 +219,10 @@ window.suscribirTiendaFirebase = function(docId) {
             window.fiados = data.fiados || [];
             window.perfilNegocio = Object.assign({ 
                 nombre: "GeoMercado", pmBanco: "0102", pmCedula: "V12345678", 
-                pmTlf: "04121234567", cobrarIGTF: false, geminiKeyCifrada: DEFAULT_VAULT_CIPHER 
+                pmTlf: "04121234567", cobrarIGTF: false, 
+                geminiKeyCifrada: DEFAULT_VAULT_CIPHER,
+                geminiKeyPagoCifrada: "",
+                geminiModoMotor: "auto"
             }, data.perfilNegocio || {});
             if (!window.perfilNegocio.geminiKeyCifrada) {
                 window.perfilNegocio.geminiKeyCifrada = DEFAULT_VAULT_CIPHER;
@@ -254,7 +271,7 @@ window.guardarEstructuraFirebase = async function() {
             perfilNegocio: window.perfilNegocio || {},
             usuariosCajeros: window.usuariosCajeros || [],
             fondoCaja: window.fondoCaja || { usd: 0, ves: 0 },
-            tasaDia: window.tasaDia || 623.02
+            tasaDia: window.tasaDia || 887.30
         };
         localStorage.setItem('geomercado_backup_' + window.tiendaActivaID, JSON.stringify(payload));
         window.actualizarBarraSuperiorUI();
@@ -303,8 +320,14 @@ window.sincronizarCamposAdminUI = function() {
     document.getElementById('cfg-pm-tlf').value = window.perfilNegocio.pmTlf || "04121234567";
     let chkIgtf = document.getElementById('cfg-igtf');
     if (chkIgtf) chkIgtf.checked = !!window.perfilNegocio.cobrarIGTF;
+
     let inputGemKey = document.getElementById('cfg-gemini-key');
-    if (inputGemKey) inputGemKey.value = window.obtenerGeminiKeyActiva();
+    if (inputGemKey) inputGemKey.value = window.obtenerGeminiKeyPrincipal();
+    let inputGemKeyPago = document.getElementById('cfg-gemini-key-pago');
+    if (inputGemKeyPago) inputGemKeyPago.value = window.obtenerGeminiKeyRespaldoPago();
+    let selModoMotor = document.getElementById('cfg-gemini-modelo');
+    if (selModoMotor) selModoMotor.value = window.perfilNegocio.geminiModoMotor || "auto";
+
     document.getElementById('input-fondo-usd').value = window.fondoCaja.usd || "";
     document.getElementById('input-fondo-ves').value = window.fondoCaja.ves || "";
     document.getElementById('input-tasa-global').value = window.tasaDia.toFixed(2);
@@ -324,9 +347,12 @@ window.verificarAlertasStock = function() {
 };
 
 // =========================================================================
-// MOTOR DE INTELIGENCIA ARTIFICIAL GEMINI VISION (ACEPTA CLAVES AQ. NATIVAS)
+// MOTOR DE IA GEMINI VISION CON FAILOVER AUTOMÁTICO:
+// 1° gemini-3-flash-preview (Gratis) ➔ 2° gemini-3.5-flash-lite (Paga/Lite)
 // =========================================================================
-window.comprimirImagenParaIA = function(file, maxDim = 1024) {
+
+// Compresor de ahorro de tokens (680px al 68% gasta 75% menos tokens)
+window.comprimirImagenParaIA = function(file, maxDim = 680) {
     return new Promise((resolve, reject) => {
         let reader = new FileReader();
         reader.onload = function(e) {
@@ -336,10 +362,10 @@ window.comprimirImagenParaIA = function(file, maxDim = 1024) {
                 let w = img.width, h = img.height;
                 if (w > h) { if (w > maxDim) { h *= maxDim / w; w = maxDim; } }
                 else { if (h > maxDim) { w *= maxDim / h; h = maxDim; } }
-                canvas.width = w; canvas.height = h;
+                canvas.width = Math.round(w); canvas.height = Math.round(h);
                 let ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, w, h);
-                let dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                let dataUrl = canvas.toDataURL('image/jpeg', 0.68);
                 resolve(dataUrl.split(',')[1]);
             };
             img.onerror = reject;
@@ -350,17 +376,11 @@ window.comprimirImagenParaIA = function(file, maxDim = 1024) {
     });
 };
 
-window.llamarGeminiVisionJSON = async function(base64Jpeg, promptSistema) {
-    let key = window.obtenerGeminiKeyActiva();
-    if (!key) {
-        throw new Error("SIN_API_KEY");
-    }
-
-    // Acepta cualquier formato oficial de Google AI Studio (incluyendo AQ. y AIza) sin bloqueos
-    let endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`;
+window.ejecutarPeticionModeloGemini = async function(modelo, apiKey, base64Jpeg, promptSistema) {
+    let endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${encodeURIComponent(apiKey)}`;
     let headers = { 
         "Content-Type": "application/json",
-        "x-goog-api-key": key
+        "x-goog-api-key": apiKey
     };
 
     let body = {
@@ -383,15 +403,92 @@ window.llamarGeminiVisionJSON = async function(base64Jpeg, promptSistema) {
     });
 
     if (!response.ok) {
-        let errText = await response.text().catch(() => "");
-        console.error("Detalle respuesta Gemini API:", errText);
-        throw new Error("ERROR_HTTP_" + response.status);
+        let errData = await response.json().catch(() => ({}));
+        let msg = errData?.error?.message || ("HTTP " + response.status);
+        let errorObj = new Error(msg);
+        errorObj.status = response.status;
+        throw errorObj;
     }
 
     let result = await response.json();
     let rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     let cleanJson = rawText.replace(/```json|```/gi, "").trim();
-    return JSON.parse(cleanJson);
+    return {
+        data: JSON.parse(cleanJson),
+        modeloUsado: modelo
+    };
+};
+
+window.llamarGeminiVisionJSON = async function(base64Jpeg, promptSistema) {
+    let keyGratis = window.obtenerGeminiKeyPrincipal();
+    let keyPago = window.obtenerGeminiKeyRespaldoPago() || keyGratis;
+    let modo = window.perfilNegocio.geminiModoMotor || "auto";
+
+    if (!keyGratis && !keyPago) {
+        throw new Error("Configura tu API Key en Ajustes");
+    }
+
+    // Secuencia inteligente de intentos según la preferencia del administrador
+    let planIntentos = [];
+    if (modo === "lite") {
+        // Modo directo a cuenta Paga / Lite
+        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite (Paga)" });
+        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview (Respaldo)" });
+    } else if (modo === "preview") {
+        // Modo directo a Preview con respaldo a Lite si se agotan los tokens
+        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview (Gratis)" });
+        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite (Respaldo)" });
+    } else {
+        // Modo AUTO: Intenta primero Gratis (gemini-3-flash-preview) y si se acaba la cuota salta a Paga (gemini-3.5-flash-lite)
+        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis, etiqueta: "Preview (Gratis)" });
+        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago, etiqueta: "Lite (Cuenta Paga)" });
+        if (keyPago !== keyGratis) {
+            planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyPago, etiqueta: "Preview (Cuenta Paga)" });
+        }
+    }
+
+    let ultimoError = null;
+    for (let intento of planIntentos) {
+        if (!intento.key) continue;
+        try {
+            let res = await window.ejecutarPeticionModeloGemini(intento.modelo, intento.key, base64Jpeg, promptSistema);
+            window.ultimoMotorIAExitoso = `${intento.modelo}`;
+            return res.data;
+        } catch (err) {
+            console.warn(`Fallo en ${intento.modelo} (${intento.etiqueta}):`, err.message);
+            ultimoError = err;
+            // Continúa automáticamente al siguiente motor de respaldo (gemini-3.5-flash-lite)
+        }
+    }
+
+    throw ultimoError || new Error("No se pudo conectar con los motores Gemini");
+};
+
+// Botón en Ajustes para probar en vivo qué motor responde y verificar tokens
+window.probarConexionGemini = async function() {
+    window.guardarPerfil();
+    let statusEl = document.getElementById('gemini-test-status');
+    if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = '#ffc107';
+        statusEl.innerText = '⏳ Probando conexión con tus motores Gemini...';
+    }
+    try {
+        // Pixel 1x1 JPEG mínimo para probar sin gastar tokens
+        let miniPixel = "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
+        await window.llamarGeminiVisionJSON(miniPixel, 'Devuelve exactamente este JSON: {"ok": true}');
+        if (statusEl) {
+            statusEl.style.color = '#00ff66';
+            statusEl.innerText = `✔ Conexión Exitosa. Motor activo: ${window.ultimoMotorIAExitoso}`;
+        }
+        window.reproducirBeep(true);
+    } catch (err) {
+        if (statusEl) {
+            statusEl.style.color = '#ff5252';
+            statusEl.innerText = `❌ Error: ${err.message}`;
+        }
+        window.reproducirBeep(false);
+    }
 };
 
 // 1. VALIDADOR DE PAGO MÓVIL CON GEMINI VISION Y LÓGICA CONDICIONAL BANCARIA
@@ -400,43 +497,37 @@ window.escanearCapturePagoCompleto = async function(e) {
     if (!input.files || !input.files[0]) return;
     let file = input.files[0];
 
-    let key = window.obtenerGeminiKeyActiva();
-    if (!key) {
-        window.mostrarFeedbackAnimado('error', 'Configura tu API Key de Gemini en Ajustes');
-        return;
-    }
-
     let banner = document.getElementById('pm-status-banner');
     if (banner) { banner.style.display = 'none'; banner.className = 'pm-status-banner'; }
 
     let overlay = document.getElementById('scan-feedback');
     document.getElementById('scan-feedback-box').className = 'scan-feedback-box';
     document.getElementById('scan-feedback-box').innerHTML = '🤖';
-    document.getElementById('scan-feedback-msg').innerText = 'Gemini Vision analizando comprobante...';
+    document.getElementById('scan-feedback-msg').innerText = 'Analizando comprobante con IA...';
     overlay.style.display = 'flex';
 
     try {
-        let base64Img = await window.comprimirImagenParaIA(file, 1000);
-        let promptPM = `Analiza este comprobante de Pago Móvil bancario de Venezuela. Extrae con máxima precisión y devuelve EXCLUSIVAMENTE un objeto JSON con estas claves exactas:
+        let base64Img = await window.comprimirImagenParaIA(file, 680);
+        let promptPM = `Analiza este comprobante de Pago Móvil de Venezuela. Devuelve SOLO un JSON con estas claves exactas:
         {
           "es_comprobante_valido": boolean,
-          "banco_receptor_codigo": string (4 dígitos del banco destino/receptor, ej. "0102" para Banco de Venezuela, "0134" Banesco, "0105" Mercantil, "0108" Provincial, "0172" Bancamiga, "0163" Tesoro, "0171" Activo, "0114" Bancaribe, "0175" Bicentenario, "0191" BNC. Si en el comprobante solo aparece el nombre del banco destino/receptor, conviértelo a su código oficial de 4 dígitos),
+          "banco_receptor_codigo": string (4 dígitos del banco receptor/destino, ej: "0102" BDV Venezuela, "0134" Banesco, "0105" Mercantil, "0108" Provincial, "0172" Bancamiga, "0163" Tesoro, "0171" Activo, "0114" Bancaribe, "0175" Bicentenario, "0191" BNC. Si dice "PagomóvilBDV" sin otro banco destino, usa "0102"; si en la fila "Banco:" sale otro código como "0172 - BANCAMIGA", coloca esos 4 dígitos),
           "banco_receptor_nombre": string,
-          "monto_bs": number (monto numérico exacto en Bolívares usando punto para decimales, ej: 623.50),
-          "referencia": string (solo dígitos del número de referencia o secuencia),
-          "telefono_emisor": string (teléfono de quien envía o vacío si no aparece),
+          "monto_bs": number (monto numérico exacto en Bs usando punto decimal, ej: 4436.51),
+          "referencia": string (solo dígitos del número de operación/referencia),
+          "telefono_emisor": string (teléfono origen si aparece),
           "telefono_receptor": string (teléfono destino si aparece),
-          "cedula_receptor": string (cédula o RIF destino si aparece)
+          "cedula_receptor": string (identificación o RIF si aparece)
         }`;
 
         let dataIA = await window.llamarGeminiVisionJSON(base64Img, promptPM);
         overlay.style.display = 'none';
 
         let bancoTienda = (window.perfilNegocio.pmBanco || "0102").replace(/\D/g, '').padStart(4, '0');
-        let bancoExtraido = String(dataIA.banco_receptor_codigo || "").replace(/\D/g, '');
+        let bancoExtraido = String(dataIA.banco_receptor_codigo || "").replace(/\D/g, '').substring(0, 4);
         let refExtraida = String(dataIA.referencia || "").replace(/\D/g, '');
         let montoExtraido = parseFloat(dataIA.monto_bs) || 0;
-        let tlfEmisor = String(dataIA.telefono_emisor || "").replace(/\D/g, '');
+        let tlfEmisor = String(dataIA.telefono_emisor || dataIA.telefono_receptor || "").replace(/\D/g, '');
 
         document.getElementById('pm-phone').value = tlfEmisor;
         document.getElementById('pm-ref').value = refExtraida;
@@ -461,7 +552,7 @@ window.escanearCapturePagoCompleto = async function(e) {
         if (!bancoCoincide) {
             window.reproducirBeep(false);
             banner.className = 'pm-status-banner pm-status-error';
-            banner.innerHTML = `❌ BANCO RECEPTOR NO COINCIDE:<br>• Detectado en foto: <strong>${bancoExtraido || 'N/A'} (${dataIA.banco_receptor_nombre || 'Otro'})</strong><br>• Banco de la Tienda: <strong>${bancoTienda}</strong>`;
+            banner.innerHTML = `❌ BANCO RECEPTOR NO COINCIDE:<br>• Detectado en comprobante: <strong>${bancoExtraido || 'N/A'} (${dataIA.banco_receptor_nombre || 'Otro'})</strong><br>• Banco de tu Tienda: <strong>${bancoTienda}</strong><br>• Monto leído: <strong>${window.formatVE(montoExtraido)}</strong> | Ref: <strong>#${refExtraida}</strong>`;
             banner.style.display = 'block';
             return;
         }
@@ -483,7 +574,7 @@ window.escanearCapturePagoCompleto = async function(e) {
 
         window.reproducirBeep(true);
         banner.className = 'pm-status-banner pm-status-success';
-        banner.innerHTML = `✔ PAGO MÓVIL APROBADO POR IA:<br>• Banco Receptor: <strong>${bancoExtraido} (Coincide con Tienda)</strong><br>• Monto Exacto: <strong>${window.formatVE(montoExtraido)}</strong><br>• Referencia: <strong>#${refExtraida}</strong>`;
+        banner.innerHTML = `✔ PAGO MÓVIL APROBADO (${window.ultimoMotorIAExitoso || 'IA'}):<br>• Banco Receptor: <strong>${bancoExtraido} (Coincide con Tienda)</strong><br>• Monto Exacto: <strong>${window.formatVE(montoExtraido)}</strong><br>• Referencia: <strong>#${refExtraida}</strong>`;
         banner.style.display = 'block';
         window.mostrarToast("✓ Comprobante validado y cargado en caja");
 
@@ -491,7 +582,12 @@ window.escanearCapturePagoCompleto = async function(e) {
         overlay.style.display = 'none';
         window.reproducirBeep(false);
         console.error(err);
-        window.mostrarFeedbackAnimado('error', 'Error al conectar con Gemini Vision');
+        if (banner) {
+            banner.className = 'pm-status-banner pm-status-error';
+            banner.innerHTML = `❌ Detalle técnico IA: ${window.escapeHTML(err.message || 'Fallo de red')}`;
+            banner.style.display = 'block';
+        }
+        window.mostrarFeedbackAnimado('error', 'Revisa el aviso en Pago Móvil');
     } finally {
         input.value = "";
     }
@@ -511,32 +607,26 @@ window.procesarFacturaProveedorIA = async function(e) {
     if (!input.files || !input.files[0]) return;
     let file = input.files[0];
 
-    let key = window.obtenerGeminiKeyActiva();
-    if (!key) {
-        window.mostrarFeedbackAnimado('error', 'Configura tu API Key de Gemini en Ajustes');
-        return;
-    }
-
     let boxEstado = document.getElementById('factura-ia-estado');
     let boxLista = document.getElementById('factura-ia-lista-items');
     let btnAplicar = document.getElementById('btn-aplicar-factura-ia');
 
     boxEstado.style.display = 'block';
-    boxEstado.innerText = "🤖 Gemini Vision extrayendo productos, cantidades y costos en JSON...";
+    boxEstado.innerText = "🤖 Analizando factura con motor Gemini...";
     boxLista.style.display = 'none';
     btnAplicar.style.display = 'none';
 
     try {
-        let base64Img = await window.comprimirImagenParaIA(file, 1200);
-        let promptFactura = `Analiza esta factura impresa o nota de entrega de proveedor comercial. Extrae todos los renglones de productos y devuelve EXCLUSIVAMENTE un objeto JSON con este formato exacto:
+        let base64Img = await window.comprimirImagenParaIA(file, 780);
+        let promptFactura = `Analiza esta factura o nota de entrega comercial. Extrae todos los renglones de productos y devuelve SOLO un objeto JSON con este formato exacto:
         {
           "proveedor": string,
           "moneda_detectada": "USD" | "VES",
           "productos": [
             {
-              "nombre": string (nombre claro del artículo),
-              "cantidad": number (unidades o kilos comprados),
-              "costo_unitario": number (costo por unidad; si en la factura solo sale el total de la línea, divídelo entre la cantidad)
+              "nombre": string,
+              "cantidad": number,
+              "costo_unitario": number
             }
           ]
         }`;
@@ -545,7 +635,7 @@ window.procesarFacturaProveedorIA = async function(e) {
         let lista = Array.isArray(dataIA.productos) ? dataIA.productos : [];
 
         if (lista.length === 0) {
-            boxEstado.innerText = "⚠️ No se detectaron renglones claros en la imagen. Intenta con una foto más nítida.";
+            boxEstado.innerText = "⚠️ No se detectaron renglones de productos en esa imagen. Sube la foto de una factura comercial.";
             return;
         }
 
@@ -562,7 +652,7 @@ window.procesarFacturaProveedorIA = async function(e) {
             };
         });
 
-        boxEstado.innerText = `✓ ${window.itemsFacturaProveedorTemp.length} productos extraídos de la factura ${dataIA.proveedor ? '(' + dataIA.proveedor + ')' : ''}:`;
+        boxEstado.innerText = `✓ ${window.itemsFacturaProveedorTemp.length} productos extraídos (${window.ultimoMotorIAExitoso || 'IA'}):`;
         boxLista.style.display = 'flex';
         boxLista.innerHTML = window.itemsFacturaProveedorTemp.map((it) => `
             <div class="ai-invoice-row">
@@ -581,7 +671,7 @@ window.procesarFacturaProveedorIA = async function(e) {
 
     } catch (err) {
         console.error(err);
-        boxEstado.innerText = "❌ Error procesando la factura con Gemini Vision. Verifica tu conexión o API Key.";
+        boxEstado.innerText = `❌ Detalle técnico IA: ${err.message || 'Verifica tu conexión'}`;
         window.reproducirBeep(false);
     } finally {
         input.value = "";
@@ -821,26 +911,43 @@ window.renderizarListaCajerosAdmin = function() {
     `).join('');
 };
 
-// TASA BCV
-window.obtenerTasaBCV = function(silencioso) {
+// =========================================================================
+// MOTOR MULTI-FUENTE BCV SIN CACHÉ (SINCRONIZADO CON TERMINAL FINANCIERO PRO)
+// =========================================================================
+window.obtenerTasaBCV = async function(silencioso) {
     if (!navigator.onLine) return;
-    if(!silencioso) window.mostrarToast("📡 Consultando BCV...");
+    if(!silencioso) window.mostrarToast("📡 Sincronizando tasa oficial BCV...");
 
-    fetch('https://ve.dolarapi.com/v1/dolares/oficial').then(res => res.json()).then(data => {
-        if (data && data.promedio) {
-            let valorBcv = parseFloat(data.promedio);
-            if (!isNaN(valorBcv) && valorBcv > 0) return window.aplicarNuevaTasaBCV(valorBcv, silencioso);
+    let ts = Date.now();
+    let promesas = [
+        fetch(`https://pydolarve.org/api/v1/dollar?page=bcv&t=${ts}`).then(r => r.json()).then(d => parseFloat(d?.monitors?.usd?.price) || 0).catch(() => 0),
+        fetch(`https://rates.dolarvzla.com/bcv/current.json?t=${ts}`).then(r => r.json()).then(d => parseFloat(d?.price || d?.usd) || 0).catch(() => 0),
+        fetch(`https://ve.dolarapi.com/v1/dolares/oficial?t=${ts}`, { cache: "no-store" }).then(r => r.json()).then(d => parseFloat(d?.promedio) || 0).catch(() => 0)
+    ];
+
+    try {
+        let resultados = await Promise.all(promesas);
+        let validas = resultados.filter(v => !isNaN(v) && v > 50);
+        if (validas.length > 0) {
+            // Tomamos el corte oficial más reciente (el mayor entre las fuentes BCV activas)
+            let mejorTasa = Math.max(...validas);
+            window.aplicarNuevaTasaBCV(mejorTasa, silencioso);
+        } else if (!silencioso) {
+            window.mostrarFeedbackAnimado('error', 'Ingresa tasa manual');
         }
-    }).catch(() => {});
+    } catch (e) {
+        if (!silencioso) window.mostrarFeedbackAnimado('error', 'Error de red');
+    }
 };
 
 window.aplicarNuevaTasaBCV = function(valor, silencioso) {
-    window.tasaDia = valor;
+    window.tasaDia = parseFloat(Number(valor).toFixed(2));
     let inputTasa = document.getElementById('input-tasa-global');
     if (inputTasa) inputTasa.value = window.tasaDia.toFixed(2);
     localStorage.setItem('geomercado_tasa_v19', window.tasaDia);
     window.recalcularTotalesCarrito();
     window.renderizarCarritoCaja();
+    window.actualizarBarraSuperiorUI();
     window.sincronizarConNube();
     if (!silencioso) window.mostrarFeedbackAnimado('exito', window.tasaDia.toFixed(2) + ' Bs');
 };
@@ -964,16 +1071,29 @@ window.guardarPerfil = function() {
         window.perfilNegocio.geminiKeyCifrada = cifrada;
         localStorage.setItem('geomercado_gemini_vault_' + window.tiendaActivaID, cifrada);
     }
+
+    let rawGemKeyPago = document.getElementById('cfg-gemini-key-pago')?.value.trim() || "";
+    if (rawGemKeyPago) {
+        let cifradaPago = window.ofuscarClave(rawGemKeyPago);
+        window.perfilNegocio.geminiKeyPagoCifrada = cifradaPago;
+        localStorage.setItem('geomercado_gemini_vault_pago_' + window.tiendaActivaID, cifradaPago);
+    } else {
+        window.perfilNegocio.geminiKeyPagoCifrada = "";
+        localStorage.removeItem('geomercado_gemini_vault_pago_' + window.tiendaActivaID);
+    }
+
+    let selModo = document.getElementById('cfg-gemini-modelo')?.value;
+    if (selModo) window.perfilNegocio.geminiModoMotor = selModo;
     
     document.getElementById('lbl-titulo-negocio').innerText = window.perfilNegocio.nombre;
     window.recalcularTotalesCarrito();
     window.renderizarCarritoCaja();
     window.sincronizarConNube();
-    window.mostrarToast("Ajustes y Bóveda IA actualizados");
+    window.mostrarToast("Ajustes y Motores IA guardados");
 };
 
 window.cambiarTasaManual = function(nuevaTasa) {
-    window.tasaDia = parseFloat(nuevaTasa) || 623.02;
+    window.tasaDia = parseFloat(nuevaTasa) || 887.30;
     localStorage.setItem('geomercado_tasa_v19', window.tasaDia);
     window.recalcularTotalesCarrito();
     window.renderizarCarritoCaja();
