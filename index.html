@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeoMercado Premium IA</title>
+    <title>GeoMercado</title>
 
     <link rel="manifest" href="./manifest.json">
     <link rel="stylesheet" href="./style.css">
@@ -13,7 +13,7 @@
 </head>
 <body>
 
-    <!-- PANTALLA DE MODO REPOSO INTELIGENTE -->
+    <!-- PANTALLA DE MODO REPOSO INTELIGENTE (AHORRO DE BATERÍA SIN PEDIR PIN) -->
     <div id="screensaver-overlay" class="screensaver-overlay" onclick="window.despertarPantalla()" ontouchstart="window.despertarPantalla()">
         <div class="screensaver-floating-box">
             <div class="logo-grande" style="margin: 0 auto 10px auto;">
@@ -30,10 +30,13 @@
     </div>
 
     <div class="app-container">
-        <div id="banner-offline" class="offline-banner">⚡ MODO SIN CONEXIÓN (OFFLINE): Trabajando con datos locales.</div>
+        <div id="banner-offline" class="offline-banner">
+            ⚡ MODO SIN CONEXIÓN (OFFLINE): Trabajando con datos locales.
+        </div>
+
         <div id="hidden-qr-reader"></div>
 
-        <!-- FEEDBACK BANCARIO -->
+        <!-- FEEDBACK SUAVIZADO (BANCARIO) -->
         <div id="scan-feedback" class="scan-feedback-overlay">
             <div id="scan-feedback-box" class="scan-feedback-box"></div>
             <p id="scan-feedback-msg" style="color:#fff; font-weight:bold; margin-top:15px; font-size:14px; text-shadow:0 0 8px #000;"></p>
@@ -41,7 +44,7 @@
 
         <div id="toast" class="toast-notification"></div>
 
-        <!-- LOGIN -->
+        <!-- PANTALLA DE INICIO MULTI-TIENDA -->
         <div id="section-login" class="login-card">
             <div class="logo-grande" style="margin: 0 auto 10px auto;">
                 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -52,31 +55,38 @@
             </div>
             <h2 style="color:#00ff66; margin:0 0 18px 0; letter-spacing:1px;">GeoMercado</h2>
 
+            <!-- LOGIN DE CAJEROS -->
             <div id="form-login-cajero">
-                <label style="color:#00ff66; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Código de Tienda:</label>
+                <label style="color:#00ff66; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Código de Tienda / Negocio:</label>
                 <div style="display:flex; gap:6px; margin-bottom:12px;">
                     <input type="text" id="login-codigo-tienda" placeholder="Ej. A1B2C3" style="margin-bottom:0; text-transform:uppercase; font-weight:bold; letter-spacing:2px;">
                     <button class="btn-clear" style="flex:none; width:auto; padding:0 12px; border-color:#00ff66; color:#00ff66;" onclick="window.conectarCodigoTienda()">Conectar</button>
                 </div>
+
                 <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Seleccionar Usuario:</label>
                 <select id="login-cajero-usuario"></select>
+
                 <label style="color:#8fa0b7; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:6px;">PIN de Acceso:</label>
                 <input type="password" id="login-pin" placeholder="Ingresa tu PIN">
+
                 <button class="btn-charge" style="width:100%;" onclick="window.ejecutarLoginCajero()">INGRESAR A CAJA</button>
-                <p style="color:#00ff66; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('admin')">Acceso de Administrador</p>
+                <p style="color:#00ff66; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('admin')">Acceso de Administrador (Dueño)</p>
             </div>
 
+            <!-- LOGIN DE ADMINISTRADOR -->
             <div id="form-login-admin" style="display:none;">
                 <label style="color:#ffc107; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px;">Correo del Negocio:</label>
                 <input type="email" id="login-email" placeholder="tucorreo@negocio.com">
+
                 <label style="color:#ffc107; font-size:10px; display:block; text-transform:uppercase; margin-bottom:2px; margin-top:6px;">Contraseña:</label>
                 <input type="password" id="login-pass-admin" placeholder="Contraseña Segura">
+
                 <button class="btn-charge" style="width:100%; background:#ffc107; color:#000;" onclick="window.ejecutarLoginAdmin()">INGRESAR COMO DUEÑO</button>
                 <p style="color:#8fa0b7; font-size:11px; margin-top:15px; cursor:pointer; font-weight:bold; text-decoration:underline;" onclick="window.toggleLoginMode('cajero')">← Volver a Cajeros</p>
             </div>
         </div>
 
-        <!-- MODAL ZOOM IMAGEN -->
+        <!-- MODAL VISOR DE IMAGEN EN GRANDE (ZOOM) -->
         <div id="modal-zoom-img" class="modal-overlay" onclick="this.style.display='none'">
             <div class="modal-content" style="max-width: 340px; text-align: center;" onclick="event.stopPropagation()">
                 <h3 id="zoom-title" style="color:#00ff66;">Producto</h3>
@@ -89,77 +99,201 @@
             </div>
         </div>
 
-        <!-- MODAL IA: ASISTENTE DE VOZ -->
-        <div id="modal-ia-voz" class="modal-overlay">
-            <div class="modal-content" style="text-align: center; max-width: 320px;">
-                <h3 style="color:#8b5cf6;">🎙️ Asistente de Caja</h3>
-                <p style="font-size:11px; color:#8fa0b7; margin:0;">Habla claro. Ej: "Dos harinas pan y un kilo de queso"</p>
-                <div id="voz-mic-icon" style="font-size:50px; margin:20px 0; animation: pulseAnim 1s infinite;">🎤</div>
-                <div id="voz-texto-detectado" style="font-size:13px; color:#00ff66; min-height:40px; font-weight:bold; padding:10px; background:#0b0e14; border-radius:8px;">Escuchando...</div>
-                <button class="btn-clear" style="margin-top:10px;" onclick="window.detenerAsistenteVoz()">Cancelar</button>
-            </div>
-        </div>
-
-        <!-- MODAL IA: ASISTENTE WHATSAPP 24/7 -->
-        <div id="modal-ia-whatsapp" class="modal-overlay">
-            <div class="modal-content" style="max-width: 360px;">
-                <h3 style="color:#8b5cf6;">💬 Cajero Inteligente WS</h3>
-                <p style="font-size:11px; color:#8fa0b7; margin:0 0 10px 0; text-align:center;">Pega aquí el mensaje del cliente. La IA buscará en el inventario, armará el carrito y redactará la respuesta.</p>
-                <textarea id="ws-mensaje-cliente" rows="4" placeholder="Ej: Hola, quiero 2 harinas, 1 mantequilla y medio kilo de queso. ¿Cuánto es?" style="background:#0b0e14; border:1px solid #8b5cf6; color:#fff; padding:10px; border-radius:8px; font-family:inherit; font-size:12px; resize:none; outline:none;"></textarea>
-                
-                <button class="btn-charge" style="background:#8b5cf6; margin-top:8px;" onclick="window.procesarMensajeWhatsAppIA()">🤖 Analizar y Armar Pedido</button>
-                
-                <div id="ws-respuesta-ia" style="display:none; margin-top:10px; flex-direction:column; gap:8px;">
-                    <label style="font-size:10px; color:#00ff66; font-weight:bold;">Respuesta Sugerida para el Cliente:</label>
-                    <textarea id="ws-texto-respuesta" rows="5" readonly style="background:#161a23; border:1px solid #00ff66; color:#00ff66; padding:10px; border-radius:8px; font-size:11px; resize:none;"></textarea>
-                    <div style="display:flex; gap:6px;">
-                        <button class="btn-clear" onclick="document.getElementById('modal-ia-whatsapp').style.display='none'">Cerrar</button>
-                        <button class="btn-charge" onclick="window.copiarRespuestaYPasarACaja()">Copiar y Cargar Caja</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- MODAL IA: ANALISTA FINANCIERO -->
-        <div id="modal-ia-analista" class="modal-overlay">
-            <div class="modal-content" style="max-width: 400px;">
-                <h3 style="color:#8b5cf6;">📊 Reporte Ejecutivo IA</h3>
-                <div id="analista-cargando" style="text-align:center; padding:20px;">
-                    <div class="scan-feedback-processing" style="border-top-color:#8b5cf6; margin:0 auto;"></div>
-                    <p style="color:#8b5cf6; font-weight:bold; font-size:12px; margin-top:15px;">Gemini está analizando tus ventas de hoy...</p>
-                </div>
-                <div id="analista-resultado" style="display:none; font-size:12px; line-height:1.5; color:#fff; background:#0b0e14; padding:15px; border-radius:8px; border:1px solid #313c52; max-height:300px; overflow-y:auto; white-space:pre-wrap;"></div>
-                <button class="btn-clear" style="margin-top:10px;" onclick="document.getElementById('modal-ia-analista').style.display='none'">Cerrar Reporte</button>
-            </div>
-        </div>
-
-        <!-- MODAL ESCÁNER FACTURAS / INVENTARIO MÁGICO -->
+        <!-- MODAL ESCÁNER DE FACTURAS DE PROVEEDORES -->
         <div id="modal-factura-proveedor" class="modal-overlay">
             <div class="modal-content" style="max-width: 440px;">
-                <h3 style="color:#00ff66;">📄 Carga Mágica IA</h3>
-                <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">Sube una factura de proveedor O una foto panorámica de tu estante. Gemini extraerá los productos.</p>
+                <h3 style="color:#00ff66;">📄 Escáner de Factura</h3>
+                <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">
+                    Toma foto a la factura. El sistema extraerá los productos para actualizar tu stock.
+                </p>
 
-                <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-                    <label style="font-size:11px; color:#8fa0b7; flex:1;">Margen de Ganancia General (%):</label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <label style="font-size:11px; color:#8fa0b7; flex:1;">Margen de Ganancia Sugerido (%):</label>
                     <input type="number" id="factura-ia-margen" value="30" style="width:80px; background:#0b0e14; border:1px solid #00ff66; padding:8px; border-radius:8px; color:#fff; text-align:center; font-weight:bold;">
                 </div>
 
                 <input type="file" id="file-factura-ia" accept="image/*" style="display:none;" onchange="window.procesarFacturaProveedorIA(event)">
-                <button type="button" class="scanner-trigger" style="margin-top:8px;" onclick="document.getElementById('file-factura-ia').click()">
-                    <span>📸</span> SUBIR FOTO (FACTURA / ESTANTE)
+                <button type="button" class="scanner-trigger" onclick="document.getElementById('file-factura-ia').click()">
+                    <span>📸</span> SUBIR / TOMAR FOTO DE FACTURA
                 </button>
 
-                <div id="factura-ia-estado" style="display:none; font-size:11px; text-align:center; padding:8px; border-radius:8px; background:#161a23; color:#00ff66; font-weight:bold; margin-top:8px;"></div>
-                <div id="factura-ia-lista-items" class="ai-invoice-list" style="display:none; margin-top:8px;"></div>
+                <div id="factura-ia-estado" style="display:none; font-size:11px; text-align:center; padding:8px; border-radius:8px; background:#161a23; color:#00ff66; font-weight:bold;"></div>
 
-                <div style="display:flex; gap:8px; margin-top:8px;">
+                <div id="factura-ia-lista-items" class="ai-invoice-list" style="display:none;"></div>
+
+                <div style="display:flex; gap:8px; margin-top:4px;">
                     <button class="btn-clear" onclick="document.getElementById('modal-factura-proveedor').style.display='none'">Cerrar</button>
-                    <button class="btn-charge" id="btn-aplicar-factura-ia" style="display:none;" onclick="window.aplicarFacturaProveedorAlStock()">✓ Cargar al Inventario</button>
+                    <button class="btn-charge" id="btn-aplicar-factura-ia" style="display:none;" onclick="window.aplicarFacturaProveedorAlStock()">✓ Cargar Todo al Inventario</button>
                 </div>
             </div>
         </div>
 
-        <!-- MODALES ESTÁNDAR (QR, CLIENTE, BALANZA, GASTO, ABONO, ETC.) -->
+        <!-- MODAL COLA DE NOTIFICACIONES Y RECORDATORIOS AUTOMÁTICOS DE CRÉDITO -->
+        <div id="modal-cola-recordatorios" class="modal-overlay">
+            <div class="modal-content" style="max-width: 400px;">
+                <h3 style="color:#ffc107;">🔔 Recordatorios Automáticos de Pago</h3>
+                <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">
+                    El motor de Firebase evaluó las fechas de vencimiento de tus ventas a crédito y preparó esta cola de cobro:
+                </p>
+                <div id="lista-cola-recordatorios" style="display:flex; flex-direction:column; gap:8px; max-height:310px; overflow-y:auto;"></div>
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-cola-recordatorios').style.display='none'">Cerrar</button>
+                    <button class="btn-charge" style="background:#25D366; color:#000;" onclick="window.dispararSiguienteRecordatorioCola()">📲 Disparar Siguiente en Cola</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL + STOCK RÁPIDO EN 1 CLIC -->
+        <div id="modal-stock-rapido" class="modal-overlay">
+            <div class="modal-content" style="max-width: 320px; text-align: center;">
+                <h3 style="color:#00ff66;">📦 Sumar Mercancía</h3>
+                <p id="stock-rapido-nombre" style="font-size:13px; color:#fff; margin:0; font-weight:bold;"></p>
+                <p id="stock-rapido-actual" style="font-size:11px; color:#8fa0b7; margin:0;"></p>
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:4px;">
+                    <button type="button" class="btn-tool" onclick="document.getElementById('stock-rapido-input').value=6">+6</button>
+                    <button type="button" class="btn-tool" onclick="document.getElementById('stock-rapido-input').value=12">+12</button>
+                    <button type="button" class="btn-tool" onclick="document.getElementById('stock-rapido-input').value=24">+24</button>
+                    <button type="button" class="btn-tool" onclick="document.getElementById('stock-rapido-input').value=50">+50</button>
+                </div>
+                <input type="number" id="stock-rapido-input" placeholder="Cantidad que llegó (Ej. 12)" style="background:#0b0e14; border:1px solid #00ff66; padding:12px; border-radius:8px; color:#fff; text-align:center; font-size:16px; font-weight:bold;">
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-stock-rapido').style.display='none'">Cancelar</button>
+                    <button class="btn-charge" onclick="window.confirmarStockRapido()">✓ Sumar al Stock</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL CAMBIO RÁPIDO DE TASA BCV DESDE BARRA SUPERIOR -->
+        <div id="modal-tasa-rapida" class="modal-overlay">
+            <div class="modal-content" style="max-width: 310px; text-align: center;">
+                <h3 style="color:#00ff66;">📈 Tasa del Dólar</h3>
+                <p style="font-size:11px; color:#8fa0b7; margin:0;">Actualiza el valor en Bolívares para toda la tienda:</p>
+                <input type="number" step="0.01" id="input-tasa-modal" placeholder="Ej. 887.30" style="background:#0b0e14; border:1px solid #00ff66; padding:12px; border-radius:8px; color:#fff; text-align:center; font-size:18px; font-weight:bold;">
+                <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; width:100%;" onclick="window.obtenerTasaBCV(false); document.getElementById('modal-tasa-rapida').style.display='none';">📡 Sincronizar Automático con BCV</button>
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-tasa-rapida').style.display='none'">Cerrar</button>
+                    <button class="btn-charge" onclick="window.guardarTasaDesdeModal()">Guardar Tasa</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL BALANZA DIGITAL PROPIA (SIN PROMPT) -->
+        <div id="modal-balanza" class="modal-overlay">
+            <div class="modal-content" style="max-width: 330px; text-align: center;">
+                <h3 style="color:#00ff66;">⚖️ Balanza Digital</h3>
+                <p id="balanza-prod-nombre" style="font-size:13px; color:#fff; margin:0; font-weight:bold;"></p>
+                
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:4px;">
+                    <button type="button" class="btn-tool" onclick="window.fijarPesoRapido(0.25)">250g</button>
+                    <button type="button" class="btn-tool" onclick="window.fijarPesoRapido(0.50)">500g</button>
+                    <button type="button" class="btn-tool" onclick="window.fijarPesoRapido(1.00)">1 Kg</button>
+                    <button type="button" class="btn-tool" onclick="window.fijarPesoRapido(2.00)">2 Kg</button>
+                </div>
+
+                <input type="number" step="0.001" id="balanza-input-kg" placeholder="Peso en Kilos (Ej. 0.750)" style="background:#0b0e14; border:1px solid #00ff66; padding:12px; border-radius:8px; color:#fff; text-align:center; font-size:18px; font-weight:bold;">
+                <div id="balanza-subtotal-calc" style="font-size:14px; color:#00ff66; font-weight:bold;">Total: $0.00 (0,00 Bs)</div>
+
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-balanza').style.display='none'">Cancelar</button>
+                    <button class="btn-charge" onclick="window.confirmarPesoBalanza()">➕ Agregar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL RECUPERAR FACTURAS PAUSADAS -->
+        <div id="modal-recuperar" class="modal-overlay">
+            <div class="modal-content" style="max-width: 380px;">
+                <h3 style="color:#ffc107;">📂 Cuentas en Espera</h3>
+                <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:center;">Selecciona una cuenta para retomarla en la caja:</p>
+                <div id="lista-facturas-pausadas" style="display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto;"></div>
+                <button class="btn-clear" onclick="document.getElementById('modal-recuperar').style.display='none'">Cerrar</button>
+            </div>
+        </div>
+
+        <!-- MODAL GASTOS DE CAJA CHICA -->
+        <div id="modal-gasto" class="modal-overlay">
+            <div class="modal-content" style="max-width: 330px; text-align: center;">
+                <h3 style="color:#ff5252;">💸 Salida de Caja Chica</h3>
+                <p style="font-size:11px; color:#8fa0b7; margin:0;">Se restará del efectivo esperado en el Cierre de Caja.</p>
+                <input type="text" id="gasto-motivo" placeholder="Motivo (Ej. Pago de Hielo / Agua)" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                <div style="display:flex; gap:6px;">
+                    <select id="gasto-moneda" style="flex:1; background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
+                        <option value="usd">Dólares ($)</option>
+                        <option value="ves">Bolívares (Bs)</option>
+                    </select>
+                    <input type="number" step="0.01" id="gasto-monto" placeholder="Monto" style="flex:1.2; background:#0b0e14; border:1px solid #ff5252; padding:10px; border-radius:8px; color:#fff; text-align:center; font-weight:bold;">
+                </div>
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-gasto').style.display='none'">Cancelar</button>
+                    <button class="btn-charge" style="background:#ff5252; color:#fff;" onclick="window.confirmarGastoCaja()">Registrar Salida</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL NUEVO FIADO -->
+        <div id="modal-nuevo-fiado" class="modal-overlay">
+            <div class="modal-content" style="max-width: 340px; text-align: center;">
+                <h3 style="color:#ffc107;">🤝 Registrar Venta a Crédito</h3>
+                <div id="fiado-lbl-total" style="font-size:13px; color:#00ff66; font-weight:bold;"></div>
+                <input type="text" id="fiado-input-nombre" placeholder="Nombre y Apellido del Cliente" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                <input type="tel" id="fiado-input-tlf" placeholder="WhatsApp (Ej. 04121234567)" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                
+                <label style="font-size:10px; color:#8fa0b7; text-transform:uppercase; margin-bottom:-4px;">Plazo de Pago (Recordatorio Automático):</label>
+                <select id="fiado-select-plazo" style="background:#0b0e14; border:1px solid #00ff66; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                    <option value="3">📅 Vence en 3 días</option>
+                    <option value="7" selected>📅 Vence en 7 días (1 Semana)</option>
+                    <option value="15">📅 Vence en 15 días (Quincena)</option>
+                    <option value="30">📅 Vence en 30 días (1 Mes)</option>
+                </select>
+
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-nuevo-fiado').style.display='none'">Cancelar</button>
+                    <button class="btn-fiar" onclick="window.confirmarNuevoFiado()">Guardar Crédito</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL ABONO PARCIAL DE FIADOS -->
+        <div id="modal-abono" class="modal-overlay">
+            <div class="modal-content" style="max-width: 320px; text-align: center;">
+                <h3 style="color:#ffc107;">💵 Registrar Abono</h3>
+                <p id="abono-cliente-info" style="font-size:12px; color:#8fa0b7; margin:0;"></p>
+                <input type="number" step="0.01" id="abono-monto-usd" placeholder="Monto a abonar en Dólares ($)" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center; font-size:15px; font-weight:bold;">
+                <div id="abono-equiv-bs" style="font-size:12px; color:#00ff66; font-weight:bold;">Equivalente: 0,00 Bs</div>
+                <select id="abono-metodo" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff; text-align:center;">
+                    <option value="pm">📲 Pago Móvil (Bs)</option>
+                    <option value="ptv">💳 Punto de Venta (Bs)</option>
+                    <option value="ves">🫴 Efectivo Bolívares (Bs)</option>
+                    <option value="usd">💵 Efectivo Divisas ($)</option>
+                </select>
+                <div style="display:flex; gap:8px; margin-top:6px;">
+                    <button class="btn-clear" onclick="document.getElementById('modal-abono').style.display='none'">Cancelar</button>
+                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.confirmarAbonoFiado()">Aplicar Abono</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODALES DE CONFIRMACIÓN Y HERRAMIENTAS -->
+        <div id="modal-confirm" class="modal-overlay">
+            <div class="modal-content" style="max-width: 320px; text-align: center;">
+                <h3 id="confirm-title" style="color:#00ff66;">Confirmar</h3>
+                <p id="confirm-msg" style="color:#fff; font-size:13px; margin: 10px 0;"></p>
+                <div style="display:flex; gap:10px; margin-top: 10px;">
+                    <button class="btn-clear" id="confirm-btn-cancel">Cancelar</button>
+                    <button class="btn-charge" id="confirm-btn-accept">Aceptar</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-camara" class="modal-overlay">
+            <div class="modal-content" style="max-width: 400px; text-align: center;">
+                <h3>📸 Escáner</h3>
+                <div id="interactive-scanner" style="width: 100%; height: 240px; background: #000; border-radius: 8px; overflow: hidden; position: relative;"></div>
+                <button class="btn-clear" onclick="window.cerrarCamaraEnVivo()" style="margin-top: 10px;">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- QR CON EL ESTÁNDAR BANCARIO SUDEBAN -->
         <div id="modal-qr" class="modal-overlay">
             <div class="modal-content" style="text-align: center;">
                 <h3>📲 QR Pago Móvil C2P</h3>
@@ -188,124 +322,28 @@
             </div>
         </div>
 
-        <div id="modal-balanza" class="modal-overlay">
-            <div class="modal-content" style="max-width: 330px; text-align: center;">
-                <h3 style="color:#00ff66;">⚖️ Balanza Digital</h3>
-                <p id="balanza-prod-nombre" style="font-size:13px; color:#fff; margin:0; font-weight:bold;"></p>
-                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:4px;">
-                    <button type="button" class="btn-tool" onclick="window.fijarPesoRapido(0.25)">250g</button>
-                    <button type="button" class="btn-tool" onclick="window.fijarPesoRapido(0.50)">500g</button>
-                    <button type="button" class="btn-tool" onclick="window.fijarPesoRapido(1.00)">1 Kg</button>
-                    <button type="button" class="btn-tool" onclick="window.fijarPesoRapido(2.00)">2 Kg</button>
-                </div>
-                <input type="number" step="0.001" id="balanza-input-kg" placeholder="Peso en Kilos (Ej. 0.750)" style="background:#0b0e14; border:1px solid #00ff66; padding:12px; border-radius:8px; color:#fff; text-align:center; font-size:18px; font-weight:bold;">
-                <div id="balanza-subtotal-calc" style="font-size:14px; color:#00ff66; font-weight:bold;">Total: $0.00 (0,00 Bs)</div>
-                <div style="display:flex; gap:8px; margin-top:4px;">
-                    <button class="btn-clear" onclick="document.getElementById('modal-balanza').style.display='none'">Cancelar</button>
-                    <button class="btn-charge" onclick="window.confirmarPesoBalanza()">➕ Agregar</button>
-                </div>
+        <div id="modal-combos" class="modal-overlay">
+            <div class="modal-content">
+                <h3>🎁 Combos y Ofertas</h3>
+                <div id="lista-combos-activos" style="display:flex; flex-direction:column; gap:8px;"></div>
+                <button class="btn-clear" onclick="document.getElementById('modal-combos').style.display='none'">Cerrar</button>
             </div>
         </div>
 
-        <div id="modal-gasto" class="modal-overlay">
-            <div class="modal-content" style="max-width: 330px; text-align: center;">
-                <h3 style="color:#ff5252;">💸 Salida de Caja</h3>
-                <input type="text" id="gasto-motivo" placeholder="Motivo (Ej. Pago de Hielo / Agua)" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff; text-align:center;">
-                <div style="display:flex; gap:6px;">
-                    <select id="gasto-moneda" style="flex:1; background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff;">
-                        <option value="usd">Dólares ($)</option>
-                        <option value="ves">Bolívares (Bs)</option>
-                    </select>
-                    <input type="number" step="0.01" id="gasto-monto" placeholder="Monto" style="flex:1.2; background:#0b0e14; border:1px solid #ff5252; padding:10px; border-radius:8px; color:#fff; text-align:center; font-weight:bold;">
-                </div>
-                <div style="display:flex; gap:8px; margin-top:4px;">
-                    <button class="btn-clear" onclick="document.getElementById('modal-gasto').style.display='none'">Cancelar</button>
-                    <button class="btn-charge" style="background:#ff5252; color:#fff;" onclick="window.confirmarGastoCaja()">Registrar Salida</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="modal-nuevo-fiado" class="modal-overlay">
-            <div class="modal-content" style="max-width: 340px; text-align: center;">
-                <h3 style="color:#ffc107;">🤝 Fiar Venta</h3>
-                <div id="fiado-lbl-total" style="font-size:13px; color:#00ff66; font-weight:bold;"></div>
-                <input type="text" id="fiado-input-nombre" placeholder="Nombre y Apellido del Cliente" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center;">
-                <input type="tel" id="fiado-input-tlf" placeholder="WhatsApp (Ej. 04121234567)" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff; text-align:center;">
-                <select id="fiado-select-plazo" style="background:#0b0e14; border:1px solid #00ff66; padding:10px; border-radius:8px; color:#fff; text-align:center;">
-                    <option value="3">📅 Vence en 3 días</option>
-                    <option value="7" selected>📅 Vence en 7 días</option>
-                    <option value="15">📅 Vence en 15 días</option>
-                </select>
-                <div style="display:flex; gap:8px; margin-top:4px;">
-                    <button class="btn-clear" onclick="document.getElementById('modal-nuevo-fiado').style.display='none'">Cancelar</button>
-                    <button class="btn-fiar" onclick="window.confirmarNuevoFiado()">Guardar Crédito</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="modal-abono" class="modal-overlay">
-            <div class="modal-content" style="max-width: 320px; text-align: center;">
-                <h3 style="color:#ffc107;">💵 Registrar Abono</h3>
-                <p id="abono-cliente-info" style="font-size:12px; color:#8fa0b7; margin:0;"></p>
-                <input type="number" step="0.01" id="abono-monto-usd" placeholder="Monto a abonar ($)" style="background:#0b0e14; border:1px solid #ffc107; padding:10px; border-radius:8px; color:#fff; text-align:center; font-size:15px; font-weight:bold;">
-                <div id="abono-equiv-bs" style="font-size:12px; color:#00ff66; font-weight:bold;">Equivalente: 0,00 Bs</div>
-                <select id="abono-metodo" style="background:#0b0e14; border:1px solid #242c3d; padding:10px; border-radius:8px; color:#fff; text-align:center;">
-                    <option value="pm">📲 Pago Móvil</option>
-                    <option value="ptv">💳 Punto de Venta</option>
-                    <option value="ves">🫴 Efectivo Bs</option>
-                    <option value="usd">💵 Efectivo Divisas</option>
-                </select>
-                <div style="display:flex; gap:8px; margin-top:6px;">
-                    <button class="btn-clear" onclick="document.getElementById('modal-abono').style.display='none'">Cancelar</button>
-                    <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.confirmarAbonoFiado()">Aplicar Abono</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="modal-tasa-rapida" class="modal-overlay">
-            <div class="modal-content" style="max-width: 310px; text-align: center;">
-                <h3 style="color:#00ff66;">📈 Tasa del Dólar</h3>
-                <input type="number" step="0.01" id="input-tasa-modal" placeholder="Ej. 887.30" style="background:#0b0e14; border:1px solid #00ff66; padding:12px; border-radius:8px; color:#fff; text-align:center; font-size:18px; font-weight:bold;">
-                <button class="btn-clear" style="border-color:#00ff66; color:#00ff66; width:100%; margin-bottom:6px;" onclick="window.obtenerTasaBCV(false); document.getElementById('modal-tasa-rapida').style.display='none';">📡 Sincronizar Automático BCV</button>
-                <div style="display:flex; gap:8px;">
-                    <button class="btn-clear" onclick="document.getElementById('modal-tasa-rapida').style.display='none'">Cerrar</button>
-                    <button class="btn-charge" onclick="window.guardarTasaDesdeModal()">Guardar</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="modal-confirm" class="modal-overlay">
-            <div class="modal-content" style="max-width: 320px; text-align: center;">
-                <h3 id="confirm-title" style="color:#00ff66;">Confirmar</h3>
-                <p id="confirm-msg" style="color:#fff; font-size:13px; margin: 10px 0;"></p>
-                <div style="display:flex; gap:10px; margin-top: 10px;">
-                    <button class="btn-clear" id="confirm-btn-cancel">Cancelar</button>
-                    <button class="btn-charge" id="confirm-btn-accept">Aceptar</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="modal-camara" class="modal-overlay">
-            <div class="modal-content" style="max-width: 400px; text-align: center;">
-                <h3>📸 Escáner</h3>
-                <div id="interactive-scanner" style="width: 100%; height: 240px; background: #000; border-radius: 8px; overflow: hidden; position: relative;"></div>
-                <button class="btn-clear" onclick="window.cerrarCamaraEnVivo()" style="margin-top: 10px;">Cancelar</button>
-            </div>
-        </div>
-
-        <!-- PANEL PRINCIPAL -->
+        <!-- PANEL DE APLICACIÓN -->
         <div id="app-content" style="display:none; width:100%;">
 
+            <!-- BARRA SUPERIOR FIJA -->
             <div id="top-status-bar" class="top-status-bar">
                 <div class="status-left">
                     <span id="status-dot-net" class="status-dot online"></span>
                     <strong id="top-bar-negocio">GeoMercado</strong>
                 </div>
                 <div class="status-right" style="display:flex; align-items:center; gap:6px;">
-                    <button type="button" id="btn-bell-creditos" class="badge-bell-alert" style="display:none;" onclick="window.abrirModalColaRecordatorios()">
+                    <button type="button" id="btn-bell-creditos" class="badge-bell-alert" style="display:none;" onclick="window.abrirModalColaRecordatorios()" title="Recordatorios de Pago Pendientes">
                         🔔 <span id="badge-bell-count">0</span>
                     </button>
-                    <button type="button" class="badge-tasa-live" onclick="window.abrirModalTasaRapida()">
+                    <button type="button" class="badge-tasa-live" onclick="window.abrirModalTasaRapida()" title="Toca para ajustar tasa">
                         📈 BCV: <strong id="top-bar-tasa">887,30 Bs</strong> ✏️
                     </button>
                 </div>
@@ -321,23 +359,25 @@
                 </div>
                 <div class="main-title"><span style="color:#00ff66;" id="lbl-titulo-negocio">GeoMercado</span></div>
                 
+                <!-- TEXTO SIMPLIFICADO DEL USUARIO -->
                 <div class="role-badge" style="margin-top:6px;">
                     <span id="txt-rol">Administrador</span> | Tienda: <strong style="color:#00ff66;" id="txt-cod-tienda">---</strong>
                 </div>
 
+                <!-- ALERTA DE STOCK BAJO EN MENÚ -->
                 <div id="alerta-stock-menu" class="stock-alert-banner" style="display:none;" onclick="window.cambiarModulo('modulo-inventario')"></div>
 
                 <div class="menu-grid">
                     <button class="btn-menu" onclick="window.cambiarModulo('modulo-caja')"><span class="icon">🛒</span>Caja</button>
                     <button class="btn-menu" onclick="window.cambiarModulo('modulo-inventario')"><span class="icon">📦</span>Inventario</button>
                     <button class="btn-menu" onclick="window.cambiarModulo('modulo-fiados')"><span class="icon">📋</span>Deudas</button>
-                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-cierre')"><span class="icon">📊</span>Cierre / Analítica</button>
+                    <button class="btn-menu" onclick="window.cambiarModulo('modulo-cierre')"><span class="icon">📊</span>Cierre y Estadísticas</button>
                     <button class="btn-menu" onclick="window.cambiarModulo('modulo-admin')"><span class="icon">⚙️</span>Ajustes</button>
                     <button class="btn-menu" onclick="window.cerrarSesion()" style="border-color:#ff5252;"><span class="icon" style="color:#ff5252;">🚪</span>Salir</button>
                 </div>
             </div>
 
-            <!-- MÓDULO CAJA -->
+            <!-- CAJA -->
             <div id="modulo-caja" class="modulo-app">
                 <div class="header-modulo">
                     <h3>🛒 Terminal de Caja</h3>
@@ -346,15 +386,12 @@
                 </div>
 
                 <div class="tools-carousel">
-                    <!-- BOTONES PREMIUM IA EN LA CAJA -->
-                    <button class="btn-tool" style="color:#8b5cf6; border-color:#8b5cf6;" onclick="window.activarAsistenteVoz()">🎙️ Voz</button>
-                    <button class="btn-tool" style="color:#8b5cf6; border-color:#8b5cf6;" onclick="document.getElementById('ws-mensaje-cliente').value=''; document.getElementById('ws-respuesta-ia').style.display='none'; document.getElementById('modal-ia-whatsapp').style.display='flex';">💬 Asistente WS</button>
-                    
                     <button class="btn-tool" onclick="window.aparcarFactura()">⏸️ Pausar</button>
                     <button class="btn-tool" id="btn-top-recuperar" onclick="window.recuperarFactura()">📂 Recuperar</button>
                     <button class="btn-tool" onclick="window.abrirModalClienteConFoco()">📝 Cliente</button>
-                    <button class="btn-tool" onclick="window.abrirModalGasto()" style="color:#ff5252; border-color:#ff5252;">💸 Gasto</button>
-                    <button class="btn-tool" onclick="window.generarQRPagoMovil()" style="color:#00ff66; border-color:#00ff66;">📲 QR C2P</button>
+                    <button class="btn-tool" onclick="window.abrirModalCombos()" style="color:#00ff66; border-color:#00ff66;">🎁 Combos</button>
+                    <button class="btn-tool" onclick="window.abrirModalGasto()" style="color:#ff5252; border-color:#ff5252;">💸 Gasto / Salida</button>
+                    <button class="btn-tool" onclick="window.generarQRPagoMovil()" style="color:#00ff66; border-color:#00ff66;">📲 QR Pago Móvil</button>
                 </div>
 
                 <div class="caja-layout-pc">
@@ -367,6 +404,7 @@
                         <div class="input-group" style="padding:8px; margin-top:6px;">
                             <input type="text" id="buscador-caja" class="search-input" placeholder="🔫 Pistola Láser o buscar producto..." oninput="window.filtrarBuscadorCaja(this.value)" onkeydown="window.detectarPistolaLaser(event)">
                             
+                            <!-- PESTAÑAS DE CATEGORÍAS TÁCTILES -->
                             <div class="cat-tabs-bar">
                                 <button type="button" class="cat-tab-btn active" onclick="window.seleccionarCategoriaCaja('Todas', this)">Todo</button>
                                 <button type="button" class="cat-tab-btn" onclick="window.seleccionarCategoriaCaja('Víveres', this)">🛒 Víveres</button>
@@ -380,15 +418,14 @@
                         </div>
 
                         <div style="display:flex; gap:6px; margin-top:6px;">
-                            <button class="scanner-trigger" style="flex:1;" onclick="window.abrirCamaraEnVivo('caja')">
-                                <span style="font-size:18px;">📸</span> BARRAS
+                            <button class="scanner-trigger" style="flex:2;" onclick="window.abrirCamaraEnVivo('caja')">
+                                <span style="font-size:18px;">📸</span> LEER CÓDIGO
                             </button>
-                            <!-- RECONOCIMIENTO VISUAL IA -->
-                            <button class="scanner-trigger" style="flex:1; background: linear-gradient(90deg, #7c3aed 0%, #8b5cf6 100%); color: #fff;" onclick="document.getElementById('file-reconocimiento-ia').click()">
-                                👁️ IA VISUAL
+                            <button class="btn-clear" style="flex:1; border-color:#00ff66; color:#00ff66;" onclick="document.getElementById('file-barcode-caja').click()">
+                                📂 GALERÍA
                             </button>
-                            <input type="file" id="file-reconocimiento-ia" class="hidden-file-input" accept="image/*" onchange="window.reconocerProductoIA(event)">
                         </div>
+                        <input type="file" id="file-barcode-caja" class="hidden-file-input" accept="image/*" onchange="window.escanearBarcodeFoto(event, 'caja')">
                     </div>
 
                     <div>
@@ -400,7 +437,7 @@
 
                         <div class="form-payments">
                             <button type="button" class="payment-toggle-btn" onclick="window.toggleMetodoPago('pay-box-ptv', this, 'pay-ptv')">
-                                <span>💳 Punto de Venta</span>
+                                <span>💳 Punto de Venta (Tarjeta)</span>
                                 <span id="label-monto-ptv" style="color:#00ff66;">0,00 Bs</span>
                             </button>
                             <div id="pay-box-ptv" class="payment-content">
@@ -414,7 +451,7 @@
                             </div>
 
                             <button type="button" class="payment-toggle-btn" onclick="window.toggleMetodoPago('pay-box-pm', this, 'pay-pm')">
-                                <span>📲 Pago Móvil</span>
+                                <span>📲 Pago Móvil Recibido</span>
                                 <span id="label-monto-pm" style="color:#00ff66;">0,00 Bs</span>
                             </button>
                             <div id="pay-box-pm" class="payment-content">
@@ -425,12 +462,14 @@
                                         <button class="btn-max" onclick="window.llenarMaximo('pm')">MAX</button>
                                     </div>
                                     <div class="pm-details" style="margin-top:8px;">
-                                        <input type="tel" id="pm-phone" placeholder="Teléfono Emisor">
-                                        <input type="text" id="pm-ref" placeholder="Referencia Banco">
-                                        <input type="text" id="pm-banco-detectado" placeholder="Banco (Ej. 0102)" readonly style="color:#00ff66; font-weight:bold;">
+                                        <input type="tel" id="pm-phone" placeholder="Teléfono Emisor Extraído / Manual">
+                                        <input type="text" id="pm-ref" placeholder="Referencia Extraída / Manual">
+                                        <input type="text" id="pm-banco-detectado" placeholder="Banco Receptor (Ej. 0102)" readonly style="color:#00ff66; font-weight:bold;">
                                         
+                                        <!-- TARJETA DE RESULTADO VALIDADOR -->
                                         <div id="pm-status-banner" class="pm-status-banner"></div>
 
+                                        <!-- BOTÓN DISCRETO SIN "ROBOT IA" -->
                                         <button type="button" class="scanner-trigger" style="padding:9px; font-size:11px; background: #242c3d; color: #fff; border: 1px solid #313c52;" onclick="document.getElementById('file-ocr').click()">
                                             🔍 VERIFICAR COMPROBANTE
                                         </button>
@@ -440,7 +479,7 @@
                             </div>
 
                             <button type="button" class="payment-toggle-btn" onclick="window.toggleMetodoPago('pay-box-usd', this, 'pay-usd')">
-                                <span>💵 Efectivo ($)</span>
+                                <span>💵 Efectivo Divisas ($)</span>
                                 <span id="label-monto-usd" style="color:#00ff66;">$0</span>
                             </button>
                             <div id="pay-box-usd" class="payment-content">
@@ -454,7 +493,7 @@
                             </div>
 
                             <button type="button" class="payment-toggle-btn" onclick="window.toggleMetodoPago('pay-box-ves', this, 'pay-ves')">
-                                <span>🫴 Efectivo Bs</span>
+                                <span>🫴 Efectivo Bolívares</span>
                                 <span id="label-monto-ves" style="color:#00ff66;">0,00 Bs</span>
                             </button>
                             <div id="pay-box-ves" class="payment-content">
@@ -470,11 +509,11 @@
 
                         <div class="footer-totals" style="margin-top:6px;">
                             <div class="total-row" id="row-igtf-info" style="display:none; color:#ffc107;">
-                                <span>IGTF (3%):</span>
+                                <span>Impuesto IGTF (3% Divisas):</span>
                                 <strong id="val-igtf-ves" style="color:#ffc107;">0,00 Bs</strong>
                             </div>
                             <div class="total-row"><span>Total Recibido:</span><strong id="total-recibido-ves">0,00 Bs</strong></div>
-                            <div class="total-row final"><span>Vuelto / Restante:</span><span id="total-restante-ves">0,00 Bs</span></div>
+                            <div class="total-row final"><span>Diferencia / Vuelto:</span><span id="total-restante-ves">0,00 Bs</span></div>
                         </div>
 
                         <div class="action-container" style="margin-top:6px;">
@@ -494,10 +533,15 @@
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
                 <div class="admin-form-box">
-                    <button type="button" class="btn-charge" style="background:#25D366; color:#000; width:100%; margin-bottom:6px;" onclick="window.abrirModalColaRecordatorios()">
-                        🔔 Disparar Cobros Automáticos WS
-                    </button>
-                    <input type="text" id="buscador-fiados" class="search-input" placeholder="🔍 Buscar deudor por nombre..." oninput="window.renderizarFiados(this.value)" style="margin-bottom:0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                        <p style="font-size:11px; color:#8fa0b7; margin:0; text-align:left; flex:1;">
+                            💡 El sistema evalúa las fechas de vencimiento y prepara recordatorios automáticos para clientes vencidos.
+                        </p>
+                        <button type="button" class="btn-charge" style="flex:none; width:auto; padding:8px 12px; background:#25D366; color:#000;" onclick="window.abrirModalColaRecordatorios()">
+                            🔔 Cola Automática
+                        </button>
+                    </div>
+                    <input type="text" id="buscador-fiados" class="search-input" placeholder="🔍 Buscar deudor por nombre..." oninput="window.renderizarFiados(this.value)" style="margin-top:4px; margin-bottom:0;">
                 </div>
                 <div id="lista-fiados-container" style="display:flex; flex-direction:column; gap:8px;"></div>
             </div>
@@ -505,17 +549,17 @@
             <!-- INVENTARIO -->
             <div id="modulo-inventario" class="modulo-app">
                 <div class="header-modulo">
-                    <h3>📦 Catálogo Mágico</h3>
+                    <h3>📦 Catálogo</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
 
-                <!-- BOTÓN PREMIUM: INVENTARIO POR FOTO -->
-                <button type="button" class="btn-charge" style="background: linear-gradient(90deg, #7c3aed 0%, #8b5cf6 100%); margin-bottom:8px; display:flex; align-items:center; justify-content:center; gap:8px;" onclick="window.abrirModalFacturaProveedor()">
-                    <span style="font-size:18px;">✨</span> Carga IA (Foto Estante / Factura)
-                </button>
-
                 <div class="admin-form-box" id="form-registro-prod">
-                    <h4 style="margin:0 0 8px 0; color:#00ff66;">Registrar / Editar Artículo Manual</h4>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h4 style="margin:0; color:#00ff66;">Registrar / Editar Artículo</h4>
+                        <button type="button" class="btn-tool" style="border-color:#00ff66; color:#00ff66;" onclick="window.abrirModalFacturaProveedor()">
+                            📄 Carga Rápida de Factura
+                        </button>
+                    </div>
                     
                     <div style="display:flex; flex-direction:column; gap:8px; align-items:center; border: 1px dashed #242c3d; padding:10px; border-radius:8px;">
                         <img id="preview-img-upload" src="" style="display:none; width:120px; height:120px; object-fit:cover; border-radius:8px;">
@@ -523,7 +567,7 @@
                         <button class="btn-clear" id="lbl-img-upload" style="border-color:#25D366; color:#25D366; width:100%;" onclick="document.getElementById('prod-imagen-file').click()">📸 Subir Foto (Opcional)</button>
                     </div>
 
-                    <input type="text" id="prod-name" placeholder="Nombre (Ej. Queso Blanco / Harina)">
+                    <input type="text" id="prod-name" placeholder="Nombre (Ej. Queso Blanco Duro / Harina)">
                     
                     <div style="display:flex; gap:8px;">
                         <input type="number" step="0.01" id="prod-costo" placeholder="Costo ($)" oninput="window.calcularGanancia()">
@@ -551,14 +595,14 @@
                     </select>
 
                     <div id="aviso-modo-peso" style="display:none; background:rgba(0,255,102,0.12); border:1px solid #00ff66; color:#00ff66; padding:6px; border-radius:8px; font-size:11px; text-align:center; font-weight:bold;">
-                        ⚖️ El precio ingresado será por cada 1 Kilo.
+                        ⚖️ Modo Balanza Activado: El precio ingresado arriba será por cada 1 Kilo.
                     </div>
 
                     <input type="number" id="prod-qty" placeholder="Cantidad en Tienda">
 
-                    <!-- CONSTRUCTOR DE COMBOS -->
+                    <!-- CONSTRUCTOR DE COMBOS REALES -->
                     <div id="box-constructor-combo" style="display:none; background:#0b0e14; padding:10px; border-radius:8px; border:1px solid #00ff66;">
-                        <p style="font-size:11px; color:#00ff66; margin:0 0 6px 0; font-weight:bold;">🎁 Selecciona productos para este Combo:</p>
+                        <p style="font-size:11px; color:#00ff66; margin:0 0 6px 0; font-weight:bold;">🎁 Selecciona qué productos descuenta este Combo:</p>
                         <div style="display:flex; gap:6px; margin-bottom:6px;">
                             <select id="combo-select-prod" style="flex:2; margin:0;"></select>
                             <input type="number" id="combo-input-qty" placeholder="Cant." value="1" style="flex:1; margin:0;">
@@ -570,9 +614,13 @@
                     <input type="tel" id="prod-serial" placeholder="Serial / Código de Barras">
                     <div style="display:flex; gap:6px;">
                         <button class="btn-clear" style="flex:2; border-color:#00ff66; color:#00ff66;" onclick="window.abrirCamaraEnVivo('registro')">
-                            <span style="font-size:16px;">📸</span> LEER BARRAS
+                            <span style="font-size:16px;">📸</span> BARRAS
+                        </button>
+                        <button class="btn-clear" style="flex:1; border-color:#ffc107; color:#ffc107;" onclick="document.getElementById('file-barcode-reg').click()">
+                            📂 GALERÍA
                         </button>
                     </div>
+                    <input type="file" id="file-barcode-reg" class="hidden-file-input" accept="image/*" onchange="window.escanearBarcodeFoto(event, 'registro')">
                     
                     <button id="btn-guardar-prod" class="btn-charge" onclick="window.agregarProductoNuevo()">Guardar Producto</button>
                     <button id="btn-cancelar-edicion" class="btn-clear" style="display:none; border-color:#ff5252; color:#ff5252;" onclick="window.cancelarEdicion()">Cancelar Edición</button>
@@ -582,33 +630,28 @@
                 <div class="inventory-grid" id="lista-productos"></div>
             </div>
 
-            <!-- CIERRE Y ESTADÍSTICAS (AHORA CON ANALISTA IA) -->
+            <!-- CIERRE Y ESTADÍSTICAS -->
             <div id="modulo-cierre" class="modulo-app">
                 <div class="header-modulo">
-                    <h3>📊 Cierre y Analítica</h3>
+                    <h3>📊 Cierre y Estadísticas</h3>
                     <button class="btn-back" onclick="window.volverAlMenu()">🏠 Menú</button>
                 </div>
-
-                <!-- BOTÓN ANALISTA FINANCIERO IA -->
-                <button type="button" class="btn-charge" style="background: linear-gradient(90deg, #7c3aed 0%, #8b5cf6 100%); margin-bottom:8px; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px;" onclick="window.analizarCierreIA()">
-                    <span style="font-size:18px;">🤖</span> Analizar mi Día con IA
-                </button>
 
                 <div class="admin-form-box" style="padding:10px; border-color:#313c52;">
                     <div style="display:flex; gap:6px; align-items:center;">
                         <select id="filtro-cierre-cajero" onchange="window.renderizarCierreDeCaja()" style="flex:1; margin:0; padding:8px; font-size:12px;">
-                            <option value="Todos">👤 Todos</option>
+                            <option value="Todos">👤 Todos los Cajeros</option>
                         </select>
                         <input type="date" id="filtro-cierre-fecha" onchange="window.renderizarCierreDeCaja()" style="flex:1; margin:0; padding:7px; font-size:12px;">
                         <button type="button" class="btn-clear" style="flex:none; width:auto; padding:8px 10px;" onclick="document.getElementById('filtro-cierre-fecha').value=''; document.getElementById('filtro-cierre-cajero').value='Todos'; window.renderizarCierreDeCaja();" title="Limpiar Filtros">🔄</button>
                     </div>
-                    <button type="button" class="btn-charge" style="background:#25D366; color:#000; width:100%; margin-top:4px;" onclick="window.exportarVentasCSV()">📗 Excel (CSV)</button>
+                    <button type="button" class="btn-charge" style="background:#25D366; color:#000; width:100%; margin-top:4px;" onclick="window.exportarVentasCSV()">📗 Descargar Reporte en Excel (CSV)</button>
                 </div>
                 
                 <div class="cierre-card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px dashed #313c52; padding-bottom:4px;">
-                        <h4 style="margin:0; border:none; padding:0;">1. Ingresos por Método</h4>
-                        <button style="background:#fff; color:#000; border:none; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:10px; cursor:pointer;" onclick="window.imprimirCierreZ()">🖨️ Z</button>
+                        <h4 style="margin:0; border:none; padding:0;">1. Ingresos y Métodos de Pago</h4>
+                        <button style="background:#fff; color:#000; border:none; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:10px; cursor:pointer;" onclick="window.imprimirCierreZ()">🖨️ IMPRIMIR Z</button>
                     </div>
                     
                     <div class="cierre-item">Punto de Venta: <span id="resumen-ptv">0,00 Bs</span></div>
@@ -621,34 +664,34 @@
                     <div class="stat-bar-bg"><div id="bar-ves" class="stat-bar-fill" style="background:#facc15;"></div></div>
 
                     <hr style="border-top:1px dashed #313c52; margin:8px 0;">
-                    <div class="cierre-item" style="color:#00ff66; font-size:14px;">Ganancia Neta: <span id="resumen-ganancia-ves">0,00 Bs</span></div>
-                    <div class="cierre-item" style="color:#8fa0b7; font-size:11px;">Efectivo ($) Recibido: <span id="resumen-efectivo-usd" style="color:#fff;">$0.00</span></div>
-                </div>
-
-                <div class="cierre-card highlight-box">
-                    <h4 style="color:#fff;">2. Cuadre Físico (Gaveta)</h4>
-                    <div class="cierre-item" style="color:#8fa0b7;">Fondo Inicial ($): <span id="cierre-fondo-usd">0.00 $</span></div>
-                    <div class="cierre-item" style="color:#8fa0b7;">Fondo Inicial (Bs): <span id="cierre-fondo-ves">0,00 Bs</span></div>
-                    <div class="cierre-item" style="color:#ff5252;">Gastos ($): <span id="cierre-gastos-usd">- $0.00</span></div>
-                    <div class="cierre-item" style="color:#ff5252;">Gastos (Bs): <span id="cierre-gastos-ves">- 0,00 Bs</span></div>
-                    <hr style="border-top:1px dashed #313c52; margin:6px 0;">
-                    <div class="cierre-item" style="color:#00ff66; font-size:13px;">Efectivo Exacto ($): <span id="esperado-usd">0.00 $</span></div>
-                    <div class="cierre-item" style="color:#00ff66; font-size:13px;">Efectivo Exacto (Bs): <span id="esperado-ves">0,00 Bs</span></div>
+                    <div class="cierre-item" style="color:#00ff66; font-size:14px;">Ganancia Neta Estimada: <span id="resumen-ganancia-ves">0,00 Bs</span></div>
+                    <div class="cierre-item" style="color:#8fa0b7; font-size:11px;">Efectivo Divisas ($) Recibido: <span id="resumen-efectivo-usd" style="color:#fff;">$0.00</span></div>
                 </div>
 
                 <div class="cierre-card">
-                    <h4>🏆 Top 5 Productos</h4>
+                    <h4>🏆 Top 5 Productos Más Vendidos</h4>
                     <div id="grafico-top-productos" style="display:flex; flex-direction:column; gap:6px;"></div>
                 </div>
 
+                <div class="cierre-card highlight-box">
+                    <h4 style="color:#fff;">2. Cuadre de Gaveta Física</h4>
+                    <div class="cierre-item" style="color:#8fa0b7;">Fondo Inicial ($): <span id="cierre-fondo-usd">0.00 $</span></div>
+                    <div class="cierre-item" style="color:#8fa0b7;">Fondo Inicial (Bs): <span id="cierre-fondo-ves">0,00 Bs</span></div>
+                    <div class="cierre-item" style="color:#ff5252;">Salidas / Gastos ($): <span id="cierre-gastos-usd">- $0.00</span></div>
+                    <div class="cierre-item" style="color:#ff5252;">Salidas / Gastos (Bs): <span id="cierre-gastos-ves">- 0,00 Bs</span></div>
+                    <hr style="border-top:1px dashed #313c52; margin:6px 0;">
+                    <div class="cierre-item" style="color:#00ff66; font-size:13px;">Efectivo Exacto en Gaveta ($): <span id="esperado-usd">0.00 $</span></div>
+                    <div class="cierre-item" style="color:#00ff66; font-size:13px;">Efectivo Exacto en Gaveta (Bs): <span id="esperado-ves">0,00 Bs</span></div>
+                </div>
+
                 <div class="cierre-card">
-                    <h4 style="color:#ff5252; border-color:#ff5252;">💸 Salidas (Caja Chica)</h4>
+                    <h4 style="color:#ff5252; border-color:#ff5252;">💸 Detalle de Gastos / Caja Chica</h4>
                     <div id="lista-gastos-cierre" style="display:flex; flex-direction:column; gap:4px;"></div>
                 </div>
 
-                <h4 style="color:#8fa0b7; margin: 8px 0 4px 0; font-size:13px;">Historial de Tickets:</h4>
+                <h4 style="color:#8fa0b7; margin: 8px 0 4px 0; font-size:13px;">Historial de Facturas:</h4>
                 <div id="lista-historial-ventas"></div>
-                <button class="btn-clear" style="margin-top:10px; width:100%; background:#ff5252; color:#fff;" onclick="window.borrarHistorial()">BORRAR TODO EL DÍA</button>
+                <button class="btn-clear" style="margin-top:10px; width:100%; background:#ff5252; color:#fff;" onclick="window.borrarHistorial()">BORRAR TODO Y REINICIAR DÍA</button>
             </div>
 
             <!-- ADMIN -->
@@ -661,60 +704,69 @@
                 <div class="admin-form-box" style="border-color:#00ff66; text-align:center;">
                     <label style="color:#00ff66; font-weight:bold;">🔑 Código Único de tu Tienda</label>
                     <div id="admin-box-codigo" style="font-size:22px; font-weight:900; color:#fff; letter-spacing:3px; background:#0b0e14; padding:8px; border-radius:8px; border:1px dashed #00ff66;">---</div>
+                    <p style="font-size:10px; color:#8fa0b7; margin:0;">Comparte este código con tus cajeros para que sus dispositivos carguen tu inventario y ventas en vivo.</p>
                 </div>
 
+                <!-- TÍTULO SIMPLIFICADO IMPRESORA -->
                 <div class="admin-form-box" style="border-color:#38bdf8; text-align:center;">
                     <label style="color:#38bdf8; font-weight:bold;">🖨️ Impresora Bluetooth (Tickets)</label>
-                    <div id="bt-printer-status" style="font-size:11px; color:#8fa0b7; background:#0b0e14; padding:6px; border-radius:6px;">Estado: Navegador Estándar</div>
-                    <div style="display:flex; gap:6px; margin-top:4px;">
-                        <button type="button" class="btn-charge" style="background:#38bdf8; color:#000;" onclick="window.conectarImpresoraBluetooth()">🔗 Vincular</button>
+                    <p style="font-size:10px; color:#8fa0b7; margin:0;">
+                        Empareja tu ticketera Bluetooth de 58mm/80mm para que los recibos salgan directo al cobrar.
+                    </p>
+                    <div id="bt-printer-status" style="font-size:11px; color:#8fa0b7; background:#0b0e14; padding:6px; border-radius:6px;">Estado: Modo Navegador Estándar</div>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="btn-charge" style="background:#38bdf8; color:#000;" onclick="window.conectarImpresoraBluetooth()">🔗 Vincular Ticketera</button>
                         <button type="button" class="btn-clear" onclick="window.probarImpresoraBluetooth()">🧾 Probar</button>
                     </div>
                 </div>
 
-                <div class="admin-form-box" style="border-color:#8b5cf6;">
-                    <label style="color:#8b5cf6; font-weight:bold;">🤖 Bóveda Dual Gemini Vision IA</label>
+                <!-- TÍTULO SIMPLIFICADO BÓVEDA DUAL -->
+                <div class="admin-form-box" style="border-color:#10b981;">
+                    <label style="color:#00ff66; font-weight:bold;">🤖 Motores de Inteligencia Artificial</label>
+                    <p style="font-size:10px; color:#8fa0b7; margin:0; text-align:center;">
+                        Si se agotan los tokens de tu cuenta gratuita, el sistema salta automáticamente a tu cuenta paga (Respaldo).
+                    </p>
                     
-                    <label style="font-size:10px; color:#8fa0b7; text-align:left; margin-bottom:-4px; margin-top:4px;">Modo de Selección:</label>
+                    <label style="font-size:10px; color:#8fa0b7; text-align:left; margin-bottom:-4px;">Modo de Selección de Motor:</label>
                     <select id="cfg-gemini-modelo" onchange="window.guardarPerfil()">
-                        <option value="auto">🔄 Automático: Gratis ➔ Paga</option>
-                        <option value="preview">🆓 Solo Gratis (3-flash-preview)</option>
-                        <option value="lite">⚡ Solo Paga (3.5-flash-lite)</option>
+                        <option value="auto">🔄 Automático: Gratis (3-flash-preview) ➔ Respaldo Paga (3.5-flash-lite)</option>
+                        <option value="preview">🆓 Priorizar Cuenta Normal (gemini-3-flash-preview)</option>
+                        <option value="lite">⚡ Directo Cuenta Paga Económica (gemini-3.5-flash-lite)</option>
                     </select>
 
-                    <label style="font-size:10px; color:#00ff66; text-align:left; margin-bottom:-4px;">Clave 1: Cuenta Gratis (Principal):</label>
-                    <input type="password" id="cfg-gemini-key" placeholder="API Key Principal" onchange="window.guardarPerfil()">
+                    <label style="font-size:10px; color:#00ff66; text-align:left; margin-bottom:-4px;">Clave 1: Cuenta Normal / Gratis (Principal):</label>
+                    <input type="password" id="cfg-gemini-key" placeholder="Pega tu API Key Principal aquí" onchange="window.guardarPerfil()">
 
                     <label style="font-size:10px; color:#ffc107; text-align:left; margin-bottom:-4px;">Clave 2: Cuenta Paga (Respaldo Opcional):</label>
-                    <input type="password" id="cfg-gemini-key-pago" placeholder="API Key Respaldo" onchange="window.guardarPerfil()">
+                    <input type="password" id="cfg-gemini-key-pago" placeholder="Pega tu API Key Paga de respaldo" onchange="window.guardarPerfil()">
 
-                    <button type="button" class="btn-clear" style="border-color:#8b5cf6; color:#8b5cf6;" onclick="window.probarConexionGemini()">⚡ Probar Conexión IA</button>
+                    <button type="button" class="btn-clear" style="border-color:#00ff66; color:#00ff66;" onclick="window.probarConexionGemini()">⚡ Probar Conexión IA Ahora</button>
                     <div id="gemini-test-status" style="display:none; font-size:11px; font-weight:bold; text-align:center; padding:6px; border-radius:6px; background:#0b0e14;"></div>
                 </div>
 
                 <div class="admin-form-box" style="border-color:#00ff66;">
-                    <label style="color:#00ff66; font-weight:bold;">🏢 Perfil Fiscal (Tickets)</label>
-                    <input type="text" id="cfg-nombre" placeholder="Nombre Tienda" onchange="window.guardarPerfil()">
+                    <label style="color:#00ff66; font-weight:bold;">🏢 Perfil Fiscal y Negocio (Tickets)</label>
+                    <input type="text" id="cfg-nombre" placeholder="Nombre de la Tienda" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-rif" placeholder="RIF (Ej. J-1234567)" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-tlf" placeholder="Teléfono" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-dir" placeholder="Dirección Corta" onchange="window.guardarPerfil()">
                     <div style="display:flex; align-items:center; justify-content:center; gap:8px; background:#0b0e14; padding:8px; border-radius:8px; margin-top:4px;">
                         <input type="checkbox" id="cfg-igtf" style="width:18px; height:18px;" onchange="window.guardarPerfil()"> 
-                        <label style="color:#ffc107; font-size:12px; font-weight:bold; margin:0;">Cobrar IGTF (3%)</label>
+                        <label style="color:#ffc107; font-size:12px; font-weight:bold; margin:0;">Cobrar IGTF (3%) en Pagos en Divisas ($)</label>
                     </div>
                 </div>
 
                 <div class="admin-form-box" style="border-color:#00ff66;">
-                    <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor</label>
-                    <input type="text" id="cfg-pm-banco" placeholder="Código Banco 4 Dígitos" onchange="window.guardarPerfil()">
-                    <input type="text" id="cfg-pm-cedula" placeholder="Cédula/RIF" onchange="window.guardarPerfil()">
+                    <label style="color:#00ff66; font-weight:bold;">📲 Datos Pago Móvil Receptor (Para Validador IA y QR)</label>
+                    <input type="text" id="cfg-pm-banco" placeholder="Código Banco 4 Dígitos (Ej. 0102 BDV, 0134 Banesco)" onchange="window.guardarPerfil()">
+                    <input type="text" id="cfg-pm-cedula" placeholder="Cédula/RIF con Letra (Ej. V12345678)" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-pm-tlf" placeholder="Teléfono 11 Dígitos" onchange="window.guardarPerfil()">
                 </div>
 
                 <div class="admin-form-box" style="border-color:#ffc107;">
-                    <label style="color:#ffc107; font-weight:bold;">👥 Usuarios / Cajeros</label>
+                    <label style="color:#ffc107; font-weight:bold;">👥 Gestión de Usuarios</label>
                     <input type="text" id="nuevo-cajero-nombre" placeholder="Nombre (Ej. David)">
-                    <input type="password" id="nuevo-cajero-clave" placeholder="PIN Numérico">
+                    <input type="password" id="nuevo-cajero-clave" placeholder="Asignar PIN (Ej. 1234)">
                     <button class="btn-charge" style="background:#ffc107; color:#000;" onclick="window.guardarNuevoCajero()">Agregar Usuario</button>
                     <div id="lista-cajeros-admin" style="display:flex; flex-direction:column; gap:4px; margin-top:6px;"></div>
                 </div>
@@ -742,6 +794,7 @@
             </div>
 
         </div>
+
     </div>
 </body>
 </html>
