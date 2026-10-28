@@ -320,7 +320,7 @@ window.suscribirTiendaFirebase = function(docId) {
 
     window.unsubscribeSnapshot = onSnapshot(doc(db, "geomercado_tienda", docId), (snapshot) => {
         if (!snapshot.exists()) {
-            if (window.rolActual === "Administrador 👑") {
+            if (window.rolActual === "Administrador") {
                 window.guardarEstructuraFirebase();
             }
         } else {
@@ -713,20 +713,25 @@ window.procesarFacturaProveedorIA = async function(e) {
         window.itemsFacturaProveedorTemp = lista.map(item => {
             let costoRaw = parseFloat(item.costo_unitario) || 0;
             let costoUSD = esBolivares ? (costoRaw / window.tasaDia) : costoRaw;
-            let prodExistente = window.productos.find(p => p.nombre.toLowerCase() === String(item.nombre || "").toLowerCase().trim());
+            let nombreLimpio = String(item.nombre || "Artículo").trim();
+            let prodExistente = window.productos.find(p => p.nombre.toLowerCase() === nombreLimpio.toLowerCase());
             return {
-                nombre: String(item.nombre || "Artículo").trim(),
+                nombre: nombreLimpio,
                 cantidad: parseFloat(item.cantidad) || 1,
                 costoUSD: parseFloat(costoUSD.toFixed(2)) || 0.50,
                 existeId: prodExistente ? prodExistente.id : null,
-                multiplicador: 1 // Default para desglose
+                multiplicador: 1,
+                margen: prodExistente ? prodExistente.margen : 30,
+                tipo: prodExistente ? prodExistente.tipo : 'unidad',
+                categoria: prodExistente ? prodExistente.categoria : 'Víveres'
             };
         });
 
         boxEstado.innerText = `✓ ${window.itemsFacturaProveedorTemp.length} productos extraídos:`;
         boxLista.style.display = 'flex';
         boxLista.innerHTML = window.itemsFacturaProveedorTemp.map((it, idx) => {
-            let esBulto = it.nombre.toLowerCase().includes('bulto') || it.nombre.toLowerCase().includes('caja');
+            let n = it.nombre.toLowerCase();
+            let esBulto = n.includes('bulto') || n.includes('caja') || n.includes('carton') || n.includes('paquete');
             let divBulto = esBulto ? `
                 <div class="bulto-config-row">
                     <span style="color:#ffc107; font-size:10px;">📦 Detectado Bulto/Caja. ¿Unidades internas?</span>
@@ -734,15 +739,25 @@ window.procesarFacturaProveedorIA = async function(e) {
                 </div>
             ` : '';
 
-            return `<div class="ai-invoice-row">
+            return `<div class="ai-invoice-row" style="flex-direction:column; align-items:stretch;">
                 <div class="ai-invoice-header">
                     <div>
                         <span class="ai-invoice-badge ${it.existeId ? 'ai-badge-update' : 'ai-badge-new'}">${it.existeId ? 'Suma Stock' : 'Nuevo'}</span>
-                        <strong style="margin-left:4px;">${window.escapeHTML(it.nombre)}</strong>
                     </div>
                     <div style="text-align:right; color:#00ff66; font-weight:bold;">
                         +${it.cantidad} | Costo: $${it.costoUSD.toFixed(2)}
                     </div>
+                </div>
+                <input type="text" value="${window.escapeHTML(it.nombre)}" onchange="window.itemsFacturaProveedorTemp[${idx}].nombre = this.value" style="background:#0b0e14; border:1px solid #313c52; color:#fff; padding:6px; border-radius:6px; font-size:12px; margin-top:4px;" placeholder="Nombre del producto">
+                <div style="display:flex; gap:6px; margin-top:4px;">
+                    <div style="flex:1; display:flex; align-items:center; background:#0b0e14; border:1px solid #313c52; border-radius:6px; padding:0 6px;">
+                        <span style="font-size:10px; color:#8fa0b7;">Ganancia %:</span>
+                        <input type="number" value="${it.margen}" onchange="window.itemsFacturaProveedorTemp[${idx}].margen = parseFloat(this.value) || 30" style="background:transparent; border:none; color:#00ff66; font-weight:bold; width:100%; text-align:right; font-size:12px; outline:none;">
+                    </div>
+                    <select onchange="window.itemsFacturaProveedorTemp[${idx}].tipo = this.value" style="flex:1; background:#0b0e14; border:1px solid #313c52; color:#fff; padding:6px; border-radius:6px; font-size:11px; outline:none;">
+                        <option value="unidad" ${it.tipo==='unidad'?'selected':''}>Venta por Unidad 📦</option>
+                        <option value="peso" ${it.tipo==='peso'?'selected':''}>Venta al Peso ⚖️</option>
+                    </select>
                 </div>
                 ${divBulto}
             </div>`;
@@ -766,25 +781,30 @@ window.aplicarFacturaProveedorAlStock = async function() {
     window.itemsFacturaProveedorTemp.forEach((it, idx) => {
         let cantTotal = it.cantidad * (it.multiplicador || 1);
         let costoUnitarioDesc = it.costoUSD / (it.multiplicador || 1);
-        let precioCalc = costoUnitarioDesc + (costoUnitarioDesc * (margenDefault / 100));
+        let margenFinal = parseFloat(it.margen) || margenDefault;
+        let precioCalc = costoUnitarioDesc + (costoUnitarioDesc * (margenFinal / 100));
+        let nombreFinal = String(it.nombre).trim();
 
         if (it.existeId) {
             let p = window.productos.find(x => x.id === it.existeId);
             if (p) {
                 p.qty = (parseFloat(p.qty) || 0) + cantTotal;
+                p.nombre = nombreFinal;
+                p.margen = margenFinal;
+                p.tipo = it.tipo;
                 if (costoUnitarioDesc > 0) {
                     p.costo = costoUnitarioDesc;
-                    p.precio = p.costo + (p.costo * ((p.margen || margenDefault) / 100));
+                    p.precio = p.costo + (p.costo * (margenFinal / 100));
                 }
             }
         } else {
             window.productos.push({
                 id: Date.now() + idx,
-                nombre: it.nombre,
+                nombre: nombreFinal,
                 costo: costoUnitarioDesc,
-                margen: margenDefault,
+                margen: margenFinal,
                 precio: precioCalc,
-                tipo: "unidad",
+                tipo: it.tipo,
                 categoria: "Víveres",
                 qty: cantTotal,
                 serial: "",
@@ -976,29 +996,30 @@ window.renderizarListaCajerosAdmin = function() {
     `).join('');
 };
 
-// MULTI-FUENTE BCV
+// MULTI-FUENTE BCV (NUEVA PRIORIDAD DOLARVZLA PARA EVITAR CACHÉ)
 window.obtenerTasaBCV = async function(silencioso) {
     if (!navigator.onLine) return;
     if(!silencioso) window.mostrarToast("📡 Sincronizando BCV...");
 
     let ts = Date.now();
-    let promesas = [
-        fetch(`https://pydolarve.org/api/v1/dollar?page=bcv&t=${ts}`).then(r => r.json()).then(d => parseFloat(d?.monitors?.usd?.price) || 0).catch(() => 0),
-        fetch(`https://rates.dolarvzla.com/bcv/current.json?t=${ts}`).then(r => r.json()).then(d => parseFloat(d?.price || d?.usd) || 0).catch(() => 0),
-        fetch(`https://ve.dolarapi.com/v1/dolares/oficial?t=${ts}`, { cache: "no-store" }).then(r => r.json()).then(d => parseFloat(d?.promedio) || 0).catch(() => 0)
-    ];
-
     try {
-        let resultados = await Promise.all(promesas);
-        let validas = resultados.filter(v => !isNaN(v) && v > 50);
-        if (validas.length > 0) {
-            let mejorTasa = Math.max(...validas);
-            window.aplicarNuevaTasaBCV(mejorTasa, silencioso);
+        let res = await fetch(`https://rates.dolarvzla.com/bcv/current.json?t=${ts}`);
+        let data = await res.json();
+        let tasa = parseFloat(data?.price || data?.usd) || 0;
+        
+        if (tasa < 50) {
+            let res2 = await fetch(`https://ve.dolarapi.com/v1/dolares/oficial?t=${ts}`, { cache: "no-store" });
+            let data2 = await res2.json();
+            tasa = parseFloat(data2?.promedio) || 0;
+        }
+        
+        if (tasa > 50) {
+            window.aplicarNuevaTasaBCV(tasa, silencioso);
         } else if (!silencioso) {
-            window.mostrarFeedbackAnimado('warning', 'Tasa manual');
+            window.mostrarFeedbackAnimado('warning', 'Ingresa tasa manual');
         }
     } catch (e) {
-        if (!silencioso) window.mostrarFeedbackAnimado('warning', 'Red');
+        if (!silencioso) window.mostrarFeedbackAnimado('warning', 'Error de red');
     }
 };
 
@@ -1485,9 +1506,16 @@ window.detectarPistolaLaser = function(event) {
 window.filtrarBuscadorCaja = function(texto) {
     let contenedor = document.getElementById('resultados-busqueda-caja');
     if (!contenedor) return;
-    let html = ""; let encontrados = 0;
+    
     let textoFiltro = texto ? texto.toLowerCase().trim() : "";
 
+    // ESTADO INICIAL DE CAJA LIMPIA
+    if (window.categoriaCajaActiva === "Todas" && textoFiltro === "") {
+        contenedor.innerHTML = '<div style="grid-column:1/-1; color:#57687e; font-size:13px; text-align:center; padding:30px 10px;"><span style="font-size:32px; display:block; margin-bottom:12px;">🔍</span>Busca un producto, escanea el código o selecciona una categoría arriba para facturar.</div>';
+        return;
+    }
+
+    let html = ""; let encontrados = 0;
     window.productos.forEach(p => {
         let disponible = (p.tipo === 'peso' || p.qty > 0 || p.tipo === 'combo');
         if (!disponible) return;
@@ -2141,9 +2169,9 @@ window.abrirCamaraEnVivo = function(modo) {
 
 window.iniciarCamaraInstancia = function(modo) {
     window.html5QrScannerInstancia = new Html5Qrcode("interactive-scanner");
-    // Forzar enfoque macro continuo para códigos pequeños
+    // Lente estándar (sin focus continuo que bloquea la cámara)
     window.html5QrScannerInstancia.start(
-        { facingMode: "environment", advanced: [{ focusMode: "continuous" }] }, 
+        { facingMode: "environment" }, 
         { fps: 12, qrbox: { width: 230, height: 130 } },
         text => {
             window.cerrarCamaraEnVivo();
@@ -2196,15 +2224,10 @@ window.generarQRPagoMovil = function() {
     let b = window.perfilNegocio.pmBanco.padStart(4, '0');
     let c = window.perfilNegocio.pmCedula;
     let t = window.perfilNegocio.pmTlf;
-    let montoStr = window.totalVentaVES.toFixed(2);
+    // REEMPLAZO DE PUNTO POR COMA PARA BBDV Y BANESCO (ESTÁNDAR SUDEBAN)
+    let montoStr = window.totalVentaVES.toFixed(2).replace('.', ',');
     
-    // ESTÁNDAR C2P / P2P SUDEBAN INTERBANCARIO
-    let payloadQR = JSON.stringify({
-        "banco": b,
-        "cedula": c,
-        "telefono": t,
-        "monto": montoStr
-    });
+    let payloadQR = JSON.stringify({ "banco": b, "cedula": c, "telefono": t, "monto": montoStr });
 
     document.getElementById('img-qr-code').src = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(payloadQR);
     
