@@ -2166,13 +2166,17 @@ window.abrirCamaraEnVivo = function(modo) {
         }).catch(() => window.iniciarCamaraInstancia(modo));
     } else { window.iniciarCamaraInstancia(modo); }
 };
-
 window.iniciarCamaraInstancia = function(modo) {
     window.html5QrScannerInstancia = new Html5Qrcode("interactive-scanner");
-    // Lente estándar (sin focus continuo que bloquea la cámara)
+    
+    // Lente nativo optimizado para máxima velocidad de lectura de barras
     window.html5QrScannerInstancia.start(
         { facingMode: "environment" }, 
-        { fps: 12, qrbox: { width: 230, height: 130 } },
+        { 
+            fps: 30, // ACELERADOR: De 12 subimos a 30 escaneos por segundo
+            qrbox: { width: 280, height: 100 }, // DISEÑO: Cuadro más alargado, ideal para barras
+            disableFlip: true // CPU: Apaga el escaneo inverso, haciendo la lectura el doble de rápida
+        },
         text => {
             window.cerrarCamaraEnVivo();
             if(modo === 'registro') {
