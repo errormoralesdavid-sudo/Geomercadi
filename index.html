@@ -272,7 +272,27 @@
                 </div>
             </div>
         </div>
-
+        
+<!-- MODAL IA: ASISTENTE WHATSAPP 24/7 INDEPENDIENTE -->
+<div id="modal-ia-whatsapp" class="modal-overlay">
+    <div class="modal-content" style="max-width: 360px;">
+        <h3 style="color:#8b5cf6;">💬 Vendedor Inteligente</h3>
+        <p style="font-size:11px; color:#8fa0b7; margin:0 0 10px 0; text-align:center;">Pega aquí el mensaje del cliente. La IA buscará en tu inventario, armará la cuenta y escribirá la respuesta.</p>
+        <textarea id="ws-mensaje-cliente" rows="4" placeholder="Ej: Hola, mándame 2 harinas y medio kilo de queso..." style="background:#0b0e14; border:1px solid #8b5cf6; color:#fff; padding:10px; border-radius:8px; font-family:inherit; font-size:12px; resize:none; outline:none;"></textarea>
+        
+        <button class="btn-charge" id="btn-procesar-ws" style="background:#8b5cf6; margin-top:8px;" onclick="window.procesarMensajeWhatsAppIA()">🤖 Analizar Pedido</button>
+        
+        <div id="ws-respuesta-ia" style="display:none; margin-top:10px; flex-direction:column; gap:8px;">
+            <label style="font-size:10px; color:#00ff66; font-weight:bold;">Respuesta lista para enviar:</label>
+            <textarea id="ws-texto-respuesta" rows="5" readonly style="background:#161a23; border:1px solid #00ff66; color:#00ff66; padding:10px; border-radius:8px; font-size:11px; resize:none;"></textarea>
+            <div style="display:flex; gap:6px;">
+                <button class="btn-clear" onclick="document.getElementById('modal-ia-whatsapp').style.display='none'">Cerrar</button>
+                <button class="btn-charge" onclick="window.copiarRespuestaYPasarACaja()">Copiar y Cargar a Caja</button>
+            </div>
+        </div>
+    </div>
+</div>
+        
         <!-- MODALES DE CONFIRMACIÓN Y HERRAMIENTAS -->
         <div id="modal-confirm" class="modal-overlay">
             <div class="modal-content" style="max-width: 320px; text-align: center;">
