@@ -1,4 +1,4 @@
-const CACHE_NAME = 'geomercado-ai-v9';
+const CACHE_NAME = 'geomercado-ai-v10';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
