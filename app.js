@@ -324,17 +324,20 @@ window.suscribirTiendaFirebase = function(docId) {
                 window.guardarEstructuraFirebase();
             }
         } else {
-            const data = snapshot.data();
-            if (data.productos) { window.productos = data.productos; }
-            window.ventasHistorico = data.ventasHistorico || [];
-            window.gastosCaja = data.gastosCaja || [];
-            window.facturasEnEspera = data.facturasEnEspera || [];
-            window.fiados = data.fiados || [];
-            window.perfilNegocio = Object.assign({ 
-                nombre: "GeoMercado", pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567", cobrarIGTF: false, 
-                geminiKeyCifrada: DEFAULT_VAULT_CIPHER, geminiKeyPagoCifrada: "", geminiModoMotor: "auto"
-            }, data.perfilNegocio || {});
-            
+            // ... dentro de suscribirTiendaFirebase ...
+const data = snapshot.data();
+if (data.productos) { window.productos = data.productos; }
+window.ventasHistorico = data.ventasHistorico || [];
+window.gastosCaja = data.gastosCaja || [];
+window.facturasEnEspera = data.facturasEnEspera || [];
+window.fiados = data.fiados || [];
+
+// 🔴 ESTA ES LA LÍNEA CRÍTICA PARA EL PERFIL FISCAL:
+window.perfilNegocio = Object.assign({ 
+    nombre: "GeoMercado", rif: "", dir: "", tlf: "", pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567", cobrarIGTF: false, 
+    geminiKeyCifrada: DEFAULT_VAULT_CIPHER, geminiKeyPagoCifrada: "", geminiModoMotor: "auto"
+}, data.perfilNegocio || {});
+// ...     
             if (!window.perfilNegocio.geminiKeyCifrada) window.perfilNegocio.geminiKeyCifrada = DEFAULT_VAULT_CIPHER;
             window.usuariosCajeros = data.usuariosCajeros || [{ id: 1, nombre: "Caja Principal", clave: "1234" }];
             window.fondoCaja = data.fondoCaja || { usd: 0, ves: 0 };
