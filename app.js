@@ -634,9 +634,6 @@ window.llamarGeminiIA = async function(promptSistema, base64Jpeg = null) {
     throw ultimoError || new Error("No hay conexión con Gemini");
 };
 
-    throw ultimoError || new Error("No hay conexión con Gemini");
-};
-
 window.probarConexionGemini = async function() {
     await window.guardarPerfil();
     let statusEl = document.getElementById('gemini-test-status');
