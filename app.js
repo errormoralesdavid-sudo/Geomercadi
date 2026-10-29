@@ -612,14 +612,14 @@ window.llamarGeminiIA = async function(promptSistema, base64Jpeg = null) {
 
     let planIntentos = [];
     if (modo === "lite") {
-        planIntentos.push({ modelo: "gemini-2.0-flash-lite", key: keyPago });
-        planIntentos.push({ modelo: "gemini-2.0-flash", key: keyGratis });
+        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago });
+        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis });
     } else if (modo === "preview") {
-        planIntentos.push({ modelo: "gemini-2.0-flash", key: keyGratis });
-        planIntentos.push({ modelo: "gemini-2.0-flash-lite", key: keyPago });
+        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis });
+        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago });
     } else {
-        planIntentos.push({ modelo: "gemini-2.0-flash", key: keyGratis });
-        planIntentos.push({ modelo: "gemini-2.0-flash-lite", key: keyPago });
+        planIntentos.push({ modelo: "gemini-3-flash-preview", key: keyGratis });
+        planIntentos.push({ modelo: "gemini-3.5-flash-lite", key: keyPago });
     }
 
     let ultimoError = null;
@@ -631,6 +631,9 @@ window.llamarGeminiIA = async function(promptSistema, base64Jpeg = null) {
             return res.data;
         } catch (err) { ultimoError = err; }
     }
+    throw ultimoError || new Error("No hay conexión con Gemini");
+};
+
     throw ultimoError || new Error("No hay conexión con Gemini");
 };
 
