@@ -432,19 +432,44 @@ window.sincronizarCamposAdminUI = function() {
     document.getElementById('cfg-pm-banco').value = window.perfilNegocio.pmBanco || "0102";
     document.getElementById('cfg-pm-cedula').value = window.perfilNegocio.pmCedula || "V12345678";
     document.getElementById('cfg-pm-tlf').value = window.perfilNegocio.pmTlf || "04121234567";
+
     let chkIgtf = document.getElementById('cfg-igtf');
     if (chkIgtf) chkIgtf.checked = !!window.perfilNegocio.cobrarIGTF;
 
+    // Sincroniza las casillas de IA si el diseño nuevo está activo
     let inputGemKey = document.getElementById('cfg-gemini-key');
-    if (inputGemKey) inputGemKey.value = window.obtenerGeminiKeyPrincipal();
-    let inputGemKeyPago = document.getElementById('cfg-gemini-key-pago');
-    if (inputGemKeyPago) inputGemKeyPago.value = window.obtenerGeminiKeyRespaldoPago();
-    let selModoMotor = document.getElementById('cfg-gemini-modelo');
-    if (selModoMotor) selModoMotor.value = window.perfilNegocio.geminiModoMotor || "auto";
-
+    if (inputGemKey && typeof window.desofuscarClave === 'function') {
+        inputGemKey.value = window.perfilNegocio.geminiKeyCifrada ? window.desofuscarClave(window.perfilNegocio.geminiKeyCifrada) : "";
+    }
+    
     document.getElementById('input-fondo-usd').value = window.fondoCaja.usd || "";
     document.getElementById('input-fondo-ves').value = window.fondoCaja.ves || "";
-    document.getElementById('input-tasa-global').value = window.tasaDia.toFixed(2);
+    document.getElementById('input-tasa-global').value = (window.tasaDia || 0).toFixed(2);
+};
+
+window.guardarPerfil = function() {
+    if (!window.perfilNegocio) window.perfilNegocio = {};
+    
+    window.perfilNegocio.nombre = document.getElementById('cfg-nombre').value;
+    window.perfilNegocio.rif = document.getElementById('cfg-rif').value;
+    window.perfilNegocio.tlf = document.getElementById('cfg-tlf').value;
+    window.perfilNegocio.dir = document.getElementById('cfg-dir').value;
+    window.perfilNegocio.pmBanco = document.getElementById('cfg-pm-banco').value;
+    window.perfilNegocio.pmCedula = document.getElementById('cfg-pm-cedula').value;
+    window.perfilNegocio.pmTlf = document.getElementById('cfg-pm-tlf').value;
+    
+    let chkIgtf = document.getElementById('cfg-igtf');
+    if (chkIgtf) window.perfilNegocio.cobrarIGTF = chkIgtf.checked;
+
+    // Guarda las claves IA si existen
+    let inputGemKey = document.getElementById('cfg-gemini-key');
+    if (inputGemKey && typeof window.ofuscarClave === 'function') {
+        window.perfilNegocio.geminiKeyCifrada = window.ofuscarClave(inputGemKey.value);
+    }
+    
+    window.sincronizarConNube();
+    window.actualizarBarraSuperiorUI();
+    window.mostrarToast("✓ Ajustes guardados");
 };
 
 window.verificarAlertasStock = function() {
