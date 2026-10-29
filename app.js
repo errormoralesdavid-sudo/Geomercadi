@@ -424,52 +424,54 @@ window.guardarTasaDesdeModal = function() {
 };
 
 window.sincronizarCamposAdminUI = function() {
-    document.getElementById('lbl-titulo-negocio').innerText = window.perfilNegocio.nombre || "GeoMercado";
-    document.getElementById('cfg-nombre').value = window.perfilNegocio.nombre || "";
-    document.getElementById('cfg-rif').value = window.perfilNegocio.rif || "";
-    document.getElementById('cfg-tlf').value = window.perfilNegocio.tlf || "";
-    document.getElementById('cfg-dir').value = window.perfilNegocio.dir || "";
-    document.getElementById('cfg-pm-banco').value = window.perfilNegocio.pmBanco || "0102";
-    document.getElementById('cfg-pm-cedula').value = window.perfilNegocio.pmCedula || "V12345678";
-    document.getElementById('cfg-pm-tlf').value = window.perfilNegocio.pmTlf || "04121234567";
+    let elN = document.getElementById('cfg-nombre'); if(elN) elN.value = window.perfilNegocio.nombre || "";
+    let elR = document.getElementById('cfg-rif'); if(elR) elR.value = window.perfilNegocio.rif || "";
+    let elT = document.getElementById('cfg-tlf'); if(elT) elT.value = window.perfilNegocio.tlf || "";
+    let elD = document.getElementById('cfg-dir'); if(elD) elD.value = window.perfilNegocio.dir || "";
+    let elPB = document.getElementById('cfg-pm-banco'); if(elPB) elPB.value = window.perfilNegocio.pmBanco || "0102";
+    let elPC = document.getElementById('cfg-pm-cedula'); if(elPC) elPC.value = window.perfilNegocio.pmCedula || "V12345678";
+    let elPT = document.getElementById('cfg-pm-tlf'); if(elPT) elPT.value = window.perfilNegocio.pmTlf || "04121234567";
 
     let chkIgtf = document.getElementById('cfg-igtf');
     if (chkIgtf) chkIgtf.checked = !!window.perfilNegocio.cobrarIGTF;
 
-    // Sincroniza las casillas de IA si el diseño nuevo está activo
-    let inputGemKey = document.getElementById('cfg-gemini-key');
-    if (inputGemKey && typeof window.desofuscarClave === 'function') {
-        inputGemKey.value = window.perfilNegocio.geminiKeyCifrada ? window.desofuscarClave(window.perfilNegocio.geminiKeyCifrada) : "";
+    let elKey = document.getElementById('cfg-gemini-key');
+    if (elKey && typeof window.desofuscarClave === 'function') {
+        elKey.value = window.perfilNegocio.geminiKeyCifrada ? window.desofuscarClave(window.perfilNegocio.geminiKeyCifrada) : "";
     }
-    
-    document.getElementById('input-fondo-usd').value = window.fondoCaja.usd || "";
-    document.getElementById('input-fondo-ves').value = window.fondoCaja.ves || "";
-    document.getElementById('input-tasa-global').value = (window.tasaDia || 0).toFixed(2);
+
+    let tituloN = document.getElementById('lbl-titulo-negocio');
+    if(tituloN) tituloN.innerText = window.perfilNegocio.nombre || "GeoMercado";
 };
 
 window.guardarPerfil = function() {
     if (!window.perfilNegocio) window.perfilNegocio = {};
     
-    window.perfilNegocio.nombre = document.getElementById('cfg-nombre').value;
-    window.perfilNegocio.rif = document.getElementById('cfg-rif').value;
-    window.perfilNegocio.tlf = document.getElementById('cfg-tlf').value;
-    window.perfilNegocio.dir = document.getElementById('cfg-dir').value;
-    window.perfilNegocio.pmBanco = document.getElementById('cfg-pm-banco').value;
-    window.perfilNegocio.pmCedula = document.getElementById('cfg-pm-cedula').value;
-    window.perfilNegocio.pmTlf = document.getElementById('cfg-pm-tlf').value;
+    let elN = document.getElementById('cfg-nombre'); if(elN) window.perfilNegocio.nombre = elN.value;
+    let elR = document.getElementById('cfg-rif'); if(elR) window.perfilNegocio.rif = elR.value;
+    let elT = document.getElementById('cfg-tlf'); if(elT) window.perfilNegocio.tlf = elT.value;
+    let elD = document.getElementById('cfg-dir'); if(elD) window.perfilNegocio.dir = elD.value;
+    let elPB = document.getElementById('cfg-pm-banco'); if(elPB) window.perfilNegocio.pmBanco = elPB.value;
+    let elPC = document.getElementById('cfg-pm-cedula'); if(elPC) window.perfilNegocio.pmCedula = elPC.value;
+    let elPT = document.getElementById('cfg-pm-tlf'); if(elPT) window.perfilNegocio.pmTlf = elPT.value;
     
     let chkIgtf = document.getElementById('cfg-igtf');
     if (chkIgtf) window.perfilNegocio.cobrarIGTF = chkIgtf.checked;
 
-    // Guarda las claves IA si existen
-    let inputGemKey = document.getElementById('cfg-gemini-key');
-    if (inputGemKey && typeof window.ofuscarClave === 'function') {
-        window.perfilNegocio.geminiKeyCifrada = window.ofuscarClave(inputGemKey.value);
+    let elKey = document.getElementById('cfg-gemini-key');
+    if (elKey && typeof window.ofuscarClave === 'function' && elKey.value.trim() !== "") {
+        window.perfilNegocio.geminiKeyCifrada = window.ofuscarClave(elKey.value);
     }
-    
-    window.sincronizarConNube();
-    window.actualizarBarraSuperiorUI();
-    window.mostrarToast("✓ Ajustes guardados");
+
+    // Se fuerza el guardado en Firebase:
+    window.guardarEstructuraFirebase().then(() => {
+        window.actualizarBarraSuperiorUI();
+        window.sincronizarCamposAdminUI(); // Refresca las casillas visualmente
+        window.mostrarToast("✓ Perfil guardado correctamente");
+    }).catch((err) => {
+        window.mostrarToast("Error guardando el perfil");
+        console.error(err);
+    });
 };
 
 window.verificarAlertasStock = function() {
