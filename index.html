@@ -157,17 +157,24 @@
             </div>
 
             <div class="pos-split-layout">
-                <!-- PANEL IZQUIERDO: CATÁLOGO, BUSCADOR Y CÁMARA/VOZ IA -->
+                <!-- PANEL IZQUIERDO: CATÁLOGO, BUSCADOR Y CÁMARA/GALERÍA/VOZ IA -->
                 <div class="pos-left-panel">
-                    <div class="search-bar-row" style="display:flex; gap:6px; margin-bottom:6px;">
-                        <input type="text" id="buscador-caja" placeholder="🔍 Buscar o disparar láser..." oninput="window.filtrarBuscadorCaja(this.value)" onkeydown="window.detectarPistolaLaser(event)" style="flex:1;">
+                    <div class="search-bar-row" style="display:flex; gap:4px; margin-bottom:6px; flex-wrap:wrap;">
+                        <input type="text" id="buscador-caja" placeholder="🔍 Buscar o disparar láser..." oninput="window.filtrarBuscadorCaja(this.value)" onkeydown="window.detectarPistolaLaser(event)" style="flex:1; min-width:130px;">
                         
-                        <button class="btn-scan-bar" onclick="window.abrirCamaraEnVivo('caja')" title="Escanear Código de Barras">📷</button>
+                        <!-- Código de Barras: Cámara + Carpeta -->
+                        <button class="btn-scan-bar" onclick="window.abrirCamaraEnVivo('caja')" title="Cámara Código de Barras">📷</button>
+                        <button class="btn-scan-bar" onclick="document.getElementById('file-barcode-caja-galeria').click()" title="Subir Código desde Galería">📁</button>
                         <input type="file" id="file-barcode-caja" accept="image/*" capture="environment" style="display:none;" onchange="window.escanearBarcodeFoto(event, 'caja')">
+                        <input type="file" id="file-barcode-caja-galeria" accept="image/*" style="display:none;" onchange="window.escanearBarcodeFoto(event, 'caja')">
 
-                        <button class="btn-scan-bar" style="background:#8b5cf6; color:#fff; border:none;" onclick="document.getElementById('file-vision-ia').click()" title="Reconocer Producto con IA">👁️</button>
+                        <!-- Visión IA: Cámara + Carpeta -->
+                        <button class="btn-scan-bar" style="background:#8b5cf6; color:#fff; border:none;" onclick="document.getElementById('file-vision-ia').click()" title="Tomar Foto Producto IA">👁️</button>
+                        <button class="btn-scan-bar" style="background:#1e1633; color:#c4b5fd; border:1px solid #8b5cf6;" onclick="document.getElementById('file-vision-ia-galeria').click()" title="Subir Foto Producto IA desde Galería">📁</button>
                         <input type="file" id="file-vision-ia" accept="image/*" capture="environment" style="display:none;" onchange="window.reconocerProductoIA(event)">
+                        <input type="file" id="file-vision-ia-galeria" accept="image/*" style="display:none;" onchange="window.reconocerProductoIA(event)">
 
+                        <!-- Comando de Voz IA -->
                         <button class="btn-scan-bar" style="background:#8b5cf6; color:#fff; border:none;" onclick="window.activarAsistenteVoz()" title="Dictar Pedido por Voz">🎙️</button>
                     </div>
 
@@ -238,10 +245,17 @@
                             <input type="text" id="pm-phone" placeholder="Tlf Cliente" inputmode="tel" style="flex:1;">
                             <input type="hidden" id="pm-banco-detectado">
                         </div>
-                        <button class="btn-charge" style="background:#8b5cf6; font-size:11px; padding:8px;" onclick="document.getElementById('file-capture-pm').click()">
-                            ✨ Escanear Capture Pago Móvil con IA
-                        </button>
+                        <!-- Botones Cámara + Carpeta para Capture de Pago Móvil -->
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn-charge" style="background:#8b5cf6; color:#fff; font-size:11px; padding:8px; flex:1;" onclick="document.getElementById('file-capture-pm').click()">
+                                📸 Cámara Capture IA
+                            </button>
+                            <button class="btn-clear" style="border-color:#8b5cf6; color:#c4b5fd; font-size:11px; padding:8px; flex:1;" onclick="document.getElementById('file-capture-pm-galeria').click()">
+                                📁 Subir de Galería
+                            </button>
+                        </div>
                         <input type="file" id="file-capture-pm" accept="image/*" capture="environment" style="display:none;" onchange="window.escanearCapturePagoCompleto(event)">
+                        <input type="file" id="file-capture-pm-galeria" accept="image/*" style="display:none;" onchange="window.escanearCapturePagoCompleto(event)">
                         <div id="pm-status-banner" class="pm-status-banner" style="display:none;"></div>
                     </div>
 
@@ -332,15 +346,20 @@
                         <div id="lista-ingredientes-combo" style="display:flex; flex-direction:column; gap:4px; font-size:11px;"></div>
                     </div>
 
-                    <!-- Código de Barras y Foto -->
+                    <!-- Código de Barras: Cámara + Carpeta Galería -->
                     <div style="display:flex; gap:6px;">
                         <input type="text" id="prod-serial" placeholder="Código de Barras / Serial" style="flex:1;">
-                        <button class="btn-scan-bar" onclick="window.abrirCamaraEnVivo('registro')">📷</button>
+                        <button class="btn-scan-bar" onclick="window.abrirCamaraEnVivo('registro')" title="Escanear con Cámara">📷</button>
+                        <button class="btn-scan-bar" onclick="document.getElementById('file-barcode-reg-galeria').click()" title="Subir Código desde Galería">📁</button>
                         <input type="file" id="file-barcode-reg" accept="image/*" capture="environment" style="display:none;" onchange="window.escanearBarcodeFoto(event, 'registro')">
+                        <input type="file" id="file-barcode-reg-galeria" accept="image/*" style="display:none;" onchange="window.escanearBarcodeFoto(event, 'registro')">
                     </div>
 
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <button class="btn-clear" style="flex:1; font-size:11px; padding:8px;" onclick="document.getElementById('prod-imagen-file').click()" id="lbl-img-upload">📸 Subir Foto (Opcional)</button>
+                    <!-- Foto del Producto: Cámara + Galería -->
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button class="btn-clear" style="flex:1; font-size:11px; padding:8px;" onclick="document.getElementById('prod-imagen-camara').click()" id="lbl-img-upload">📸 Foto Cámara</button>
+                        <button class="btn-clear" style="flex:1; font-size:11px; padding:8px; border-color:#00ff66; color:#00ff66;" onclick="document.getElementById('prod-imagen-file').click()">📁 Subir Galería</button>
+                        <input type="file" id="prod-imagen-camara" accept="image/*" capture="environment" style="display:none;" onchange="window.previsualizarImagenRegistro(event)">
                         <input type="file" id="prod-imagen-file" accept="image/*" style="display:none;" onchange="window.previsualizarImagenRegistro(event)">
                         <img id="preview-img-upload" src="" style="display:none; width:38px; height:38px; border-radius:6px; object-fit:cover; border:1px solid #00ff66;">
                     </div>
@@ -626,17 +645,21 @@
         </div>
     </div>
 
-    <!-- MODAL IA 4: ESCÁNER DE FACTURAS DE PROVEEDORES (DESGLOSE DE BULTOS) -->
+    <!-- MODAL IA 4: ESCÁNER DE FACTURAS DE PROVEEDORES (CÁMARA + GALERÍA) -->
     <div id="modal-factura-proveedor" class="modal-overlay" style="display:none;">
         <div class="modal-content" style="max-width: 380px; border-color:#8b5cf6;">
             <h3 style="color:#8b5cf6; margin-top:0;">✨ Cargar Factura con IA</h3>
-            <p style="font-size:11px; color:#8fa0b7; margin:0 0 8px 0;">Tómale foto a la factura del proveedor. La IA extraerá los costos, desglosará los bultos y sumará el stock.</p>
+            <p style="font-size:11px; color:#8fa0b7; margin:0 0 8px 0;">Tómale foto a la factura o súbela desde tu galería. La IA extraerá los costos, desglosará los bultos y sumará el stock.</p>
             <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
                 <span style="font-size:11px; color:#8fa0b7;">Ganancia por defecto (%):</span>
                 <input type="number" id="factura-ia-margen" value="30" style="width:70px; text-align:center;">
             </div>
-            <button class="btn-charge" style="background:#8b5cf6; color:#fff;" onclick="document.getElementById('file-factura-ia').click()">📸 Tomar Foto a Factura</button>
+            <div style="display:flex; gap:6px;">
+                <button class="btn-charge" style="background:#8b5cf6; color:#fff; flex:1;" onclick="document.getElementById('file-factura-ia').click()">📸 Tomar Foto</button>
+                <button class="btn-clear" style="border-color:#8b5cf6; color:#c4b5fd; flex:1;" onclick="document.getElementById('file-factura-ia-galeria').click()">📁 Subir Archivo</button>
+            </div>
             <input type="file" id="file-factura-ia" accept="image/*" capture="environment" style="display:none;" onchange="window.procesarFacturaProveedorIA(event)">
+            <input type="file" id="file-factura-ia-galeria" accept="image/*" style="display:none;" onchange="window.procesarFacturaProveedorIA(event)">
             
             <div id="factura-ia-estado" style="display:none; font-size:12px; color:#ffc107; text-align:center; margin:8px 0;"></div>
             <div id="factura-ia-lista-items" style="display:none; flex-direction:column; gap:8px; max-height:240px; overflow-y:auto; margin:8px 0;"></div>
@@ -676,12 +699,13 @@
         </div>
     </div>
 
-    <!-- MODAL CLIENTE Y PLAZO DE CRÉDITO -->
+    <!-- MODAL CLIENTE, TELÉFONO Y PLAZO DE CRÉDITO -->
     <div id="modal-cliente" class="modal-overlay" style="display:none;">
         <div class="modal-content" style="max-width: 330px;">
             <h3 style="margin-top:0;">👤 Datos del Cliente</h3>
             <input type="text" id="cliente-nombre" placeholder="Nombre y Apellido" style="margin-bottom:6px;">
             <input type="text" id="cliente-cedula" placeholder="Cédula / RIF" style="margin-bottom:6px;">
+            <input type="tel" id="cliente-tlf" placeholder="Teléfono / WhatsApp (Ej: 04121234567)" style="margin-bottom:6px;">
             <input type="text" id="cliente-dir" placeholder="Dirección / Nota" style="margin-bottom:6px;">
             <label style="font-size:11px; color:#8fa0b7; display:block; margin-bottom:4px;">Plazo si es Fiado (Días):</label>
             <input type="number" id="cliente-dias-credito" value="7" min="1" style="margin-bottom:10px;">
