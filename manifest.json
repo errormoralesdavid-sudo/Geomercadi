@@ -1,23 +1,32 @@
 {
-  "name": "GeoMercado",
+  "id": "./index.html",
+  "name": "GeoMercado POS",
   "short_name": "GeoMercado",
+  "description": "Sistema Punto de Venta e Inventario Inteligente",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0b0e14",
   "theme_color": "#0b0e14",
-  "orientation": "portrait",
+  "orientation": "any",
   "icons": [
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='115' fill='%230b0e14'/><rect x='24' y='24' width='464' height='464' rx='95' fill='none' stroke='%2300ff66' stroke-width='20'/><path d='M160 140 L120 220 V380 A30 30 0 0 0 150 410 H362 A30 30 0 0 0 392 380 V220 L352 140 Z' fill='none' stroke='%2300ff66' stroke-width='28' stroke-linecap='round' stroke-linejoin='round'/><line x1='120' y1='220' x2='392' y2='220' stroke='%2300ff66' stroke-width='28'/><path d='M316 270 A60 60 0 0 1 196 270' fill='none' stroke='%2300ff66' stroke-width='28' stroke-linecap='round'/></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "./icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
