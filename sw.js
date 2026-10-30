@@ -1,4 +1,4 @@
-const CACHE_NAME = 'geomercado-pro-final-v1';
+const CACHE_NAME = 'geomercado-pro-final-v2';
 
 const ASSETS_TO_CACHE = [
     './',
