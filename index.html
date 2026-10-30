@@ -26,6 +26,14 @@
         </div>
     </div>
 
+    <!-- ESCUDO BLOQUEADOR ANTI-DOBLE TOQUE (EVITA COBROS Y REGISTROS MÚLTIPLES) -->
+    <div id="action-lock-overlay" class="scan-feedback-overlay" style="display:none; z-index:9999;">
+        <div class="scan-feedback-card" style="border-color:#00ff66;">
+            <div class="scan-feedback-box scan-feedback-processing"></div>
+            <div id="action-lock-msg" class="scan-feedback-msg">⏳ Procesando operación...</div>
+        </div>
+    </div>
+
     <!-- NOTIFICACIONES Y FEEDBACK VISUAL -->
     <div id="toast" class="toast">Listo</div>
     <div id="scan-feedback" class="scan-feedback-overlay" style="display:none;">
@@ -178,6 +186,7 @@
                         <button class="btn-scan-bar" style="background:#8b5cf6; color:#fff; border:none;" onclick="window.activarAsistenteVoz()" title="Dictar Pedido por Voz">🎙️</button>
                     </div>
 
+                    <!-- Pestañas de Categorías Rápidas (Incluye 📦 Otros y 🎁 Combos) -->
                     <div class="cat-tabs-scroll">
                         <button class="cat-tab-btn active" onclick="window.seleccionarCategoriaCaja('Todas', this)">Todas</button>
                         <button class="cat-tab-btn" onclick="window.seleccionarCategoriaCaja('Víveres', this)">🥖 Víveres</button>
@@ -185,6 +194,7 @@
                         <button class="cat-tab-btn" onclick="window.seleccionarCategoriaCaja('Bebidas', this)">🥤 Bebidas</button>
                         <button class="cat-tab-btn" onclick="window.seleccionarCategoriaCaja('Frutería', this)">🍎 Frutería</button>
                         <button class="cat-tab-btn" onclick="window.seleccionarCategoriaCaja('Limpieza', this)">🧼 Limpieza</button>
+                        <button class="cat-tab-btn" onclick="window.seleccionarCategoriaCaja('Otros', this)">📦 Otros</button>
                         <button class="cat-tab-btn" onclick="window.seleccionarCategoriaCaja('Combos', this)">🎁 Combos</button>
                     </div>
 
@@ -245,7 +255,6 @@
                             <input type="text" id="pm-phone" placeholder="Tlf Cliente" inputmode="tel" style="flex:1;">
                             <input type="hidden" id="pm-banco-detectado">
                         </div>
-                        <!-- Botones Cámara + Carpeta para Capture de Pago Móvil -->
                         <div style="display:flex; gap:6px;">
                             <button class="btn-charge" style="background:#8b5cf6; color:#fff; font-size:11px; padding:8px; flex:1;" onclick="document.getElementById('file-capture-pm').click()">
                                 📸 Cámara Capture IA
@@ -280,9 +289,9 @@
 
                     <div style="display:flex; gap:6px;">
                         <button class="btn-clear" style="flex:0.8;" onclick="window.limpiarCaja(false)">🗑️</button>
-                        <button class="btn-clear" style="flex:1.2; border-color:#ffc107; color:#ffc107;" onclick="window.registrarComoFiado()">📒 Fiado</button>
-                        <button class="btn-charge" style="flex:1.5;" onclick="window.procesarCobro(true)">🖨️ Ticket</button>
-                        <button class="btn-charge" style="flex:2;" onclick="window.procesarCobro(false)">✔ Cobrar</button>
+                        <button id="btn-action-fiado" class="btn-clear" style="flex:1.2; border-color:#ffc107; color:#ffc107;" onclick="window.registrarComoFiado()">📒 Fiado</button>
+                        <button id="btn-action-ticket" class="btn-charge" style="flex:1.5;" onclick="window.procesarCobro(true)">🖨️ Ticket</button>
+                        <button id="btn-action-cobrar" class="btn-charge" style="flex:2;" onclick="window.procesarCobro(false)">✔ Cobrar</button>
                     </div>
                 </div>
             </div>
@@ -304,11 +313,11 @@
                     <input type="text" id="prod-name" placeholder="Nombre del Producto (Ej: Harina PAN)">
                     
                     <div style="display:flex; gap:6px;">
-                        <input type="number" id="prod-costo" placeholder="Costo ($)" step="any" oninput="window.calcularGanancia()" style="flex:1;">
+                        <input type="number" id="prod-costo" placeholder="Costo Unit. ($)" step="any" oninput="window.calcularGanancia()" style="flex:1;">
                         <input type="number" id="prod-margen" placeholder="Ganancia % (Ej: 30)" step="any" oninput="window.calcularGanancia()" style="flex:1;">
                     </div>
                     <div style="font-size:11px; color:#8fa0b7; display:flex; justify-content:space-between; align-items:center;">
-                        <span>Precio Venta Final: <strong id="lbl-precio-calc" style="color:#00ff66; font-size:13px;">$0.00</strong></span>
+                        <span>Precio Venta Unitario: <strong id="lbl-precio-calc" style="color:#00ff66; font-size:13px;">$0.00</strong></span>
                         <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
                             <input type="checkbox" id="prod-iva" onchange="window.calcularGanancia()"> +16% IVA
                         </label>
@@ -330,7 +339,17 @@
                         </select>
                     </div>
 
-                    <input type="number" id="prod-qty" placeholder="Cantidad en Stock (Unidades)" step="1">
+                    <input type="number" id="prod-qty" placeholder="Cantidad en Stock (Unidades sueltas)" step="1">
+                    
+                    <!-- NUEVA OPCIÓN: CONFIGURACIÓN DE VENTA POR BULTO / MAYOR -->
+                    <div id="box-config-bulto" style="background:#0b0e14; padding:8px; border-radius:8px; border:1px dashed #313c52;">
+                        <label style="font-size:10px; color:#ffc107; display:block; margin-bottom:4px; font-weight:bold;">📦 Opción Venta por Bulto / Mayor (Opcional):</label>
+                        <div style="display:flex; gap:6px;">
+                            <input type="number" id="prod-bulto-unidades" placeholder="Unds x Bulto (Ej: 24)" step="1" style="flex:1; font-size:11px; padding:7px;">
+                            <input type="number" id="prod-bulto-precio" placeholder="Precio Bulto $ (Ej: 20)" step="any" style="flex:1; font-size:11px; padding:7px;">
+                        </div>
+                    </div>
+
                     <div id="aviso-modo-peso" style="display:none; font-size:11px; color:#ffc107; background:#1c2536; padding:6px; border-radius:6px;">
                         ⚖️ Modo Balanza: Al vender te preguntará los gramos/kilos.
                     </div>
@@ -814,15 +833,17 @@
         </div>
     </div>
 
-    <!-- MODAL ZOOM DE IMAGEN DE PRODUCTO -->
+    <!-- MODAL DETALLES DE PRODUCTO (UNIDAD + BULTO + COMBOS DISPONIBLES) -->
     <div id="modal-zoom-img" class="modal-overlay" style="display:none;">
-        <div class="modal-content" style="max-width: 320px; text-align:center;">
+        <div class="modal-content" style="max-width: 350px; text-align:center;">
             <h3 id="zoom-title" style="margin-top:0;">Producto</h3>
-            <img id="zoom-img-src" src="" style="width:100%; max-height:220px; object-fit:contain; border-radius:10px; background:#0b0e14; margin-bottom:8px;">
+            <img id="zoom-img-src" src="" style="width:100%; max-height:200px; object-fit:contain; border-radius:10px; background:#0b0e14; margin-bottom:8px;">
             <div id="zoom-details" style="font-size:12px; margin-bottom:10px;"></div>
+            <!-- Contenedor Dinámico para Botones de Venta por Bulto y Combos Asociados -->
+            <div id="zoom-extra-actions" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;"></div>
             <div style="display:flex; gap:6px;">
                 <button class="btn-clear" onclick="document.getElementById('modal-zoom-img').style.display='none'">Cerrar</button>
-                <button id="zoom-btn-add" class="btn-charge">🛒 Agregar</button>
+                <button id="zoom-btn-add" class="btn-charge">🛒 Agregar Unidad</button>
             </div>
         </div>
     </div>
