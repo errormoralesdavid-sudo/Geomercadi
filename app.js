@@ -101,6 +101,8 @@ window.perfilNegocio = {
     nombre: "GeoMercado", rif: "", dir: "", tlf: "", 
     pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567",
     cobrarIGTF: false,
+    ticketSize: "58mm",
+    ticketFooter: "¡Gracias por su compra! Revise su mercancía antes de salir.",
     geminiKeyCifrada: DEFAULT_VAULT_CIPHER,
     geminiKeyPagoCifrada: "",
     geminiModoMotor: "auto"
@@ -220,7 +222,7 @@ window.reiniciarTemporizadorInactividad = function() {
 };
 
 // =========================================================================
-// IMPRESIÓN BLUETOOTH ESC/POS
+// IMPRESIÓN BLUETOOTH ESC/POS Y FORMATEO DE COLUMNAS (58MM / 80MM)
 // =========================================================================
 window.conectarImpresoraBluetooth = async function() {
     if (!navigator.bluetooth) { window.mostrarFeedbackAnimado('warning', 'Bluetooth no compatible'); return; }
@@ -285,10 +287,28 @@ window.enviarTextoImpresoraBT = async function(textoTicket) {
 };
 
 window.probarImpresoraBluetooth = async function() {
-    let texto = `================================\n   ${window.perfilNegocio.nombre || 'GEOMERCADO'}\n   PRUEBA DE IMPRESORA TERMICA\n   Tasa BCV: ${window.tasaDia.toFixed(2)} Bs\n================================\nEstado: OK\n`;
+    let anchoCols = (window.perfilNegocio.ticketSize === '80mm') ? 46 : 32;
+    let sep = "=".repeat(anchoCols);
+    let texto = `${sep}\n${window.centrarTextoTicket(window.perfilNegocio.nombre || 'GEOMERCADO', anchoCols)}\n${window.centrarTextoTicket('PRUEBA DE IMPRESORA (' + (window.perfilNegocio.ticketSize || '58mm') + ')', anchoCols)}\n${window.centrarTextoTicket('Tasa BCV: ' + window.tasaDia.toFixed(2) + ' Bs', anchoCols)}\n${sep}\nEstado: OK\n${window.perfilNegocio.ticketFooter || ''}\n`;
     let impresoBT = await window.enviarTextoImpresoraBT(texto);
     if (impresoBT) window.mostrarToast("🧾 Ticket enviado por Bluetooth");
-    else window.mostrarFeedbackAnimado('warning', 'Vincula Ticketera BT en Ajustes');
+    else window.mostrarFeedbackAnimado('warning', 'Vincula Ticketera BT o usa Impresión Web');
+};
+
+window.centrarTextoTicket = function(texto, ancho) {
+    let limpio = String(texto || "").trim();
+    if (limpio.length >= ancho) return limpio.substring(0, ancho);
+    let pad = Math.floor((ancho - limpio.length) / 2);
+    return " ".repeat(pad) + limpio;
+};
+
+window.alinearDosColumnasTicket = function(izq, der, ancho) {
+    let sIzq = String(izq || "");
+    let sDer = String(der || "");
+    let disp = ancho - sDer.length - 1;
+    if (sIzq.length > disp) sIzq = sIzq.substring(0, Math.max(0, disp));
+    let espacios = Math.max(1, ancho - sIzq.length - sDer.length);
+    return sIzq + " ".repeat(espacios) + sDer;
 };
 
 // =========================================================================
@@ -386,7 +406,8 @@ window.suscribirTiendaFirebase = function(docId) {
             
             window.perfilNegocio = Object.assign({ 
                 nombre: "GeoMercado", rif: "", dir: "", tlf: "", 
-                pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567", cobrarIGTF: false, 
+                pmBanco: "0102", pmCedula: "V12345678", pmTlf: "04121234567", cobrarIGTF: false,
+                ticketSize: "58mm", ticketFooter: "¡Gracias por su compra! Revise su mercancía antes de salir.",
                 geminiKeyCifrada: DEFAULT_VAULT_CIPHER, geminiKeyPagoCifrada: "", geminiModoMotor: "auto"
             }, data.perfilNegocio || {});
             
@@ -504,6 +525,11 @@ window.sincronizarCamposAdminUI = function() {
     let cPmTlf = document.getElementById('cfg-pm-tlf');
     if (cPmTlf && activo !== 'cfg-pm-tlf') cPmTlf.value = window.perfilNegocio.pmTlf || "04121234567";
 
+    let cTSize = document.getElementById('cfg-ticket-size');
+    if (cTSize && activo !== 'cfg-ticket-size') cTSize.value = window.perfilNegocio.ticketSize || "58mm";
+    let cTFooter = document.getElementById('cfg-ticket-footer');
+    if (cTFooter && activo !== 'cfg-ticket-footer') cTFooter.value = window.perfilNegocio.ticketFooter || "¡Gracias por su compra! Revise su mercancía antes de salir.";
+
     let chkIgtf = document.getElementById('cfg-igtf');
     if (chkIgtf) chkIgtf.checked = !!window.perfilNegocio.cobrarIGTF;
 
@@ -539,6 +565,11 @@ window.guardarPerfil = async function() {
     if (cCed) window.perfilNegocio.pmCedula = cCed.value.trim();
     let cPmTlf = document.getElementById('cfg-pm-tlf');
     if (cPmTlf) window.perfilNegocio.pmTlf = cPmTlf.value.trim();
+
+    let cTSize = document.getElementById('cfg-ticket-size');
+    if (cTSize) window.perfilNegocio.ticketSize = cTSize.value || "58mm";
+    let cTFooter = document.getElementById('cfg-ticket-footer');
+    if (cTFooter) window.perfilNegocio.ticketFooter = cTFooter.value.trim() || "¡Gracias por su compra!";
 
     let chkIgtf = document.getElementById('cfg-igtf');
     if (chkIgtf) window.perfilNegocio.cobrarIGTF = chkIgtf.checked;
@@ -628,7 +659,7 @@ window.verificarAlertasStock = function() {
 // =========================================================================
 // NÚCLEO GEMINI (MODELOS 3-FLASH-PREVIEW Y 3.5-FLASH-LITE)
 // =========================================================================
-window.comprimirImagenParaIA = function(file, maxDim = 680) {
+window.comprimirImagenParaIA = function(file, maxDim = 760) {
     return new Promise((resolve, reject) => {
         let reader = new FileReader();
         reader.onload = function(e) {
@@ -641,7 +672,7 @@ window.comprimirImagenParaIA = function(file, maxDim = 680) {
                 canvas.width = Math.round(w); canvas.height = Math.round(h);
                 let ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                let dataUrl = canvas.toDataURL('image/jpeg', 0.68);
+                let dataUrl = canvas.toDataURL('image/jpeg', 0.72);
                 resolve(dataUrl.split(',')[1]);
             };
             img.onerror = reject;
@@ -948,7 +979,7 @@ window.reconocerProductoIA = async function(e) {
 };
 
 // =========================================================================
-// VALIDACIÓN PAGO MÓVIL IA (CÁMARA Y GALERÍA)
+// AUDITOR FORENSE DE PAGO MÓVIL IA (5 CANDADOS DE SEGURIDAD ESTRICTA)
 // =========================================================================
 window.escanearCapturePagoCompleto = async function(e) {
     let input = e.target;
@@ -962,65 +993,131 @@ window.escanearCapturePagoCompleto = async function(e) {
     let box = document.getElementById('scan-feedback-box');
     box.className = 'scan-feedback-box scan-feedback-processing';
     box.innerHTML = '';
-    document.getElementById('scan-feedback-msg').innerText = 'Verificando transacción bancaria...';
+    document.getElementById('scan-feedback-msg').innerText = 'Auditando banco, destino, CI y fecha...';
     overlay.style.display = 'flex';
 
     try {
-        let base64Img = await window.comprimirImagenParaIA(file, 680);
-        let promptPM = `Analiza este comprobante de Pago Móvil de Venezuela. Devuelve SOLO un JSON exacto:
+        let base64Img = await window.comprimirImagenParaIA(file, 780);
+        let promptPM = `Eres un auditor forense bancario en Venezuela. Analiza la imagen de este comprobante de Pago Móvil.
+        REGLAS CRÍTICAS DE EXTRACCIÓN:
+        1. NO confundas el banco emisor (el logo de arriba como "PagomóvilBDV Personas" o la fila "Origen: 0102****") con el banco receptor.
+        2. El campo "banco_receptor_codigo" DEBE extraerse ÚNICAMENTE de la fila que dice "Banco:" o "Banco Destino:" (ej: si dice "0172 - BANCAMIGA", devuelve "0172"; si dice "0174 - BANPLUS", devuelve "0174"; si dice "0191 - BANCO NACIONAL DE CREDITO", devuelve "0191"; si dice "0134 - BANESCO", devuelve "0134"; solo si en la fila Banco Destino dice Banco de Venezuela o 0102, o si es una transferencia interna donde el destino explícito es BDV, devuelve "0102").
+        3. Extrae "telefono_receptor" de la fila "Destino:" o "Teléfono Destino:" o "Beneficiario:" (ej: "04141204600").
+        4. Extrae "cedula_receptor" de la fila "Identificación:" o "Cédula/RIF:" del destinatario (solo números, ej: "30188437").
+        5. Extrae "fecha_operacion" exactamente en formato DD/MM/YYYY de la fila "Fecha:".
+        6. Extrae "hora_operacion" si aparece impresa dentro del comprobante (NO uses la hora de la barra superior del teléfono). Si no tiene hora el recibo, devuelve "".
+        7. Extrae "referencia" de la fila "Operación:" o "Referencia:" o "Nro. de Referencia:" (solo dígitos).
+        8. Extrae "monto_bs" como número decimal usando punto para los decimales (ej: si dice "7.114,00 Bs", devuelve 7114.00).
+
+        Devuelve SOLO este JSON exacto:
         {
-          "banco_receptor_codigo": string (4 dígitos, ej: "0102" BDV, "0134" Banesco. Si dice "PagomóvilBDV", usa "0102"),
-          "banco_receptor_nombre": string,
-          "monto_bs": number (usando punto decimal, ej: 4436.51),
-          "referencia": string (solo dígitos),
-          "telefono_emisor": string
+          "banco_receptor_codigo": "4 dígitos",
+          "banco_receptor_nombre": "Nombre del banco destino",
+          "telefono_receptor": "solo dígitos",
+          "cedula_receptor": "solo dígitos",
+          "fecha_operacion": "DD/MM/YYYY",
+          "hora_operacion": "HH:MM",
+          "monto_bs": 0.00,
+          "referencia": "solo dígitos",
+          "concepto": "texto"
         }`;
 
         let dataIA = await window.llamarGeminiIA(promptPM, base64Img);
         overlay.style.display = 'none';
 
-        let bancoTienda = (window.perfilNegocio.pmBanco || "0102").replace(/\D/g, '').padStart(4, '0');
+        // Datos configurados de la Tienda (Receptor esperado)
+        let bancoTienda = String(window.perfilNegocio.pmBanco || "0102").replace(/\D/g, '').padStart(4, '0');
+        let tlfTiendaDigitos = String(window.perfilNegocio.pmTlf || "").replace(/\D/g, '');
+        let tlfTiendaUltimos7 = tlfTiendaDigitos.slice(-7);
+        let cedulaTiendaDigitos = String(window.perfilNegocio.pmCedula || "").replace(/\D/g, '');
+
+        // Datos extraídos del Comprobante por la IA
         let bancoExtraido = String(dataIA.banco_receptor_codigo || "").replace(/\D/g, '').substring(0, 4);
+        let bancoNombreExtraido = String(dataIA.banco_receptor_nombre || "Otro Banco").trim();
+        let tlfReceptorExtraido = String(dataIA.telefono_receptor || "").replace(/\D/g, '');
+        let tlfReceptorUltimos7 = tlfReceptorExtraido.slice(-7);
+        let cedulaReceptorExtraida = String(dataIA.cedula_receptor || "").replace(/\D/g, '');
+        let fechaExtraida = String(dataIA.fecha_operacion || "").trim();
+        let horaExtraida = String(dataIA.hora_operacion || "").trim();
         let refExtraida = String(dataIA.referencia || "").replace(/\D/g, '');
         let montoExtraido = parseFloat(dataIA.monto_bs) || 0;
-        
-        let tlfEmisor = String(dataIA.telefono_emisor || "").replace(/\D/g, '');
-        document.getElementById('pm-phone').value = tlfEmisor;
-        let elCliTlf = document.getElementById('cliente-tlf');
-        if (elCliTlf && !elCliTlf.value && tlfEmisor) elCliTlf.value = tlfEmisor;
 
         document.getElementById('pm-ref').value = refExtraida;
-        document.getElementById('pm-banco-detectado').value = bancoExtraido ? `${bancoExtraido} (${dataIA.banco_receptor_nombre || 'Detectado'})` : "No identificado";
+        document.getElementById('pm-banco-detectado').value = bancoExtraido ? `${bancoExtraido} (${bancoNombreExtraido})` : "No identificado";
 
-        let refDuplicada = false;
+        let erroresAuditoria = [];
+
+        // CANDADO 1: Verificar Banco Destino
+        if (!bancoExtraido || bancoExtraido !== bancoTienda) {
+            erroresAuditoria.push(`<li><strong>Banco Destino Incorrecto:</strong> El pago fue enviado a <strong>${bancoExtraido || 'N/A'} (${window.escapeHTML(bancoNombreExtraido)})</strong> y tu tienda recibe en <strong>${bancoTienda}</strong>.</li>`);
+        }
+
+        // CANDADO 2: Verificar Teléfono Destino (si la tienda tiene configurado su teléfono y el recibo muestra destino)
+        if (tlfTiendaUltimos7.length === 7 && tlfReceptorUltimos7.length === 7) {
+            if (tlfTiendaUltimos7 !== tlfReceptorUltimos7) {
+                erroresAuditoria.push(`<li><strong>Teléfono Destino Incorrecto:</strong> Enviado al <strong>${tlfReceptorExtraido}</strong> (Tu tienda es <strong>${window.perfilNegocio.pmTlf}</strong>).</li>`);
+            }
+        }
+
+        // CANDADO 3: Verificar Cédula / RIF Destino
+        if (cedulaTiendaDigitos.length >= 6 && cedulaReceptorExtraida.length >= 6) {
+            if (!cedulaReceptorExtraida.includes(cedulaTiendaDigitos) && !cedulaTiendaDigitos.includes(cedulaReceptorExtraida)) {
+                erroresAuditoria.push(`<li><strong>Cédula/RIF Destino Incorrecta:</strong> Enviado a CI/RIF <strong>${cedulaReceptorExtraida}</strong> (Tu tienda es <strong>${window.perfilNegocio.pmCedula}</strong>).</li>`);
+            }
+        }
+
+        // CANDADO 4: Verificar que la Fecha del comprobante sea de HOY
+        let hoyObj = new Date();
+        let dHoy = String(hoyObj.getDate()).padStart(2, '0');
+        let mHoy = String(hoyObj.getMonth() + 1).padStart(2, '0');
+        let yHoy = String(hoyObj.getFullYear());
+        let fechaHoyStr = `${dHoy}/${mHoy}/${yHoy}`;
+
+        if (fechaExtraida && fechaExtraida.length >= 8) {
+            let partesF = fechaExtraida.split(/[\/\-]/);
+            if (partesF.length === 3) {
+                let dRec = partesF[0].padStart(2, '0');
+                let mRec = partesF[1].padStart(2, '0');
+                let yRec = partesF[2].length === 2 ? "20" + partesF[2] : partesF[2];
+                let fechaRecNormalizada = `${dRec}/${mRec}/${yRec}`;
+                if (fechaRecNormalizada !== fechaHoyStr) {
+                    erroresAuditoria.push(`<li><strong>Fecha Vencida / Otra Fecha:</strong> El comprobante tiene fecha <strong>${fechaRecNormalizada}</strong> y hoy es <strong>${fechaHoyStr}</strong>.</li>`);
+                }
+            }
+        }
+
+        // CANDADO 5: Verificar Referencia Duplicada
         if (refExtraida.length >= 4) {
-            refDuplicada = window.ventasHistorico.some(v => v.pmRef && String(v.pmRef).endsWith(refExtraida.slice(-6)));
+            let refDuplicada = window.ventasHistorico.some(v => v.pmRef && String(v.pmRef).endsWith(refExtraida.slice(-6)));
+            if (refDuplicada) {
+                erroresAuditoria.push(`<li><strong>Comprobante Repetido:</strong> La operación <strong>#${refExtraida}</strong> ya fue usada en otra venta.</li>`);
+            }
         }
 
-        if (refDuplicada) {
+        // Si falló cualquiera de los 5 candados, bloquear carga del monto y alertar en rojo
+        if (erroresAuditoria.length > 0) {
             window.reproducirBeep(false);
-            banner.className = 'pm-status-banner pm-status-error';
-            banner.innerHTML = `❌ ALERTA: Referencia <strong>#${refExtraida}</strong> ya registrada hoy.`;
-            banner.style.display = 'block';
-            return;
-        }
+            let inputPm = document.getElementById('pay-pm');
+            if (inputPm) inputPm.value = "";
+            window.actualizarEtiquetasPago();
+            window.calcularCaja();
 
-        if (bancoExtraido !== bancoTienda) {
-            window.reproducirBeep(false);
             banner.className = 'pm-status-banner pm-status-error';
-            banner.innerHTML = `❌ BANCO INCORRECTO: Pagó a <strong>${bancoExtraido}</strong>, Tu Tienda es: <strong>${bancoTienda}</strong>`;
+            banner.innerHTML = `<strong>❌ RECHAZADO POR AUDITORÍA IA:</strong><ul style="margin:4px 0 0 16px; padding:0;">${erroresAuditoria.join('')}</ul>`;
             banner.style.display = 'block';
+            window.mostrarFeedbackAnimado('warning', 'Pago Móvil Rechazado');
             return;
         }
 
         if (montoExtraido <= 0) {
             window.reproducirBeep(false);
             banner.className = 'pm-status-banner pm-status-warning';
-            banner.innerHTML = `⚠️ Banco OK, pero no se leyó el monto. Ingresa manual.`;
+            banner.innerHTML = `⚠️ Datos de destino coinciden, pero no se leyó el monto en Bs. Ingrésalo manual.`;
             banner.style.display = 'block';
             return;
         }
 
+        // Todo verificado y aprobado
         let inputPm = document.getElementById('pay-pm');
         inputPm.value = Math.round(montoExtraido * 100).toString();
         window.mascaraMoneda(inputPm);
@@ -1029,16 +1126,16 @@ window.escanearCapturePagoCompleto = async function(e) {
 
         window.reproducirBeep(true);
         banner.className = 'pm-status-banner pm-status-success';
-        banner.innerHTML = `✔ APROBADO: Banco <strong>${bancoExtraido}</strong> | <strong>${window.formatVE(montoExtraido)}</strong> | Ref: <strong>#${refExtraida}</strong>`;
+        banner.innerHTML = `✔ <strong>PAGO VERIFICADO:</strong><br>Banco: <strong>${bancoExtraido}</strong> | Destino: <strong>${tlfReceptorExtraido || 'OK'}</strong> | CI: <strong>${cedulaReceptorExtraida || 'OK'}</strong><br>Fecha: <strong>${fechaExtraida || fechaHoyStr} ${horaExtraida}</strong> | Monto: <strong>${window.formatVE(montoExtraido)}</strong> | Op: <strong>#${refExtraida}</strong>`;
         banner.style.display = 'block';
-        window.mostrarToast("✓ Validado");
+        window.mostrarToast("✓ Comprobante Auténtico");
 
     } catch (err) {
         overlay.style.display = 'none';
         window.reproducirBeep(false);
         if (banner) {
             banner.className = 'pm-status-banner pm-status-error';
-            banner.innerHTML = `❌ Error: ${window.escapeHTML(err.message)}`;
+            banner.innerHTML = `❌ Error al analizar imagen: ${window.escapeHTML(err.message)}`;
             banner.style.display = 'block';
         }
         window.mostrarFeedbackAnimado('warning', 'Lectura fallida');
@@ -1242,7 +1339,6 @@ window.registrarComoFiado = async function() {
         let ahoraMs = Date.now();
         let vencMs = ahoraMs + (diasPlazo * 24 * 60 * 60 * 1000);
 
-        // Vaciar carrito en milisegundo cero antes de ir a la nube
         await window.limpiarCaja(true);
 
         window.fiados.push({
@@ -1363,7 +1459,8 @@ window.confirmarAbonoFiado = async function() {
         window.ventasHistorico.push({
             id: Date.now(),
             fecha: new Date().toLocaleString(),
-            items: [{ id: 0, nombre: `Abono Crédito: ${f.cliente}`, qtyVenta: 1, totalUSD: montoPagadoUSD, precioUnitario: montoPagadoUSD }],
+            tasaAplicada: window.tasaDia,
+            items: [{ id: 0, nombre: `Abono Crédito: ${f.cliente}`, qtyVenta: 1, totalUSD: montoPagadoUSD, precioUnitario: montoPagadoUSD, iva: false }],
             subtotalUSD: montoPagadoUSD,
             igtfUSD: 0,
             totalUSD: montoPagadoUSD,
@@ -1375,7 +1472,9 @@ window.confirmarAbonoFiado = async function() {
             ves: metodo === 'ves' ? montoPagadoVES : 0,
             cajero: window.usuarioActivoNombre,
             cliente: f.cliente,
-            tlf: f.tlf || ""
+            cedula: f.cedula || "",
+            tlf: f.tlf || "",
+            dir: f.dir || ""
         });
 
         if (f.montoUSD <= 0.01) {
@@ -1450,7 +1549,7 @@ window.dispararSiguienteRecordatorioCola = function() {
 };
 
 // =========================================================================
-// ESCÁNER DE CÁMARA ACELERADO (30 FPS), ARCHIVO DE GALERÍA Y QR SUDEBAN
+// ESCÁNER DE CÁMARA ACELERADO (30 FPS) Y ARCHIVO DE GALERÍA
 // =========================================================================
 window.abrirCamaraEnVivo = function(modo) {
     if (typeof Html5Qrcode === 'undefined') { window.mostrarFeedbackAnimado('warning', 'Cargando...'); return; }
@@ -1522,28 +1621,6 @@ window.escanearBarcodeFoto = function(e, modo) {
     }).finally(() => {
         input.value = "";
     });
-};
-
-window.generarQRPagoMovil = function() {
-    if(window.totalVentaVES <= 0) { window.mostrarFeedbackAnimado('warning', 'Agrega productos'); return; }
-    
-    let b = (window.perfilNegocio.pmBanco || "0102").padStart(4, '0');
-    let c = window.perfilNegocio.pmCedula || "";
-    let t = window.perfilNegocio.pmTlf || "";
-    let montoStr = window.totalVentaVES.toFixed(2).replace('.', ',');
-    
-    let payloadQR = JSON.stringify({ "banco": b, "cedula": c, "telefono": t, "monto": montoStr });
-
-    document.getElementById('img-qr-code').src = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(payloadQR);
-    document.getElementById('qr-text-info').innerText = `🏢 ${window.perfilNegocio.nombre}\n🏦 Banco: ${b}\n🪪 CI: ${c}\n📞 Tlf: ${t}\n💵 Monto: ${montoStr} Bs`;
-    document.getElementById('modal-qr').style.display = 'flex';
-};
-
-window.enviarQRPorWS = function() {
-    let tlf = (document.getElementById('cliente-tlf')?.value || document.getElementById('pm-phone')?.value || "").replace(/\D/g, '');
-    if (tlf.startsWith('0')) tlf = '58' + tlf.substring(1);
-    let msj = "📲 *DATOS PAGO MÓVIL*\n\n" + document.getElementById('qr-text-info').innerText;
-    window.open(tlf ? `https://api.whatsapp.com/send?phone=${tlf}&text=${encodeURIComponent(msj)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(msj)}`, '_blank');
 };
 
 // =========================================================================
@@ -1847,12 +1924,10 @@ window.verImagenProducto = function(idProd) {
         ${infoExtra}
     `;
 
-    // Construir botones dinámicos de Bulto y Combos donde participa este producto
     let extraBox = document.getElementById('zoom-extra-actions');
     if (extraBox) {
         let htmlBotones = "";
         
-        // 1. Verificar si tiene Venta por Bulto configurada
         let bUnds = parseInt(p.bultoUnidades) || 0;
         let bPrecio = parseFloat(p.bultoPrecio) || 0;
         if (p.tipo === 'unidad' && bUnds > 1 && bPrecio > 0) {
@@ -1865,7 +1940,6 @@ window.verImagenProducto = function(idProd) {
             `;
         }
 
-        // 2. Verificar si este producto pertenece a algún Combo activo en la tienda
         let combosRelacionados = window.productos.filter(c => c.tipo === 'combo' && Array.isArray(c.componentes) && c.componentes.some(comp => comp.id === p.id));
         combosRelacionados.forEach(combo => {
             let cPrecioFinal = combo.iva ? (combo.precio * 1.16) : combo.precio;
@@ -1911,7 +1985,6 @@ window.agregarBultoAlCarrito = function(idProd) {
     let precioBultoFinalUSD = p.iva ? (bPrecio * 1.16) : bPrecio;
     let costoBultoUSD = (p.costo || 0) * bUnds;
 
-    // Descontar del inventario las unidades exactas que trae el bulto
     p.qty -= bUnds;
     window.sincronizarConNube();
 
@@ -1933,6 +2006,8 @@ window.agregarBultoAlCarrito = function(idProd) {
             unidadesPorBulto: bUnds,
             qtyVenta: 1,
             precioUnitario: precioBultoFinalUSD,
+            precioBaseSinIva: bPrecio,
+            iva: !!p.iva,
             costoUnitario: costoBultoUSD
         });
     }
@@ -2147,7 +2222,7 @@ window.confirmarPesoBalanza = function() {
     let p = window.productoBalanzaTemp; if (!p) return; let kilos = parseFloat(document.getElementById('balanza-input-kg').value);
     if (isNaN(kilos) || kilos <= 0) { window.mostrarFeedbackAnimado('warning', 'Peso inválido'); return; }
     let precioUnitarioCalculado = p.iva ? (p.precio * 1.16) : p.precio; let costoUnitarioCalculado = p.costo || 0;
-    window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado * kilos, costoTotalUSD: costoUnitarioCalculado * kilos, detalle: kilos + ' kg', tipo: p.tipo, qtyVenta: kilos, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado, imagenUrl: p.imagenUrl });
+    window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado * kilos, costoTotalUSD: costoUnitarioCalculado * kilos, detalle: kilos + ' kg', tipo: p.tipo, qtyVenta: kilos, precioUnitario: precioUnitarioCalculado, precioBaseSinIva: p.precio, iva: !!p.iva, costoUnitario: costoUnitarioCalculado, imagenUrl: p.imagenUrl });
     document.getElementById('modal-balanza').style.display = 'none'; window.productoBalanzaTemp = null; window.reproducirBeep(true); window.recalcularTotalesCarrito(); window.renderizarCarritoCaja();
 };
 
@@ -2163,12 +2238,12 @@ window.agregarAlCarritoDesdeCaja = function(idProd) {
         }
         let item = window.carrito.find(c => c.id === p.id && c.tipo === 'combo');
         if (item) { item.qtyVenta += 1; item.totalUSD += precioUnitarioCalculado; item.costoTotalUSD += costoUnitarioCalculado; item.detalle = item.qtyVenta + ' unds'; } 
-        else { window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado, costoTotalUSD: costoUnitarioCalculado, detalle: '1 unds', tipo: 'combo', qtyVenta: 1, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado, imagenUrl: p.imagenUrl, componentes: p.componentes }); }
+        else { window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado, costoTotalUSD: costoUnitarioCalculado, detalle: '1 unds', tipo: 'combo', qtyVenta: 1, precioUnitario: precioUnitarioCalculado, precioBaseSinIva: p.precio, iva: !!p.iva, costoUnitario: costoUnitarioCalculado, imagenUrl: p.imagenUrl, componentes: p.componentes }); }
     } else {
         if(p.qty < 1) { window.reproducirBeep(false); window.mostrarFeedbackAnimado('warning', 'Sin Stock'); return; }
         let item = window.carrito.find(c => c.id === p.id && c.tipo === 'unidad'); p.qty -= 1; window.sincronizarConNube();
         if(item) { item.qtyVenta += 1; item.totalUSD += precioUnitarioCalculado; item.costoTotalUSD += costoUnitarioCalculado; item.detalle = item.qtyVenta + ' unds'; } 
-        else { window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado, costoTotalUSD: costoUnitarioCalculado, imagenUrl: p.imagenUrl, detalle: '1 unds', tipo: p.tipo, qtyVenta: 1, precioUnitario: precioUnitarioCalculado, costoUnitario: costoUnitarioCalculado }); }
+        else { window.carrito.push({ id: p.id, nombre: p.nombre, totalUSD: precioUnitarioCalculado, costoTotalUSD: costoUnitarioCalculado, imagenUrl: p.imagenUrl, detalle: '1 unds', tipo: p.tipo, qtyVenta: 1, precioUnitario: precioUnitarioCalculado, precioBaseSinIva: p.precio, iva: !!p.iva, costoUnitario: costoUnitarioCalculado }); }
     }
     window.reproducirBeep(true); window.recalcularTotalesCarrito(); window.renderizarCarritoCaja();
 };
@@ -2230,7 +2305,7 @@ window.renderizarCarritoCaja = function() {
         let html = "";
         window.carrito.forEach((item, i) => {
             let miniatura = item.imagenUrl ? `<img src="${item.imagenUrl}" class="cart-item-img" onclick="window.verImagenProducto(${item.id})">` : `<div class="cart-item-emoji" onclick="window.verImagenProducto(${item.id})">${item.tipo === 'peso' ? '🍎' : (item.tipo === 'combo' ? '🎁' : '📦')}</div>`;
-            html += `<div class="cart-item"><div style="display:flex; align-items:center; gap:8px; flex:1;">${miniatura}<div><div style="line-height:1.2;">${window.escapeHTML(item.nombre)}</div><small style="color:#8fa0b7;">${window.formatVE(item.totalUSD * window.tasaDia)}</small></div></div>`;
+            html += `<div class="cart-item"><div style="display:flex; align-items:center; gap:8px; flex:1;">${miniatura}<div><div style="line-height:1.2;">${window.escapeHTML(item.nombre)} ${item.iva ? '<small style="color:#ffc107;">(G)</small>' : ''}</div><small style="color:#8fa0b7;">${window.formatVE(item.totalUSD * window.tasaDia)}</small></div></div>`;
             if (item.tipo === 'unidad' || item.tipo === 'combo' || item.tipo === 'bulto') { html += `<div style="display:flex; align-items:center; gap:6px; margin-right:10px;"><button class="btn-qty" onclick="window.restarItem(${i})">-</button><span style="font-weight:bold; font-size:14px;">${item.qtyVenta}</span><button class="btn-qty" onclick="window.sumarItem(${i})">+</button></div>`; } 
             else { html += `<div style="margin-right:10px; color:#8fa0b7; font-size:11px;">${window.escapeHTML(item.detalle)}</div>`; }
             html += `<div style="display:flex; align-items:center;"><strong>${window.formatUSD(item.totalUSD)}</strong><button class="btn-remove-item" onclick="window.eliminarDelCarrito(${i})">X</button></div></div>`;
@@ -2283,7 +2358,7 @@ window.calcularCaja = function() {
 };
 
 // =========================================================================
-// COBRO BLINDADO CONTRA DOBLE TOQUE (VACIADO EN MILISEGUNDO CERO)
+// COBRO BLINDADO CON AUDITORÍA DE MÉTODOS DE PAGO, IVA Y VUELTO
 // =========================================================================
 window.procesarCobro = async function(imprimirTicket) {
     if (window.procesandoOperacion) return;
@@ -2291,25 +2366,57 @@ window.procesarCobro = async function(imprimirTicket) {
 
     await window.ejecutarAccionSegura("⏳ Registrando venta...", async () => {
         let tlfCli = document.getElementById('cliente-tlf')?.value.trim() || document.getElementById('pm-phone')?.value.trim() || "";
+        let ptvVal = window.extraerNumeroLimpio('pay-ptv');
+        let pmVal = window.extraerNumeroLimpio('pay-pm');
+        let usdVal = parseFloat(document.getElementById('pay-usd').value) || 0;
+        let vesVal = window.extraerNumeroLimpio('pay-ves');
+
+        // Si el cajero presionó Cobrar rápido sin desglosar el método de pago, se asume Efectivo Bs / Punto exacto para que el ticket nunca salga en 0
+        let totalRecibidoVES = ptvVal + pmVal + (usdVal * window.tasaDia) + vesVal;
+        if (totalRecibidoVES <= 0) {
+            vesVal = window.totalVentaVES;
+            totalRecibidoVES = vesVal;
+        }
+        let vueltoVES = Math.max(0, totalRecibidoVES - window.totalVentaVES);
+
+        // Calcular desglose fiscal (Exento, Base Imponible e IVA 16%)
+        let montoExentoUSD = 0;
+        let baseImponibleUSD = 0;
+        let montoIvaUSD = 0;
+        window.carrito.forEach(it => {
+            if (it.iva) {
+                let baseItem = it.totalUSD / 1.16;
+                baseImponibleUSD += baseItem;
+                montoIvaUSD += (it.totalUSD - baseItem);
+            } else {
+                montoExentoUSD += it.totalUSD;
+            }
+        });
+
         let venta = {
             id: Date.now(),
             fecha: new Date().toLocaleString(),
+            tasaAplicada: window.tasaDia,
             items: window.carrito.slice(),
+            exentoUSD: montoExentoUSD,
+            baseImponibleUSD: baseImponibleUSD,
+            ivaUSD: montoIvaUSD,
             subtotalUSD: window.subtotalVentaUSD,
             igtfUSD: window.montoIGTF_USD,
             totalUSD: window.totalVentaUSD,
             totalVES: window.totalVentaVES,
+            vueltoVES: vueltoVES,
             costoUSD: window.carrito.reduce((sum, c) => sum + (c.costoTotalUSD || 0), 0),
-            ptv: window.extraerNumeroLimpio('pay-ptv'),
-            pm: window.extraerNumeroLimpio('pay-pm'),
+            ptv: ptvVal,
+            pm: pmVal,
             pmRef: document.getElementById('pm-ref')?.value || "",
             pmBanco: document.getElementById('pm-banco-detectado')?.value || "",
-            usd: parseFloat(document.getElementById('pay-usd').value) || 0,
-            ves: window.extraerNumeroLimpio('pay-ves'),
+            usd: usdVal,
+            ves: vesVal,
             cajero: window.usuarioActivoNombre,
-            cliente: document.getElementById('cliente-nombre').value,
-            cedula: document.getElementById('cliente-cedula').value,
-            dir: document.getElementById('cliente-dir').value,
+            cliente: document.getElementById('cliente-nombre').value.trim(),
+            cedula: document.getElementById('cliente-cedula').value.trim(),
+            dir: document.getElementById('cliente-dir').value.trim(),
             tlf: tlfCli
         };
 
