@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#0b0e14">
     <link rel="apple-touch-icon" href="./icon-192.png">
     <link rel="stylesheet" href="./style.css">
-    <!-- Librería de Escaneo de Códigos de Barras y QR -->
+    <!-- Librería de Escaneo de Códigos de Barras -->
     <script src="https://unpkg.com/html5-qrcode" defer></script>
 </head>
 <body>
@@ -206,7 +206,7 @@
                     <div class="cart-box">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                             <span style="font-size:11px; color:#8fa0b7; font-weight:bold;">🧾 DETALLE DE VENTA</span>
-                            <button onclick="window.abrirModalClienteConFoco()" style="background:transparent; border:1px solid #313c52; color:#00ff66; border-radius:6px; padding:2px 8px; font-size:10px; cursor:pointer;">👤 Datos Cliente</button>
+                            <button onclick="window.abrirModalClienteConFoco()" style="background:transparent; border:1px solid #313c52; color:#00ff66; border-radius:6px; padding:2px 8px; font-size:10px; cursor:pointer;">👤 Datos Cliente / Factura</button>
                         </div>
                         <div id="items-carrito-factura" class="cart-items-scroll"></div>
 
@@ -244,14 +244,14 @@
                         </div>
                     </div>
 
+                    <!-- Cajón Pago Móvil Limpio (Sin botón QR y con Auditor Forense IA) -->
                     <div id="box-pay-pm" class="pay-collapse">
                         <div style="display:flex; gap:6px; margin-bottom:6px;">
                             <input type="text" id="pay-pm" placeholder="Monto Pago Móvil (Bs)" inputmode="numeric" oninput="window.mascaraMoneda(this); window.actualizarEtiquetasPago(); window.calcularCaja();">
                             <button class="btn-max" onclick="window.llenarMaximo('pm')">MÁX</button>
-                            <button class="btn-max" style="background:#00ff66; color:#000;" onclick="window.generarQRPagoMovil()">QR</button>
                         </div>
                         <div style="display:flex; gap:6px; margin-bottom:6px;">
-                            <input type="text" id="pm-ref" placeholder="Ref (Últimos dígitos)" inputmode="numeric" style="flex:1;">
+                            <input type="text" id="pm-ref" placeholder="Ref / Operación" inputmode="numeric" style="flex:1;">
                             <input type="text" id="pm-phone" placeholder="Tlf Cliente" inputmode="tel" style="flex:1;">
                             <input type="hidden" id="pm-banco-detectado">
                         </div>
@@ -341,7 +341,7 @@
 
                     <input type="number" id="prod-qty" placeholder="Cantidad en Stock (Unidades sueltas)" step="1">
                     
-                    <!-- NUEVA OPCIÓN: CONFIGURACIÓN DE VENTA POR BULTO / MAYOR -->
+                    <!-- OPCIÓN: CONFIGURACIÓN DE VENTA POR BULTO / MAYOR -->
                     <div id="box-config-bulto" style="background:#0b0e14; padding:8px; border-radius:8px; border:1px dashed #313c52;">
                         <label style="font-size:10px; color:#ffc107; display:block; margin-bottom:4px; font-weight:bold;">📦 Opción Venta por Bulto / Mayor (Opcional):</label>
                         <div style="display:flex; gap:6px;">
@@ -511,7 +511,7 @@
         </section>
 
         <!-- =============================================================== -->
-        <!-- MÓDULO 5: AJUSTES, PERFIL FISCAL Y BÓVEDA IA                    -->
+        <!-- MÓDULO 5: AJUSTES, IMPRESORA, PERFIL FISCAL Y BÓVEDA IA         -->
         <!-- =============================================================== -->
         <section id="modulo-admin" class="modulo-app" style="display:none;">
             <div class="module-header">
@@ -527,14 +527,25 @@
                     <div id="admin-box-codigo" style="font-size:24px; font-weight:bold; color:#00ff66; letter-spacing:2px; margin:4px 0;">GLOBAL</div>
                 </div>
 
-                <!-- Impresora Térmica Bluetooth -->
+                <!-- Impresora Térmica y Tamaños de Papel / Ticket Personalizado -->
                 <div class="admin-form-box" style="border-color:#3b82f6;">
-                    <label style="color:#3b82f6; font-weight:bold;">🖨️ Impresora Bluetooth (Tickets)</label>
-                    <p style="font-size:11px; color:#8fa0b7; margin:0;">Empareja tu ticketera Bluetooth de 58mm/80mm para que los recibos salgan directo al cobrar.</p>
+                    <label style="color:#3b82f6; font-weight:bold;">🖨️ Impresora y Formato de Recibos</label>
+                    <p style="font-size:11px; color:#8fa0b7; margin:0;">Elige el tamaño de tu impresora y personaliza el pie de factura.</p>
+                    
+                    <label style="font-size:10px; color:#8fa0b7;">Tamaño de Papel / Impresora:</label>
+                    <select id="cfg-ticket-size" onchange="window.guardarPerfil()">
+                        <option value="58mm">🧾 Rollo Térmico 58mm (Portátil / Pequeña)</option>
+                        <option value="80mm">🖨️ Rollo Térmico 80mm (Mostrador / Grande)</option>
+                        <option value="carta">📄 Hoja Carta / Media Carta (Impresora Oficina)</option>
+                    </select>
+
+                    <label style="font-size:10px; color:#8fa0b7;">Mensaje Personalizado al Pie del Ticket:</label>
+                    <input type="text" id="cfg-ticket-footer" placeholder="Ej: ¡Gracias por su compra! Revise su mercancía." onchange="window.guardarPerfil()">
+
                     <div id="bt-printer-status" style="background:#0b0e14; padding:6px; border-radius:6px; font-size:11px; text-align:center; color:#8fa0b7;">Estado: Modo Navegador Estándar</div>
                     <div style="display:flex; gap:6px;">
-                        <button class="btn-charge" style="background:#3b82f6; color:#fff; flex:1;" onclick="window.conectarImpresoraBluetooth()">🔗 Vincular Ticketera</button>
-                        <button class="btn-clear" style="flex:1;" onclick="window.probarImpresoraBluetooth()">🧾 Probar</button>
+                        <button class="btn-charge" style="background:#3b82f6; color:#fff; flex:1;" onclick="window.conectarImpresoraBluetooth()">🔗 Vincular BT</button>
+                        <button class="btn-clear" style="flex:1;" onclick="window.probarImpresoraBluetooth()">🧾 Probar Ticket</button>
                     </div>
                 </div>
 
@@ -572,8 +583,8 @@
                         <input type="checkbox" id="cfg-igtf" onchange="window.guardarPerfil()"> Cobrar +3% IGTF en pagos con Divisas ($)
                     </label>
 
-                    <label style="color:#00ff66; font-weight:bold; margin-top:8px;">📲 Datos Pago Móvil de tu Tienda (Receptor QR / IA)</label>
-                    <input type="text" id="cfg-pm-banco" placeholder="Código Banco (Ej: 0102 BDV, 0134 Banesco)" maxlength="4" onchange="window.guardarPerfil()">
+                    <label style="color:#00ff66; font-weight:bold; margin-top:8px;">📲 Datos Pago Móvil de tu Tienda (Auditor IA)</label>
+                    <input type="text" id="cfg-pm-banco" placeholder="Código Banco Receptor (Ej: 0102 BDV)" maxlength="4" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-pm-cedula" placeholder="Cédula o RIF afiliado (Ej: V12345678)" onchange="window.guardarPerfil()">
                     <input type="text" id="cfg-pm-tlf" placeholder="Teléfono afiliado (Ej: 04121234567)" onchange="window.guardarPerfil()">
 
@@ -620,7 +631,7 @@
     </main>
 
     <!-- =================================================================== -->
-    <!-- MODALES DE CONFIRMACIÓN, BALANZA, QR E INTELIGENCIA ARTIFICIAL      -->
+    <!-- MODALES DE CONFIRMACIÓN, BALANZA E INTELIGENCIA ARTIFICIAL          -->
     <!-- =================================================================== -->
 
     <!-- MODAL IA 1: VENDEDOR WHATSAPP 24/7 INDEPENDIENTE -->
@@ -718,32 +729,18 @@
         </div>
     </div>
 
-    <!-- MODAL CLIENTE, TELÉFONO Y PLAZO DE CRÉDITO -->
+    <!-- MODAL CLIENTE, TELÉFONO Y PLAZO DE CRÉDITO (FACTURA PERSONALIZADA) -->
     <div id="modal-cliente" class="modal-overlay" style="display:none;">
         <div class="modal-content" style="max-width: 330px;">
-            <h3 style="margin-top:0;">👤 Datos del Cliente</h3>
-            <input type="text" id="cliente-nombre" placeholder="Nombre y Apellido" style="margin-bottom:6px;">
-            <input type="text" id="cliente-cedula" placeholder="Cédula / RIF" style="margin-bottom:6px;">
+            <h3 style="margin-top:0; color:#00ff66;">👤 Datos del Cliente / Factura</h3>
+            <p style="font-size:11px; color:#8fa0b7; margin:0 0 8px 0;">Si llenas estos datos, saldrán impresos en el encabezado del Ticket o Factura.</p>
+            <input type="text" id="cliente-nombre" placeholder="Nombre o Razón Social" style="margin-bottom:6px;">
+            <input type="text" id="cliente-cedula" placeholder="Cédula o RIF (Ej: V-12345678)" style="margin-bottom:6px;">
             <input type="tel" id="cliente-tlf" placeholder="Teléfono / WhatsApp (Ej: 04121234567)" style="margin-bottom:6px;">
-            <input type="text" id="cliente-dir" placeholder="Dirección / Nota" style="margin-bottom:6px;">
+            <input type="text" id="cliente-dir" placeholder="Dirección Fiscal / Nota" style="margin-bottom:6px;">
             <label style="font-size:11px; color:#8fa0b7; display:block; margin-bottom:4px;">Plazo si es Fiado (Días):</label>
             <input type="number" id="cliente-dias-credito" value="7" min="1" style="margin-bottom:10px;">
             <button class="btn-charge" onclick="document.getElementById('modal-cliente').style.display='none'">Listo</button>
-        </div>
-    </div>
-
-    <!-- MODAL QR PAGO MÓVIL SUDEBAN -->
-    <div id="modal-qr" class="modal-overlay" style="display:none;">
-        <div class="modal-content" style="max-width: 320px; text-align:center;">
-            <h3 style="margin-top:0; color:#00ff66;">📲 Escanea y Paga</h3>
-            <div style="background:#fff; padding:12px; border-radius:12px; display:inline-block; margin:6px auto;">
-                <img id="img-qr-code" src="" alt="QR Pago Móvil" style="width:200px; height:200px; display:block;">
-            </div>
-            <pre id="qr-text-info" style="background:#0b0e14; padding:8px; border-radius:8px; font-size:11px; color:#cfd8e3; text-align:left; white-space:pre-wrap; margin:8px 0;"></pre>
-            <div style="display:flex; gap:6px;">
-                <button class="btn-clear" onclick="document.getElementById('modal-qr').style.display='none'">Cerrar</button>
-                <button class="btn-charge" style="background:#25D366; color:#000;" onclick="window.enviarQRPorWS()">📲 Enviar WS</button>
-            </div>
         </div>
     </div>
 
