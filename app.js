@@ -71,10 +71,11 @@ window.obtenerGeminiKeyRespaldoPago = function() {
 };
 
 // =========================================================================
-// VARIABLES GLOBALES MULTI-TIENDA CON AISLAMIENTO POR USUARIO
+// VARIABLES GLOBALES MULTI-TIENDA CON AISLAMIENTO Y CANDADO ANTI-BORRADO
 // =========================================================================
 window.tiendaActivaID = localStorage.getItem('geomercado_tienda_id') || "datos_globales";
 window.unsubscribeSnapshot = null;
+window.datosNubeCargados = false;
 
 window.tasaDia = parseFloat(localStorage.getItem('geomercado_tasa_v19')) || 887.30;
 window.subtotalVentaUSD = 0.00;
@@ -118,6 +119,27 @@ window.temporizadorInactividad = null;
 window.TIEMPO_REPOSO_MS = 3 * 60 * 1000;
 window.impresoraBTDevice = null;
 window.impresoraBTCharacteristic = null;
+
+// =========================================================================
+// RESTAURACIÓN INMEDIATA DE CACHÉ LOCAL (EVITA PÉRDIDA DE VENTAS Y PAUSADAS)
+// =========================================================================
+window.cargarRespaldoLocalTienda = function(docId) {
+    try {
+        let raw = localStorage.getItem('geomercado_backup_' + docId);
+        if (raw) {
+            let b = JSON.parse(raw);
+            if (Array.isArray(b.productos)) window.productos = b.productos;
+            if (Array.isArray(b.ventasHistorico)) window.ventasHistorico = b.ventasHistorico;
+            if (Array.isArray(b.gastosCaja)) window.gastosCaja = b.gastosCaja;
+            if (Array.isArray(b.facturasEnEspera)) window.facturasEnEspera = b.facturasEnEspera;
+            if (Array.isArray(b.fiados)) window.fiados = b.fiados;
+            if (Array.isArray(b.usuariosCajeros) && b.usuariosCajeros.length > 0) window.usuariosCajeros = b.usuariosCajeros;
+            if (b.fondoCaja) window.fondoCaja = b.fondoCaja;
+            if (b.perfilNegocio) window.perfilNegocio = Object.assign(window.perfilNegocio, b.perfilNegocio);
+            if (b.tasaDia && b.tasaDia > 0) window.tasaDia = b.tasaDia;
+        }
+    } catch(e) {}
+};
 
 // =========================================================================
 // SONIDO BEEP Y FEEDBACK FÍSICO
@@ -260,15 +282,9 @@ function iniciarSistema() {
         }
     }
 
-    try {
-        let raw = localStorage.getItem('geomercado_backup_' + window.tiendaActivaID);
-        if (raw) {
-            let b = JSON.parse(raw);
-            if (b.productos && b.productos.length > 0) window.productos = b.productos;
-            if (b.fiados) window.fiados = b.fiados;
-            if (b.perfilNegocio) window.perfilNegocio = Object.assign(window.perfilNegocio, b.perfilNegocio);
-        }
-    } catch(e) {}
+    // Restaurar todos los datos locales antes de conectar a la nube
+    window.cargarRespaldoLocalTienda(window.tiendaActivaID);
+    window.actualizarBadgeRecuperar();
 
     let inputAbono = document.getElementById('abono-monto-usd');
     if (inputAbono) {
@@ -316,12 +332,16 @@ function iniciarSistema() {
 document.addEventListener('DOMContentLoaded', iniciarSistema);
 
 // =========================================================================
-// CONEXIÓN DINÁMICA FIREBASE Y GUARDADO DE PERFIL FISCAL / AJUSTES
+// CONEXIÓN DINÁMICA FIREBASE CON PROTECCIÓN DE HISTORIAL Y FACTURAS PAUSADAS
 // =========================================================================
 window.suscribirTiendaFirebase = function(docId) {
     if (window.unsubscribeSnapshot) window.unsubscribeSnapshot();
     window.tiendaActivaID = docId;
+    window.datosNubeCargados = false;
     localStorage.setItem('geomercado_tienda_id', docId);
+
+    // Cargar inmediatamente el respaldo local de esta tienda mientras responde la nube
+    window.cargarRespaldoLocalTienda(docId);
 
     let codMostrar = docId === "datos_globales" ? "GLOBAL" : docId.replace("tienda_", "");
     let elTxtCod = document.getElementById('txt-cod-tienda');
@@ -331,15 +351,15 @@ window.suscribirTiendaFirebase = function(docId) {
 
     window.unsubscribeSnapshot = onSnapshot(doc(db, "geomercado_tienda", docId), (snapshot) => {
         if (!snapshot.exists()) {
-            // Si la tienda es nueva, creamos la estructura limpia en la nube sin colapsar
+            window.datosNubeCargados = true;
             window.guardarEstructuraFirebase();
         } else {
             const data = snapshot.data();
-            if (Array.isArray(data.productos)) { window.productos = data.productos; }
-            window.ventasHistorico = data.ventasHistorico || [];
-            window.gastosCaja = data.gastosCaja || [];
-            window.facturasEnEspera = data.facturasEnEspera || [];
-            window.fiados = data.fiados || [];
+            if (Array.isArray(data.productos)) window.productos = data.productos;
+            if (Array.isArray(data.ventasHistorico)) window.ventasHistorico = data.ventasHistorico;
+            if (Array.isArray(data.gastosCaja)) window.gastosCaja = data.gastosCaja;
+            if (Array.isArray(data.facturasEnEspera)) window.facturasEnEspera = data.facturasEnEspera;
+            if (Array.isArray(data.fiados)) window.fiados = data.fiados;
             
             window.perfilNegocio = Object.assign({ 
                 nombre: "GeoMercado", rif: "", dir: "", tlf: "", 
@@ -348,9 +368,29 @@ window.suscribirTiendaFirebase = function(docId) {
             }, data.perfilNegocio || {});
             
             if (!window.perfilNegocio.geminiKeyCifrada) window.perfilNegocio.geminiKeyCifrada = DEFAULT_VAULT_CIPHER;
-            window.usuariosCajeros = data.usuariosCajeros || [{ id: 1, nombre: "Caja Principal", clave: "1234" }];
+            if (Array.isArray(data.usuariosCajeros) && data.usuariosCajeros.length > 0) {
+                window.usuariosCajeros = data.usuariosCajeros;
+            }
             window.fondoCaja = data.fondoCaja || { usd: 0, ves: 0 };
             if (data.tasaDia) window.tasaDia = data.tasaDia;
+
+            window.datosNubeCargados = true;
+
+            // Actualizar respaldo local con los datos frescos de la nube
+            try {
+                localStorage.setItem('geomercado_backup_' + window.tiendaActivaID, JSON.stringify({
+                    productos: window.productos,
+                    ventasHistorico: window.ventasHistorico,
+                    gastosCaja: window.gastosCaja,
+                    facturasEnEspera: window.facturasEnEspera,
+                    fiados: window.fiados,
+                    cola_mensajes_automaticos: window.colaRecordatorios,
+                    perfilNegocio: window.perfilNegocio,
+                    usuariosCajeros: window.usuariosCajeros,
+                    fondoCaja: window.fondoCaja,
+                    tasaDia: window.tasaDia
+                }));
+            } catch(e) {}
 
             window.sincronizarCamposAdminUI();
             window.actualizarOpcionesLogin();
@@ -368,6 +408,10 @@ window.suscribirTiendaFirebase = function(docId) {
             if (modFia && modFia.style.display === 'flex') window.renderizarFiados();
             let modCaj = document.getElementById('modulo-caja');
             if (modCaj && modCaj.style.display === 'flex') window.filtrarBuscadorCaja(document.getElementById('buscador-caja')?.value || "");
+            
+            // Si el modal de facturas pausadas está abierto, refrescarlo en vivo para todos los cajeros
+            let modRec = document.getElementById('modal-recuperar');
+            if (modRec && modRec.style.display === 'flex') window.renderizarListaFacturasPausadasUI();
         }
     });
 };
@@ -397,7 +441,12 @@ window.guardarEstructuraFirebase = async function() {
         };
         localStorage.setItem('geomercado_backup_' + window.tiendaActivaID, JSON.stringify(payload));
         window.actualizarBarraSuperiorUI();
-        await setDoc(doc(db, "geomercado_tienda", window.tiendaActivaID), payload);
+        window.actualizarBadgeRecuperar();
+
+        // Solo subir a Firestore si ya descargamos primero el estado de la nube (evita pisar datos al abrir la app)
+        if (window.datosNubeCargados) {
+            await setDoc(doc(db, "geomercado_tienda", window.tiendaActivaID), payload, { merge: true });
+        }
     } catch (e) {
         console.warn("Guardado en caché local:", e);
     }
@@ -418,7 +467,6 @@ window.sincronizarCamposAdminUI = function() {
     let elTitulo = document.getElementById('lbl-titulo-negocio');
     if (elTitulo) elTitulo.innerText = window.perfilNegocio.nombre || "GeoMercado";
 
-    // No sobreescribir la casilla si el usuario la está editando activamente en este instante
     let activo = document.activeElement ? document.activeElement.id : "";
 
     let cNom = document.getElementById('cfg-nombre');
@@ -454,7 +502,6 @@ window.sincronizarCamposAdminUI = function() {
     if (tGlo && activo !== 'input-tasa-global') tGlo.value = (window.tasaDia || 0).toFixed(2);
 };
 
-// FUNCIÓN DE GUARDADO COMPLETA PARA PERFIL FISCAL, PAGO MÓVIL Y BÓVEDA IA
 window.guardarPerfil = async function() {
     if (!window.perfilNegocio) window.perfilNegocio = {};
 
@@ -529,6 +576,12 @@ window.abrirModalTasaRapida = function() {
 };
 
 window.abrirModalClienteConFoco = function() {
+    // Si ya había escrito teléfono en Pago Móvil y la casilla del cliente está vacía, sincronizarla
+    let elCliTlf = document.getElementById('cliente-tlf');
+    let elPmTlf = document.getElementById('pm-phone');
+    if (elCliTlf && !elCliTlf.value && elPmTlf && elPmTlf.value) {
+        elCliTlf.value = elPmTlf.value;
+    }
     document.getElementById('modal-cliente').style.display = 'flex';
     setTimeout(() => { let el = document.getElementById('cliente-nombre'); if (el) { el.focus(); el.select(); } }, 150);
 };
@@ -554,7 +607,7 @@ window.verificarAlertasStock = function() {
 };
 
 // =========================================================================
-// NÚCLEO GEMINI (TEXTO Y VISIÓN)
+// NÚCLEO GEMINI (MODELOS 3-FLASH-PREVIEW Y 3.5-FLASH-LITE)
 // =========================================================================
 window.comprimirImagenParaIA = function(file, maxDim = 680) {
     return new Promise((resolve, reject) => {
@@ -738,6 +791,7 @@ window.abrirModalIAWhatsApp = function() {
     let boxResp = document.getElementById('ws-respuesta-ia');
     if (boxResp) boxResp.style.display = 'none';
     let modal = document.getElementById('modal-ia-whatsapp');
+    if (modal) modal.display = 'flex';
     if (modal) modal.style.display = 'flex';
     setTimeout(() => { if (txtMsg) txtMsg.focus(); }, 150);
 };
@@ -835,7 +889,7 @@ window.analizarCierreIA = async function() {
     }
 };
 
-// 4. RECONOCIMIENTO VISUAL DE PRODUCTOS (CAJA) 👁️
+// 4. RECONOCIMIENTO VISUAL DE PRODUCTOS (CAJA: CÁMARA Y GALERÍA) 👁️
 window.reconocerProductoIA = async function(e) {
     let input = e.target;
     if (!input.files || !input.files[0]) return;
@@ -876,7 +930,7 @@ window.reconocerProductoIA = async function(e) {
 };
 
 // =========================================================================
-// VALIDACIÓN PAGO MÓVIL IA 
+// VALIDACIÓN PAGO MÓVIL IA (CÁMARA Y GALERÍA)
 // =========================================================================
 window.escanearCapturePagoCompleto = async function(e) {
     let input = e.target;
@@ -912,7 +966,11 @@ window.escanearCapturePagoCompleto = async function(e) {
         let refExtraida = String(dataIA.referencia || "").replace(/\D/g, '');
         let montoExtraido = parseFloat(dataIA.monto_bs) || 0;
         
-        document.getElementById('pm-phone').value = String(dataIA.telefono_emisor || "").replace(/\D/g, '');
+        let tlfEmisor = String(dataIA.telefono_emisor || "").replace(/\D/g, '');
+        document.getElementById('pm-phone').value = tlfEmisor;
+        let elCliTlf = document.getElementById('cliente-tlf');
+        if (elCliTlf && !elCliTlf.value && tlfEmisor) elCliTlf.value = tlfEmisor;
+
         document.getElementById('pm-ref').value = refExtraida;
         document.getElementById('pm-banco-detectado').value = bancoExtraido ? `${bancoExtraido} (${dataIA.banco_receptor_nombre || 'Detectado'})` : "No identificado";
 
@@ -972,7 +1030,7 @@ window.escanearCapturePagoCompleto = async function(e) {
 };
 
 // =========================================================================
-// ESCÁNER DE FACTURAS DE PROVEEDORES IA (CON DESGLOSE DE BULTOS)
+// ESCÁNER DE FACTURAS DE PROVEEDORES IA (CÁMARA Y GALERÍA)
 // =========================================================================
 window.abrirModalFacturaProveedor = function() {
     document.getElementById('factura-ia-estado').style.display = 'none';
@@ -1109,7 +1167,7 @@ window.aplicarFacturaProveedorAlStock = async function() {
 };
 
 // =========================================================================
-// MÓDULO COMPLETO DE CRÉDITOS / FIADOS Y RECORDATORIOS
+// MÓDULO COMPLETO DE CRÉDITOS / FIADOS CON TELÉFONO DEL CLIENTE
 // =========================================================================
 window.evaluarVencimientosCreditos = function() {
     let hoyMs = Date.now();
@@ -1144,7 +1202,10 @@ window.registrarComoFiado = async function() {
     if (window.carrito.length === 0) { window.mostrarFeedbackAnimado('warning', 'Carrito Vacío'); return; }
     let cli = document.getElementById('cliente-nombre')?.value.trim() || "";
     let ced = document.getElementById('cliente-cedula')?.value.trim() || "";
-    let tlf = document.getElementById('pm-phone')?.value.trim() || "";
+    let tlfClienteModal = document.getElementById('cliente-tlf')?.value.trim() || "";
+    let tlfPagoMovil = document.getElementById('pm-phone')?.value.trim() || "";
+    let tlfFinal = tlfClienteModal || tlfPagoMovil;
+    let notaDir = document.getElementById('cliente-dir')?.value.trim() || "";
     let diasPlazo = parseInt(document.getElementById('cliente-dias-credito')?.value) || 7;
 
     if (!cli) {
@@ -1163,7 +1224,8 @@ window.registrarComoFiado = async function() {
         fechaVencimientoStr: new Date(vencMs).toLocaleDateString(),
         cliente: cli,
         cedula: ced,
-        tlf: tlf,
+        tlf: tlfFinal,
+        dir: notaDir,
         items: window.carrito.slice(),
         montoOriginalUSD: window.totalVentaUSD,
         montoUSD: window.totalVentaUSD,
@@ -1190,7 +1252,7 @@ window.renderizarFiados = function() {
     if (elTotVES) elTotVES.innerText = window.formatVE(totalDeudaUSD * window.tasaDia);
 
     if (window.fiados.length === 0) {
-        cont.innerHTML = '<div style="text-align:center; color:#57687e; padding:20px; font-size:12px;">No hay cuentas por cobrar pendientes.</div>';
+        cont.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#57687e; padding:20px; font-size:12px;">No hay cuentas por cobrar pendientes.</div>';
         return;
     }
 
@@ -1204,14 +1266,16 @@ window.renderizarFiados = function() {
         let histAbonos = (f.abonos && f.abonos.length > 0) 
             ? `<div style="font-size:10px; color:#00ff66; margin-top:4px;">Abonos: ${f.abonos.map(a => `$${a.montoUSD.toFixed(2)} (${a.fecha})`).join(' | ')}</div>` 
             : '';
+        let infoExtra = f.dir ? `<div style="font-size:11px; color:#8fa0b7;">📝 ${window.escapeHTML(f.dir)}</div>` : '';
 
         return `<div class="cierre-card" style="border-color:${f.estadoCredito === 'VENCIDO' ? '#ff5252' : '#313c52'};">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <strong style="color:#fff; font-size:14px;">👤 ${window.escapeHTML(f.cliente)}</strong>
                 ${badgeEstado}
             </div>
-            <div style="font-size:11px; color:#8fa0b7; margin:4px 0;">📅 ${f.fecha} | 📞 ${window.escapeHTML(f.tlf || 'S/N')}</div>
-            <div style="font-size:11px; color:#cfd8e3; margin-bottom:4px;">🛒 ${window.escapeHTML(detalleProds)}</div>
+            <div style="font-size:11px; color:#8fa0b7; margin:4px 0;">📅 ${f.fecha} | 🪪 ${window.escapeHTML(f.cedula || 'S/C')} | 📞 ${window.escapeHTML(f.tlf || 'S/N')}</div>
+            ${infoExtra}
+            <div style="font-size:11px; color:#cfd8e3; margin:4px 0;">🛒 ${window.escapeHTML(detalleProds)}</div>
             ${histAbonos}
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px dashed #313c52;">
                 <div>
@@ -1263,7 +1327,6 @@ window.confirmarAbonoFiado = async function() {
     if (!f.abonos) f.abonos = [];
     f.abonos.push({ fecha: new Date().toLocaleDateString(), montoUSD: montoPagadoUSD, metodo: metodo });
 
-    // Registrar entrada de dinero en el Cierre de Caja del día
     window.ventasHistorico.push({
         id: Date.now(),
         fecha: new Date().toLocaleString(),
@@ -1278,7 +1341,8 @@ window.confirmarAbonoFiado = async function() {
         usd: metodo === 'usd' ? montoPagadoUSD : 0,
         ves: metodo === 'ves' ? montoPagadoVES : 0,
         cajero: window.usuarioActivoNombre,
-        cliente: f.cliente
+        cliente: f.cliente,
+        tlf: f.tlf || ""
     });
 
     if (f.montoUSD <= 0.01) {
@@ -1354,7 +1418,7 @@ window.dispararSiguienteRecordatorioCola = function() {
 };
 
 // =========================================================================
-// ESCÁNER DE CÁMARA ACELERADO (30 FPS) Y QR SUDEBAN
+// ESCÁNER DE CÁMARA ACELERADO (30 FPS), ARCHIVO DE GALERÍA Y QR SUDEBAN
 // =========================================================================
 window.abrirCamaraEnVivo = function(modo) {
     if (typeof Html5Qrcode === 'undefined') { window.mostrarFeedbackAnimado('warning', 'Cargando...'); return; }
@@ -1369,7 +1433,6 @@ window.abrirCamaraEnVivo = function(modo) {
 window.iniciarCamaraInstancia = function(modo) {
     window.html5QrScannerInstancia = new Html5Qrcode("interactive-scanner");
     
-    // Lente nativo optimizado para máxima velocidad de lectura de barras (30 FPS)
     window.html5QrScannerInstancia.start(
         { facingMode: "environment" }, 
         { 
@@ -1403,17 +1466,30 @@ window.cerrarCamaraEnVivo = function() {
 };
 
 window.escanearBarcodeFoto = function(e, modo) {
-    let file = e.target.files[0];
+    let input = e.target;
+    let file = input.files && input.files[0];
     if(!file || typeof Html5Qrcode === 'undefined') return;
     new Html5Qrcode("hidden-qr-reader").scanFile(file, true).then(text => {
         if(modo === 'registro') {
-            window.reproducirBeep(true); document.getElementById('prod-serial').value = text; window.mostrarFeedbackAnimado('exito', 'Leído');
+            window.reproducirBeep(true);
+            document.getElementById('prod-serial').value = text;
+            window.mostrarFeedbackAnimado('exito', 'Código: ' + text);
         } else {
             let match = window.productos.find(p => p.serial === text);
-            if(match) window.agregarAlCarritoDesdeCaja(match.id);
-            else { window.reproducirBeep(false); window.mostrarFeedbackAnimado('warning', 'No Registrado'); }
+            if(match) {
+                window.mostrarFeedbackAnimado('exito', match.nombre);
+                window.agregarAlCarritoDesdeCaja(match.id);
+            } else {
+                window.reproducirBeep(false);
+                window.mostrarFeedbackAnimado('warning', 'No Registrado: ' + text);
+            }
         }
-    }).catch(() => window.mostrarFeedbackAnimado('warning', 'Fallo lectura'));
+    }).catch(() => {
+        window.reproducirBeep(false);
+        window.mostrarFeedbackAnimado('warning', 'No se detectó código');
+    }).finally(() => {
+        input.value = "";
+    });
 };
 
 window.generarQRPagoMovil = function() {
@@ -1432,7 +1508,8 @@ window.generarQRPagoMovil = function() {
 };
 
 window.enviarQRPorWS = function() {
-    let tlf = document.getElementById('pm-phone').value.replace(/\D/g, '');
+    let tlf = (document.getElementById('cliente-tlf')?.value || document.getElementById('pm-phone')?.value || "").replace(/\D/g, '');
+    if (tlf.startsWith('0')) tlf = '58' + tlf.substring(1);
     let msj = "📲 *DATOS PAGO MÓVIL*\n\n" + document.getElementById('qr-text-info').innerText;
     window.open(tlf ? `https://api.whatsapp.com/send?phone=${tlf}&text=${encodeURIComponent(msj)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(msj)}`, '_blank');
 };
@@ -1550,7 +1627,7 @@ window.cerrarSesion = function() {
     document.getElementById('section-login').style.display = 'block';
 };
 
-window.guardarNuevoCajero = function() {
+window.guardarNuevoCajero = async function() {
     let nom = document.getElementById('nuevo-cajero-nombre').value.trim();
     let clav = document.getElementById('nuevo-cajero-clave').value.trim();
     if(nom && clav) {
@@ -1559,17 +1636,17 @@ window.guardarNuevoCajero = function() {
         document.getElementById('nuevo-cajero-clave').value = "";
         window.actualizarOpcionesLogin();
         window.renderizarListaCajerosAdmin();
-        window.sincronizarConNube();
+        await window.sincronizarConNube();
         window.mostrarToast("✓ Agregado");
     } else { window.mostrarFeedbackAnimado('warning', 'Faltan datos'); }
 };
 
-window.eliminarCajeroAdmin = function(id) {
+window.eliminarCajeroAdmin = async function(id) {
     if (window.usuariosCajeros.length <= 1) { window.mostrarToast("Debe existir 1 cajero mínimo"); return; }
     window.usuariosCajeros = window.usuariosCajeros.filter(u => u.id !== id);
     window.actualizarOpcionesLogin();
     window.renderizarListaCajerosAdmin();
-    window.sincronizarConNube();
+    await window.sincronizarConNube();
 };
 
 window.renderizarListaCajerosAdmin = function() {
@@ -1623,7 +1700,7 @@ window.cambiarModulo = function(idModulo) {
 window.volverAlMenu = function() {
     document.querySelectorAll('.modulo-app').forEach(m => m.style.display = 'none');
     document.getElementById('menu-principal').style.display = 'flex';
-    window.verificarAlertasStock(); window.evaluarVencimientosCreditos();
+    window.verificarAlertasStock(); window.evaluarVencimientosCreditos(); window.actualizarBadgeRecuperar();
 };
 
 window.mascaraMoneda = function(input) {
@@ -1649,13 +1726,13 @@ window.exportarProductosJSON = function() {
 
 window.importarProductosJSON = function(event) {
     let fileReader = new FileReader();
-    fileReader.onload = function(e) {
+    fileReader.onload = async function(e) {
         try {
             let parsed = JSON.parse(e.target.result);
             if(Array.isArray(parsed)) {
                 window.productos = parsed;
                 window.renderizarInventario("");
-                window.sincronizarConNube();
+                await window.sincronizarConNube();
                 window.mostrarToast("✓ Inventario Cargado");
             }
         } catch(err) { window.mostrarFeedbackAnimado('warning', 'Archivo inválido'); }
@@ -1702,7 +1779,8 @@ window.renderizarIngredientesComboTemp = function() {
 };
 
 window.previsualizarImagenRegistro = function(event) {
-    let file = event.target.files[0]; if (!file) return; let reader = new FileReader();
+    let input = event.target;
+    let file = input.files && input.files[0]; if (!file) return; let reader = new FileReader();
     reader.onload = function(e) {
         let img = new Image();
         img.onload = function() {
@@ -1710,7 +1788,8 @@ window.previsualizarImagenRegistro = function(event) {
             if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
             canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height);
             window.imagenComprimidaTemp = canvas.toDataURL('image/jpeg', 0.72);
-            let preview = document.getElementById('preview-img-upload'); preview.src = window.imagenComprimidaTemp; preview.style.display = 'block'; document.getElementById('lbl-img-upload').innerText = '✓ Foto Optimizada';
+            let preview = document.getElementById('preview-img-upload'); preview.src = window.imagenComprimidaTemp; preview.style.display = 'block';
+            let lbl = document.getElementById('lbl-img-upload'); if (lbl) lbl.innerText = '✓ Foto Lista';
         }; img.src = e.target.result;
     }; reader.readAsDataURL(file);
 };
@@ -1731,11 +1810,11 @@ window.abrirModalStockRapido = function(idProd) {
     let input = document.getElementById('stock-rapido-input'); input.value = ""; document.getElementById('modal-stock-rapido').style.display = 'flex'; setTimeout(() => { input.focus(); input.select(); }, 150);
 };
 
-window.confirmarStockRapido = function() {
+window.confirmarStockRapido = async function() {
     let p = window.productos.find(x => x.id === window.prodStockRapidoId); let cant = parseInt(document.getElementById('stock-rapido-input').value) || 0;
     if (!p || cant === 0) { window.mostrarFeedbackAnimado('warning', 'Monto inválido'); return; }
     p.qty = Math.max(0, (p.qty || 0) + cant); document.getElementById('modal-stock-rapido').style.display = 'none';
-    window.renderizarInventario(document.getElementById('buscador-inventario').value); window.verificarAlertasStock(); window.sincronizarConNube(); window.reproducirBeep(true); window.mostrarToast(`✓ Stock actualizado`);
+    window.renderizarInventario(document.getElementById('buscador-inventario').value); window.verificarAlertasStock(); await window.sincronizarConNube(); window.reproducirBeep(true); window.mostrarToast(`✓ Stock actualizado`);
 };
 
 window.editarProducto = function(id) {
@@ -1744,19 +1823,24 @@ window.editarProducto = function(id) {
     document.getElementById('prod-name').value = p.nombre; document.getElementById('prod-costo').value = p.costo || 0; document.getElementById('prod-margen').value = p.margen || 0;
     document.getElementById('prod-cat').value = p.categoria || "Víveres"; document.getElementById('prod-type').value = p.tipo || "unidad"; document.getElementById('prod-qty').value = p.qty || 0; document.getElementById('prod-serial').value = p.serial || ""; document.getElementById('prod-iva').checked = p.iva || false;
     let preview = document.getElementById('preview-img-upload');
-    if (p.imagenUrl) { document.getElementById('lbl-img-upload').innerText = "📸 Cambiar Foto"; preview.src = p.imagenUrl; preview.style.display = 'block'; } 
-    else { document.getElementById('lbl-img-upload').innerText = "📸 Subir Foto"; preview.style.display = 'none'; }
+    let lbl = document.getElementById('lbl-img-upload');
+    if (p.imagenUrl) { if(lbl) lbl.innerText = "📸 Cambiar Foto"; preview.src = p.imagenUrl; preview.style.display = 'block'; } 
+    else { if(lbl) lbl.innerText = "📸 Foto Cámara"; preview.style.display = 'none'; }
     window.conmutarCampoCantidad(p.tipo); window.renderizarIngredientesComboTemp(); window.calcularGanancia();
     document.getElementById('btn-guardar-prod').innerText = "Actualizar Producto"; document.getElementById('btn-cancelar-edicion').style.display = "block"; window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 window.eliminarProductoCat = function(id) {
-    window.mostrarConfirmacion("🗑️ Eliminar", "¿Borrar del catálogo?", function() { window.productos = window.productos.filter(p => p.id !== id); window.renderizarInventario(document.getElementById('buscador-inventario').value); window.sincronizarConNube(); });
+    window.mostrarConfirmacion("🗑️ Eliminar", "¿Borrar del catálogo?", async function() { window.productos = window.productos.filter(p => p.id !== id); window.renderizarInventario(document.getElementById('buscador-inventario').value); await window.sincronizarConNube(); });
 };
 
 window.cancelarEdicion = function() {
     window.productoEnEdicion = null; window.imagenComprimidaTemp = null; window.ingredientesComboTemp = [];
-    document.getElementById('prod-name').value = ""; document.getElementById('prod-costo').value = ""; document.getElementById('prod-margen').value = ""; document.getElementById('lbl-precio-calc').innerText = "$0.00"; document.getElementById('prod-serial').value = ""; document.getElementById('prod-qty').value = ""; document.getElementById('prod-iva').checked = false; document.getElementById('prod-cat').value = "Víveres"; document.getElementById('prod-type').value = "unidad"; document.getElementById('prod-imagen-file').value = ""; document.getElementById('lbl-img-upload').innerText = "📸 Subir Foto (Opcional)"; document.getElementById('preview-img-upload').style.display = 'none';
+    document.getElementById('prod-name').value = ""; document.getElementById('prod-costo').value = ""; document.getElementById('prod-margen').value = ""; document.getElementById('lbl-precio-calc').innerText = "$0.00"; document.getElementById('prod-serial').value = ""; document.getElementById('prod-qty').value = ""; document.getElementById('prod-iva').checked = false; document.getElementById('prod-cat').value = "Víveres"; document.getElementById('prod-type').value = "unidad";
+    let f1 = document.getElementById('prod-imagen-file'); if(f1) f1.value = "";
+    let f2 = document.getElementById('prod-imagen-camara'); if(f2) f2.value = "";
+    let lbl = document.getElementById('lbl-img-upload'); if(lbl) lbl.innerText = "📸 Foto Cámara";
+    document.getElementById('preview-img-upload').style.display = 'none';
     window.conmutarCampoCantidad("unidad"); window.renderizarIngredientesComboTemp(); document.getElementById('btn-guardar-prod').innerText = "Guardar Producto"; document.getElementById('btn-cancelar-edicion').style.display = "none";
 };
 
@@ -1975,74 +2059,134 @@ window.calcularCaja = function() {
     } else { eRestante.innerText = '0,00 Bs Completo'; eRestante.style.color = '#00ff66'; }
 };
 
-window.procesarCobro = function(imprimirTicket) {
+window.procesarCobro = async function(imprimirTicket) {
     if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('warning', 'Carrito Vacío'); return; }
+    let tlfCli = document.getElementById('cliente-tlf')?.value.trim() || document.getElementById('pm-phone')?.value.trim() || "";
     let venta = {
         id: Date.now(), fecha: new Date().toLocaleString(), items: window.carrito.slice(),
         subtotalUSD: window.subtotalVentaUSD, igtfUSD: window.montoIGTF_USD, totalUSD: window.totalVentaUSD, totalVES: window.totalVentaVES, costoUSD: window.carrito.reduce((sum, c) => sum + (c.costoTotalUSD || 0), 0),
         ptv: window.extraerNumeroLimpio('pay-ptv'), pm: window.extraerNumeroLimpio('pay-pm'), pmRef: document.getElementById('pm-ref')?.value || "", pmBanco: document.getElementById('pm-banco-detectado')?.value || "", usd: parseFloat(document.getElementById('pay-usd').value) || 0, ves: window.extraerNumeroLimpio('pay-ves'),
-        cajero: window.usuarioActivoNombre, cliente: document.getElementById('cliente-nombre').value, cedula: document.getElementById('cliente-cedula').value, dir: document.getElementById('cliente-dir').value, tlf: document.getElementById('pm-phone').value
+        cajero: window.usuarioActivoNombre, cliente: document.getElementById('cliente-nombre').value, cedula: document.getElementById('cliente-cedula').value, dir: document.getElementById('cliente-dir').value, tlf: tlfCli
     };
-    window.ventasHistorico.push(venta); window.sincronizarConNube(); window.reproducirBeep(true); window.mostrarFeedbackAnimado('exito', 'Venta Cobrada');
-    if(imprimirTicket) window.imprimirTicket(window.ventasHistorico.length - 1); window.limpiarCaja(true); 
+    window.ventasHistorico.push(venta);
+    await window.sincronizarConNube();
+    window.reproducirBeep(true);
+    window.mostrarFeedbackAnimado('exito', 'Venta Cobrada');
+    if(imprimirTicket) window.imprimirTicket(window.ventasHistorico.length - 1);
+    window.limpiarCaja(true); 
 };
 
-window.limpiarCaja = function(silencioso) {
+window.limpiarCaja = async function(silencioso) {
     if(!silencioso) {
         window.carrito.forEach(c => {
             if(c.tipo === 'unidad') { let p = window.productos.find(x => x.id === c.id); if(p) p.qty += c.qtyVenta; } 
             else if (c.tipo === 'combo' && c.componentes) { c.componentes.forEach(comp => { let prodReal = window.productos.find(x => x.id === comp.id); if(prodReal) prodReal.qty += (comp.qty * c.qtyVenta); }); }
         });
-        window.sincronizarConNube(); window.mostrarToast("Cancelada");
+        await window.sincronizarConNube();
+        window.mostrarToast("Cancelada");
     }
     window.subtotalVentaUSD = 0; window.montoIGTF_USD = 0; window.totalVentaUSD = 0; window.totalVentaVES = 0; window.carrito = [];
-    ['pay-ptv','pay-pm','pay-usd','pay-ves','cliente-nombre','cliente-cedula','cliente-dir','pm-phone','pm-ref','pm-banco-detectado'].forEach(id => { let el = document.getElementById(id); if(el) el.value = ''; });
+    ['pay-ptv','pay-pm','pay-usd','pay-ves','cliente-nombre','cliente-cedula','cliente-tlf','cliente-dir','pm-phone','pm-ref','pm-banco-detectado'].forEach(id => { let el = document.getElementById(id); if(el) el.value = ''; });
     document.getElementById('modal-cliente').style.display='none'; let banner = document.getElementById('pm-status-banner'); if(banner) banner.style.display = 'none';
     window.actualizarEtiquetasPago(); window.renderizarCarritoCaja();
 };
 
-window.actualizarBadgeRecuperar = function() { let btn = document.getElementById('btn-top-recuperar'); if (btn) { let cant = window.facturasEnEspera.length; btn.innerHTML = cant > 0 ? `📂 Recuperar <span style="background:#ffc107; color:#000; padding:1px 5px; border-radius:8px; margin-left:3px;">${cant}</span>` : `📂 Recuperar`; } };
-
-window.aparcarFactura = function() {
-    if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('warning', 'Carrito Vacío'); return; }
-    window.facturasEnEspera.push({ id: Date.now(), hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), cliente: document.getElementById('cliente-nombre').value || "Cliente Mostrador", items: window.carrito.slice(), totalUSD: window.totalVentaUSD, totalVES: window.totalVentaVES, cajero: window.usuarioActivoNombre });
-    window.sincronizarConNube(); window.limpiarCaja(true); window.actualizarBadgeRecuperar(); window.mostrarToast("⏸️ Factura Pausada");
-};
-
-window.recuperarFactura = function() {
-    if(window.facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('warning', 'Sin cuentas pausadas'); return; }
-    let cont = document.getElementById('lista-facturas-pausadas');
-    cont.innerHTML = window.facturasEnEspera.map((f, i) => `<div class="cierre-card" style="margin-bottom:4px; border-color:#313c52;"><div style="display:flex; justify-content:space-between; align-items:center;"><strong style="color:#00ff66; font-size:13px;">👤 ${window.escapeHTML(f.cliente)}</strong><small style="color:#8fa0b7;">🕒 ${f.hora || ''} | 🏷️ ${window.escapeHTML(f.cajero)}</small></div><div style="font-size:11px; color:#8fa0b7; margin:4px 0;">${f.items.map(x=>x.qtyVenta+'x '+x.nombre).join(', ')}</div><div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;"><strong style="color:#fff; font-size:14px;">${window.formatVE(f.totalVES)} (${window.formatUSD(f.totalUSD)})</strong><div style="display:flex; gap:6px;"><button class="btn-remove-item" onclick="window.descartarFacturaPausada(${i})">🗑️</button><button class="btn-charge" style="padding:6px 12px;" onclick="window.cargarFacturaPausadaEnCaja(${i})">Retomar</button></div></div></div>`).join('');
-    document.getElementById('modal-recuperar').style.display = 'flex';
-};
-
-window.cargarFacturaPausadaEnCaja = function(idx) {
-    if(window.carrito.length > 0) { window.mostrarFeedbackAnimado('warning', 'Cobra la cuenta actual'); return; }
-    let rec = window.facturasEnEspera.splice(idx, 1)[0];
-    if (rec) {
-        window.carrito = rec.items; document.getElementById('cliente-nombre').value = rec.cliente !== "Cliente Mostrador" ? rec.cliente : "";
-        document.getElementById('modal-recuperar').style.display = 'none'; window.recalcularTotalesCarrito(); window.renderizarCarritoCaja(); window.actualizarBadgeRecuperar(); window.sincronizarConNube(); window.mostrarToast("📂 Retomada");
+// =========================================================================
+// FACTURAS EN ESPERA (PAUSADAS) COMPARTIDAS EN TIEMPO REAL ENTRE CAJEROS
+// =========================================================================
+window.actualizarBadgeRecuperar = function() {
+    let btn = document.getElementById('btn-top-recuperar');
+    if (btn) {
+        let cant = (window.facturasEnEspera || []).length;
+        btn.innerHTML = cant > 0 ? `📂 Recuperar <span style="background:#ffc107; color:#000; padding:1px 5px; border-radius:8px; margin-left:3px;">${cant}</span>` : `📂 Recuperar`;
     }
 };
 
-window.descartarFacturaPausada = function(idx) {
+window.aparcarFactura = async function() {
+    if(window.carrito.length === 0) { window.mostrarFeedbackAnimado('warning', 'Carrito Vacío'); return; }
+    let tlfCli = document.getElementById('cliente-tlf')?.value.trim() || document.getElementById('pm-phone')?.value.trim() || "";
+    window.facturasEnEspera.push({
+        id: Date.now(),
+        hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        cliente: document.getElementById('cliente-nombre').value.trim() || "Cliente Mostrador",
+        cedula: document.getElementById('cliente-cedula')?.value.trim() || "",
+        tlf: tlfCli,
+        dir: document.getElementById('cliente-dir')?.value.trim() || "",
+        items: window.carrito.slice(),
+        totalUSD: window.totalVentaUSD,
+        totalVES: window.totalVentaVES,
+        cajero: window.usuarioActivoNombre
+    });
+    window.limpiarCaja(true);
+    window.actualizarBadgeRecuperar();
+    await window.sincronizarConNube();
+    window.reproducirBeep(true);
+    window.mostrarToast("⏸️ Factura Pausada en la nube");
+};
+
+window.renderizarListaFacturasPausadasUI = function() {
+    let cont = document.getElementById('lista-facturas-pausadas');
+    if (!cont) return;
+    if (!window.facturasEnEspera || window.facturasEnEspera.length === 0) {
+        cont.innerHTML = '<div style="text-align:center; color:#8fa0b7; padding:14px; font-size:12px;">No hay cuentas en espera.</div>';
+        return;
+    }
+    cont.innerHTML = window.facturasEnEspera.map((f, i) => `<div class="cierre-card" style="margin-bottom:4px; border-color:#313c52;"><div style="display:flex; justify-content:space-between; align-items:center;"><strong style="color:#00ff66; font-size:13px;">👤 ${window.escapeHTML(f.cliente)}</strong><small style="color:#8fa0b7;">🕒 ${f.hora || ''} | 🏷️ ${window.escapeHTML(f.cajero)}</small></div><div style="font-size:11px; color:#8fa0b7; margin:4px 0;">${(f.items || []).map(x=>x.qtyVenta+'x '+x.nombre).join(', ')}</div><div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;"><strong style="color:#fff; font-size:14px;">${window.formatVE(f.totalUSD * window.tasaDia)} (${window.formatUSD(f.totalUSD)})</strong><div style="display:flex; gap:6px;"><button class="btn-remove-item" onclick="window.descartarFacturaPausada(${i})">🗑️</button><button class="btn-charge" style="width:auto; padding:6px 12px;" onclick="window.cargarFacturaPausadaEnCaja(${i})">Retomar</button></div></div></div>`).join('');
+};
+
+window.recuperarFactura = function() {
+    if(!window.facturasEnEspera || window.facturasEnEspera.length === 0) { window.mostrarFeedbackAnimado('warning', 'Sin cuentas pausadas'); return; }
+    window.renderizarListaFacturasPausadasUI();
+    document.getElementById('modal-recuperar').style.display = 'flex';
+};
+
+window.cargarFacturaPausadaEnCaja = async function(idx) {
+    if(window.carrito.length > 0) { window.mostrarFeedbackAnimado('warning', 'Cobra o pausa la cuenta actual primero'); return; }
     let rec = window.facturasEnEspera.splice(idx, 1)[0];
-    if (rec && rec.items) { rec.items.forEach(c => { if(c.tipo === 'unidad') { let p = window.productos.find(x => x.id === c.id); if(p) p.qty += c.qtyVenta; } }); }
-    window.actualizarBadgeRecuperar(); window.sincronizarConNube();
-    if (window.facturasEnEspera.length === 0) document.getElementById('modal-recuperar').style.display = 'none'; else window.recuperarFactura();
-    window.mostrarToast("Descartada");
+    if (rec) {
+        window.carrito = rec.items || [];
+        document.getElementById('cliente-nombre').value = rec.cliente !== "Cliente Mostrador" ? rec.cliente : "";
+        if (document.getElementById('cliente-cedula')) document.getElementById('cliente-cedula').value = rec.cedula || "";
+        if (document.getElementById('cliente-tlf')) document.getElementById('cliente-tlf').value = rec.tlf || "";
+        if (document.getElementById('cliente-dir')) document.getElementById('cliente-dir').value = rec.dir || "";
+        document.getElementById('modal-recuperar').style.display = 'none';
+        window.recalcularTotalesCarrito();
+        window.renderizarCarritoCaja();
+        window.actualizarBadgeRecuperar();
+        await window.sincronizarConNube();
+        window.reproducirBeep(true);
+        window.mostrarToast("📂 Cuenta retomada");
+    }
+};
+
+window.descartarFacturaPausada = async function(idx) {
+    let rec = window.facturasEnEspera.splice(idx, 1)[0];
+    if (rec && rec.items) {
+        rec.items.forEach(c => {
+            if(c.tipo === 'unidad') { let p = window.productos.find(x => x.id === c.id); if(p) p.qty += c.qtyVenta; }
+            else if (c.tipo === 'combo' && c.componentes) { c.componentes.forEach(comp => { let prodReal = window.productos.find(x => x.id === comp.id); if(prodReal) prodReal.qty += (comp.qty * c.qtyVenta); }); }
+        });
+    }
+    window.actualizarBadgeRecuperar();
+    await window.sincronizarConNube();
+    if (window.facturasEnEspera.length === 0) document.getElementById('modal-recuperar').style.display = 'none';
+    else window.renderizarListaFacturasPausadasUI();
+    window.mostrarToast("Descartada y stock devuelto");
 };
 
 window.abrirModalGasto = function() { let inputMotivo = document.getElementById('gasto-motivo'); inputMotivo.value = ""; document.getElementById('gasto-monto').value = ""; document.getElementById('modal-gasto').style.display = 'flex'; setTimeout(() => { inputMotivo.focus(); }, 150); };
 
-window.confirmarGastoCaja = function() {
+window.confirmarGastoCaja = async function() {
     let motivo = document.getElementById('gasto-motivo').value.trim(); let moneda = document.getElementById('gasto-moneda').value; let monto = parseFloat(document.getElementById('gasto-monto').value) || 0;
     if (!motivo || monto <= 0) { window.mostrarFeedbackAnimado('warning', 'Ingresa motivo y monto'); return; }
     window.gastosCaja.push({ id: Date.now(), fecha: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), motivo: motivo, moneda: moneda, monto: monto, cajero: window.usuarioActivoNombre });
-    document.getElementById('modal-gasto').style.display = 'none'; window.sincronizarConNube(); window.reproducirBeep(true); window.mostrarToast("💸 Gasto registrado");
+    document.getElementById('modal-gasto').style.display = 'none';
+    await window.sincronizarConNube();
+    window.reproducirBeep(true);
+    window.mostrarToast("💸 Gasto registrado");
 };
 
-window.eliminarGastoCaja = function(idx) { window.gastosCaja.splice(idx, 1); window.sincronizarConNube(); window.renderizarCierreDeCaja(); };
+window.eliminarGastoCaja = async function(idx) { window.gastosCaja.splice(idx, 1); await window.sincronizarConNube(); window.renderizarCierreDeCaja(); };
 
 window.renderizarCierreDeCaja = function() {
     let selCajero = document.getElementById('filtro-cierre-cajero');
@@ -2065,7 +2209,7 @@ window.renderizarCierreDeCaja = function() {
         tPM += v.pm; tUSD += v.usd; tVES += v.ves; tPTV += v.ptv; tVUSD += v.totalUSD; tCUSD += (v.costoUSD || 0);
         if (v.items) { v.items.forEach(it => { conteoProd[it.nombre] = (conteoProd[it.nombre] || 0) + (it.qtyVenta || 1); }); }
         let badgePM = v.pmRef ? `<div style="font-size:10px; color:#00ff66;">✓ PM Ref: #${window.escapeHTML(v.pmRef)}</div>` : '';
-        return `<div class="cierre-card"><div style="display:flex; justify-content:space-between;"><h4>🛒 ${v.fecha} (${v.cajero || 'Caja'})</h4></div>${v.cliente ? `<div style="color:#fff; font-size:11px; margin-bottom:4px;">Cliente: ${window.escapeHTML(v.cliente)}</div>` : ''}${badgePM}<div class="cierre-item">Total Factura: <span style="font-size:14px; color:#00ff66;">${window.formatVE(v.totalVES)}</span></div><div style="display:flex; gap:6px; margin-top:8px;"><button style="flex:1; background:#fff; color:#000; font-weight:bold; border:none; padding:6px; border-radius:6px;" onclick="window.imprimirTicket(${realIdx})">🖨️ Ticket</button><button style="flex:1; background:#ff5252; color:#fff; font-weight:bold; border:none; padding:6px; border-radius:6px;" onclick="window.anularVenta(${realIdx})">❌ Anular</button></div></div>`;
+        return `<div class="cierre-card"><div style="display:flex; justify-content:space-between;"><h4>🛒 ${v.fecha} (${v.cajero || 'Caja'})</h4></div>${v.cliente ? `<div style="color:#fff; font-size:11px; margin-bottom:4px;">Cliente: ${window.escapeHTML(v.cliente)} ${v.tlf ? ' | 📞 '+window.escapeHTML(v.tlf) : ''}</div>` : ''}${badgePM}<div class="cierre-item">Total Factura: <span style="font-size:14px; color:#00ff66;">${window.formatVE(v.totalVES)} (${window.formatUSD(v.totalUSD)})</span></div><div style="display:flex; gap:6px; margin-top:8px;"><button style="flex:1; background:#fff; color:#000; font-weight:bold; border:none; padding:6px; border-radius:6px;" onclick="window.imprimirTicket(${realIdx})">🖨️ Ticket</button><button style="flex:1; background:#ff5252; color:#fff; font-weight:bold; border:none; padding:6px; border-radius:6px;" onclick="window.anularVenta(${realIdx})">❌ Anular</button></div></div>`;
     }).join('');
     
     document.getElementById('lista-historial-ventas').innerHTML = html || '<div style="text-align:center; color:#57687e; font-size:12px;">Sin ventas en este filtro.</div>';
@@ -2091,10 +2235,10 @@ window.renderizarCierreDeCaja = function() {
 
 window.exportarVentasCSV = function() {
     if (window.ventasHistorico.length === 0) { window.mostrarFeedbackAnimado('warning', 'Sin ventas'); return; }
-    let filas = [["ID", "Fecha y Hora", "Cajero", "Cliente", "Articulos", "Total USD ($)", "Total Bs", "Punto Venta (Bs)", "Pago Movil (Bs)", "Ref Pago Movil", "Efectivo Bs", "Efectivo USD ($)"]];
+    let filas = [["ID", "Fecha y Hora", "Cajero", "Cliente", "Telefono", "Articulos", "Total USD ($)", "Total Bs", "Punto Venta (Bs)", "Pago Movil (Bs)", "Ref Pago Movil", "Efectivo Bs", "Efectivo USD ($)"]];
     window.ventasHistorico.forEach(v => {
         let arts = (v.items || []).map(i => `${i.qtyVenta || 1}x ${i.nombre}`).join(" | ");
-        filas.push([v.id, `"${v.fecha}"`, `"${v.cajero || 'Caja'}"`, `"${(v.cliente || 'Mostrador').replace(/"/g, '""')}"`, `"${arts.replace(/"/g, '""')}"`, (v.totalUSD || 0).toFixed(2), (v.totalVES || 0).toFixed(2), (v.ptv || 0).toFixed(2), (v.pm || 0).toFixed(2), `"${v.pmRef || ''}"`, (v.ves || 0).toFixed(2), (v.usd || 0).toFixed(2)]);
+        filas.push([v.id, `"${v.fecha}"`, `"${v.cajero || 'Caja'}"`, `"${(v.cliente || 'Mostrador').replace(/"/g, '""')}"`, `"${v.tlf || ''}"`, `"${arts.replace(/"/g, '""')}"`, (v.totalUSD || 0).toFixed(2), (v.totalVES || 0).toFixed(2), (v.ptv || 0).toFixed(2), (v.pm || 0).toFixed(2), `"${v.pmRef || ''}"`, (v.ves || 0).toFixed(2), (v.usd || 0).toFixed(2)]);
     });
     let csvContent = "\uFEFF" + filas.map(e => e.join(";")).join("\n");
     let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -2102,15 +2246,15 @@ window.exportarVentasCSV = function() {
 };
 
 window.anularVenta = function(idx) {
-    window.mostrarConfirmacion("❌ Anular", "¿Anular esta venta y devolver stock?", function() {
+    window.mostrarConfirmacion("❌ Anular", "¿Anular esta venta y devolver stock?", async function() {
         window.ventasHistorico[idx].items.forEach(it => { if(it.tipo === 'unidad') { let p = window.productos.find(x => x.id === it.id); if(p) p.qty += it.qtyVenta; } });
-        window.ventasHistorico.splice(idx, 1); window.sincronizarConNube(); window.renderizarCierreDeCaja(); window.mostrarToast("Venta anulada");
+        window.ventasHistorico.splice(idx, 1); await window.sincronizarConNube(); window.renderizarCierreDeCaja(); window.mostrarToast("Venta anulada");
     });
 };
 
 window.borrarHistorial = function() {
-    window.mostrarConfirmacion("⚠️ Reiniciar Día", "¿Borrar todas las ventas de hoy?", function() {
-        window.ventasHistorico = []; window.gastosCaja = []; window.sincronizarConNube(); window.renderizarCierreDeCaja();
+    window.mostrarConfirmacion("⚠️ Reiniciar Día", "¿Borrar todas las ventas de hoy?", async function() {
+        window.ventasHistorico = []; window.gastosCaja = []; await window.sincronizarConNube(); window.renderizarCierreDeCaja();
     });
 };
 
